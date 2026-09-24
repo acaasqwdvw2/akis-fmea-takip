@@ -704,7 +704,7 @@ let nodes = [], selected = null;
     }
 
     
-    function nameToEmail(n) { return (n||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'').replace(/\.+$/,'') + '@fmea.local'; }
+    function nameToEmail(n) { return (n||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'').replace(/\.+$/,'') + '@akis-fmea.app'; }
     async function bindAuth() {
       if (!sbClient) return;
       sbClient.auth.onAuthStateChange((event, session) => {
