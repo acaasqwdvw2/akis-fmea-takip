@@ -500,84 +500,7 @@ let nodes = [], selected = null;
       } catch (e) { return false; }
     }
 
-    // Onay + yetki durumunu okur; onaylıysa true döndürür
-    async function refreshCloudStatus() {
-      cloudApproved = false;
-      cloudIsAdmin = false;
-      if (!sbClient || !cloudUser) return false;
-      try {
-        const { data, error } = await sbClient
-          .from('fmea_user_data')
-          .select('approved, is_admin')
-          .eq('user_id', cloudUser.id)
-          .maybeSingle();
-        if (error || !data) return false;
-        cloudApproved = !!data.approved;
-        cloudIsAdmin = !!data.is_admin;
-        const aBtn = document.getElementById('adminBtn');
-        if (aBtn) aBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
-        return cloudApproved;
-      } catch (e) { return false; }
-    }
-
     // Yönetici: onay bekleyenler listesini çekip göster
-    async function openAdminModal() {
-      const m = document.getElementById('adminModal');
-      const list = document.getElementById('adminList');
-      if (!m || !list) return;
-      m.style.display = 'flex';
-      list.innerHTML = 'Yükleniyor…';
-      if (!sbClient || !cloudIsAdmin) { list.innerHTML = '<p style="color:#b00020">Yönetici değilsiniz.</p>'; return; }
-      try {
-        const { data, error } = await sbClient
-          .from('fmea_user_data')
-          .select('user_id, email, approved, is_admin')
-          .eq('approved', false);
-        if (error) { list.innerHTML = '<p style="color:#b00020">Hata: ' + (error.message || '') + '</p>'; return; }
-        if (!data || !data.length) { list.innerHTML = '<p style="color:#2e7d32">Onay bekleyen kullanıcı yok.</p>'; return; }
-        list.innerHTML = '';
-        data.forEach(u => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #e3ecee;gap:8px';
-          const mail = document.createElement('span');
-          mail.textContent = u.email || u.user_id;
-          mail.style.cssText = 'font-size:13px;color:#26343a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-          const btns = document.createElement('span');
-          btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
-          btns.innerHTML = '<button class="adminOk" onclick="adminApprove(\'' + u.user_id + '\')">Onayla</button>' +
-                           '<button class="adminNo" onclick="adminReject(\'' + u.user_id + '\')">Reddet</button>';
-          row.appendChild(mail);
-          row.appendChild(btns);
-          list.appendChild(row);
-        });
-      } catch (e) { list.innerHTML = '<p style="color:#b00020">Hata: ' + (e.message || '') + '</p>'; }
-    }
-
-    function closeAdminModal() {
-      const m = document.getElementById('adminModal');
-      if (m) m.style.display = 'none';
-    }
-
-    async function adminApprove(uid) {
-      if (!sbClient || !cloudIsAdmin) return;
-      const { error } = await sbClient
-        .from('fmea_user_data')
-        .update({ approved: true, updated_at: new Date().toISOString() })
-        .eq('user_id', uid);
-      if (error) { alert('Onay hatası: ' + (error.message || '')); return; }
-      openAdminModal();
-    }
-
-    async function adminReject(uid) {
-      if (!sbClient || !cloudIsAdmin) return;
-      const { error } = await sbClient
-        .from('fmea_user_data')
-        .delete()
-        .eq('user_id', uid);
-      if (error) { alert('Silme hatası: ' + (error.message || '')); return; }
-      openAdminModal();
-    }
-
     async function loadCloudData() {
       if (!sbClient || !cloudUser) return false;
       try {
@@ -617,16 +540,6 @@ let nodes = [], selected = null;
     var cloudApproved = false;
     var cloudIsAdmin = false;
     var cloudPendingRows = [];
-
-    async function ensureCloudRow() {
-      if (!sbClient || !cloudUser) return;
-      try {
-        await sbClient
-          .from('fmea_user_data')
-          .upsert({ user_id: cloudUser.id, email: cloudUser.email || '', data: {}, updated_at: new Date().toISOString() },
-            { onConflict: 'user_id' });
-      } catch (e) {}
-    }
 
     // Giriş sonrası onay durumunu kontrol et; onaylı ise true döner.
     async function refreshCloudStatus() {
