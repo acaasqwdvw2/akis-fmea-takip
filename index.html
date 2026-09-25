@@ -807,6 +807,8 @@ let nodes = [], selected = null;
         window.scrollTo(0, 0);
         if (adminView === 'cockpit') { ckYenile(); } else { loadPendingUsers(); }
       } catch (e) {}
+      // kokpit gorunur olunca animasyonu tetikle (login sirasinda harcanmis olabilir)
+      if (adminView === 'cockpit') { setTimeout(function () { try { ckSayiAnimasyon(); } catch (e) {} }, 60); }
     }
     function openAdminModal() {
       switchAdminView('onay');
@@ -869,10 +871,25 @@ let nodes = [], selected = null;
     // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın.
     // Kutular sirayla (kademeli) baslar, boylece dalga efekti olusur.
     var ckAnimYapildi = false;
+    // Kokpit gercekten gorunur mu? (giris ekrani / onay bekleniyor ekrani acikken animasyon harcanmasin)
+    function ckGorunurMu() {
+      const kap = document.getElementById('ckTiles');
+      if (!kap) return false;
+      try {
+        const as = document.getElementById('authScreen');
+        if (as && getComputedStyle(as).display !== 'none') return false;
+      } catch (e) {}
+      try {
+        const ps = document.getElementById('pendingScreen');
+        if (ps && ps.style.display === 'flex') return false;
+      } catch (e) {}
+      return !!(kap.offsetWidth || kap.offsetHeight || kap.getClientRects().length);
+    }
     function ckSayiAnimasyon() {
       const kap = document.getElementById('ckTiles');
       if (!kap || ckAnimYapildi) return;
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { ckAnimYapildi = true; return; }
+      if (!ckGorunurMu()) return;
       const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-sayi]'));
       if (!eller.length) return;
       ckAnimYapildi = true;
@@ -880,12 +897,13 @@ let nodes = [], selected = null;
       const sure = 1400;        // tek kutu animasyon suresi
       const gecikme = 60;       // her kutu bir sonrakinden 60ms sonra baslar
       const bas = (window.performance && performance.now) ? performance.now() : Date.now();
+      let bitti = false;
       function adim(simdi) {
-        let bitti = true;
+        let hepsiBitti = true;
         eller.forEach(function (el, i) {
           const gec = Math.max(0, (simdi - bas - i * gecikme) / sure);
           if (gec >= 1) { el.textContent = el.getAttribute('data-hedef'); return; }
-          bitti = false;
+          hepsiBitti = false;
           const h = parseFloat(el.getAttribute('data-sayi')) || 0;
           const hedef = el.getAttribute('data-hedef');
           const e = 1 - Math.pow(1 - gec, 3);   // easeOutCubic
@@ -893,8 +911,18 @@ let nodes = [], selected = null;
           while (s.length < hedef.length) s = bosluk + s;   // " 0" -> "12" : genislik sabit
           el.textContent = s;
         });
-        if (!bitti && window.requestAnimationFrame) requestAnimationFrame(adim);
+        if (hepsiBitti) { bitti = true; return; }
+        if (window.requestAnimationFrame) requestAnimationFrame(adim);
+        else setTimeout(function () { adim(Date.now()); }, 40);
       }
+      if (window.requestAnimationFrame) requestAnimationFrame(adim);
+      else setTimeout(function () { adim(Date.now()); }, 40);
+      // guvenlik: sekme arka planda kaldiginda rAF durur, rakamlar yine de dogru degere oturur
+      setTimeout(function () {
+        if (bitti) return;
+        eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
+      }, 2600);
+    }
       if (window.requestAnimationFrame) requestAnimationFrame(adim); else adim(bas + sure);
     }
     function ckDurumHucre(r) {
@@ -1094,6 +1122,7 @@ let nodes = [], selected = null;
       if (ck) ck.style.display = (kokpitOnly && adminView === 'cockpit') ? 'block' : 'none';
       if (ap) ap.style.display = (kokpitOnly && adminView === 'onay') ? 'block' : 'none';
       if (kokpitOnly) { try { if (adminView === 'onay') loadPendingUsers(); else ckYenile(); } catch (e) {} }
+      if (kokpitOnly && adminView === 'cockpit') { setTimeout(function () { try { ckSayiAnimasyon(); } catch (e) {} }, 120); }
       return kokpitOnly;
     }
 
