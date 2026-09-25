@@ -894,8 +894,8 @@ let nodes = [], selected = null;
       if (!eller.length) return;
       ckAnimYapildi = true;
       const bosluk = '\u00A0';
-      const sure = 1400;        // tek kutu animasyon suresi
-      const gecikme = 60;       // her kutu bir sonrakinden 60ms sonra baslar
+      const sure = 2200;        // tek kutu animasyon suresi
+      const gecikme = 90;       // her kutu bir sonrakinden 90ms sonra baslar
       const bas = (window.performance && performance.now) ? performance.now() : Date.now();
       let bitti = false;
       function adim(simdi) {
@@ -906,7 +906,7 @@ let nodes = [], selected = null;
           hepsiBitti = false;
           const h = parseFloat(el.getAttribute('data-sayi')) || 0;
           const hedef = el.getAttribute('data-hedef');
-          const e = 1 - Math.pow(1 - gec, 3);   // easeOutCubic
+          const e = 1 - Math.pow(1 - gec, 2);   // easeOutQuad: cubic'ten yavas, sayma hissi belirgin
           let s = ckSayiFmt(Math.round(h * e));
           while (s.length < hedef.length) s = bosluk + s;   // " 0" -> "12" : genislik sabit
           el.textContent = s;
@@ -921,7 +921,7 @@ let nodes = [], selected = null;
       setTimeout(function () {
         if (bitti) return;
         eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
-      }, 2600);
+      }, 4600);
     }
     function ckDurumHucre(r) {
       const p = [];
