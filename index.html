@@ -346,6 +346,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-grup-h{font-size:10px;font-weight:800;letter-spacing:.8px;color:#7a8d92;
       text-transform:uppercase;margin-bottom:7px}
     .ck-grup-t{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+    /* ozet kutusu (ilk kutu daha vurgulu) */
+    #ckTiles .ck-tile.buyuk{background:#1f5f6b;border-color:#1f5f6b}
+    #ckTiles .ck-tile.buyuk .ck-num{color:#fff;font-size:30px}
+    #ckTiles .ck-tile.buyuk .ck-lbl{color:#cfe6ea;font-weight:700}
+    /* tedarikci rozetleri */
+    .ck-ted{display:flex;flex-wrap:wrap;gap:6px}
+    .ck-ted-chip{display:inline-flex;align-items:center;gap:6px;background:#f2f7f8;border:1px solid #d7e5e8;
+      border-radius:14px;padding:4px 10px;font-size:12px;color:#33484d;max-width:280px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ck-ted-chip b{background:#1f5f6b;color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
+    .ck-ted-chip.tam{background:#f1f8f2;border-color:#c9e3cd}
+    .ck-ted-chip.tam b{background:#4d8a4c}
     #ckTiles .ck-tile{transition:transform .12s ease,box-shadow .12s ease}
     #ckBody[hidden]{display:none}
     .ck-tile.tiklanir{cursor:pointer}
@@ -882,7 +894,9 @@ let nodes = [], selected = null;
       const k = window.__ckSatir || {};
       const r = k[uid];
       if (!r) return;
-      const liste = ckFiltre ? r.projler.filter(function (p) { return p.durum === ckFiltre; }) : r.projler;
+      const liste = ckFiltre === 'devam'
+        ? r.projler.filter(function (p) { return p.durum !== 'onayli'; })
+        : (ckFiltre ? r.projler.filter(function (p) { return p.durum === ckFiltre; }) : r.projler);
       if (!liste.length) { g.querySelector('.ck-in').innerHTML = '<span class="ck-none">Bu kullanıcıda seçili filtreye uyan FMEA yok.</span>'; }
       else {
         g.querySelector('.ck-in').innerHTML = liste.map(function (p) {
@@ -902,22 +916,39 @@ let nodes = [], selected = null;
       const t = document.getElementById('ckTiles');
       const b = document.getElementById('ckBody');
       if (!t || !b) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
+      const tEd = window.__ckTedarikci || [];
+      const tSayi = tEd.length;
 
+      // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
+      const ozetGrubu = ckGrup('Özet',
+        '<div class="ck-tile buyuk"><div class="ck-num">' + tSayi + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
+        ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
+        ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
+        ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
+      );
+      // --- TEDARIKCILER: benzersiz firma adlari ---
+      let tGrup = '';
+      if (tSayi) {
+        tGrup = ckGrup('Tedarikçiler (' + tSayi + ')',
+          '<div class="ck-ted">' + tEd.map(function (t) {
+            return '<span class="ck-ted-chip' + (t.onayli === t.fmea && t.fmea ? ' tam' : '') + '" title="' + esc(t.ad) + ' — ' + t.kisi + ' · ' +
+              t.fmea + ' FMEA · ' + t.onayli + ' onaylı">' + esc(t.ad) +
+              '<b>' + t.fmea + '</b></span>';
+          }).join('') + '</div>');
+      }
       // --- DURUM: yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay Yönetimi ekranını aç') +
-        ckKutuT('Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       );
-      // --- KAPSAM: kac kullanici, ne kadar icerik ---
+      // --- KAPSAM: kullanicilar ve icerik ---
       const kapsamGrubu = ckGrup('Kapsam',
-        ckKutuT('Aktif FMEA', S.aktif, '', 'filtre', 'aktif', 'Sadece aktif (henüz onaylanmamış) FMEA\'ları göster') +
         ckKutuT('Kullanıcı', rows.length, ckTabloAcik ? 'aktif' : '', 'tablo', '', 'Kullanıcı tablosunu aç/kapat') +
-        ckKutu('FMEA', S.fmea) + ckKutu('Proses', S.proses) +
-        ckKutu('İşlem', S.islem) + ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
+        ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
+        ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
       );
       // --- RISK: kalite acigi nerede? ---
       const riskGrubu = ckGrup('Risk ve Kalite',
@@ -926,13 +957,13 @@ let nodes = [], selected = null;
         ckKutu('Puanlanmamış Hata', S.puanlanmamis, S.puanlanmamis ? 'bekliyor' : '') +
         ckKutu('Aksiyonsuz Hata', S.aksiyonsuz, S.aksiyonsuz ? 'uyari' : '')
       );
-      t.innerHTML = durumGrubu + kapsamGrubu + riskGrubu;
+      t.innerHTML = ozetGrubu + tGrup + durumGrubu + kapsamGrubu + riskGrubu;
 
       if (!ckTabloAcik) { b.innerHTML = ''; b.hidden = true; return; }
       b.hidden = false;
       // filtre aktifse sadece o durumdaki FMEA'ya sahip kullanicilar gosterilir
       const goster = ckFiltre ? rows.filter(function (r) { return (r[ckFiltre] || 0) > 0; }) : rows;
-      const baslikEk = ckFiltre ? ' <span class="ck-b mid">' + (ckFiltre === 'onayli' ? 'Onaylı' : ckFiltre === 'bekleyen' ? 'Onay Bekleyen' : ckFiltre === 'red' ? 'Reddedilen' : 'Aktif') + ' filtresi</span>' +
+      const baslikEk = ckFiltre ? ' <span class="ck-b mid">' + (ckFiltre === 'onayli' ? 'Onaylı' : ckFiltre === 'bekleyen' ? 'Onay Bekleyen' : ckFiltre === 'red' ? 'Reddedilen' : 'Devam Eden') + ' filtresi</span>' +
         ' <button class="light" style="padding:2px 8px;font-size:11px" onclick="ckFiltreTikla(\'' + ckFiltre + '\')">Filtreyi kaldır</button>' : '';
       if (!rows.length) { b.innerHTML = '<p class="ck-none">Kayıtlı kullanıcı yok.</p>'; return; }
       if (!goster.length) { b.innerHTML = '<p class="ck-none" style="padding:10px 4px">Bu filtreye uyan FMEA yok.</p>'; return; }
@@ -954,35 +985,51 @@ let nodes = [], selected = null;
           .select('user_id,email,approved,is_admin,updated_at,data');
         if (error) throw error;
         const store = {};
+        // BENZERSIZ TEDARIKCI SAYIMI: proje adi her kullanicida "Tedarikci 1" oldugu icin
+        // firma adi (fmeaMeta.firma) esas alinir; firma yoksa kullanici+proje adi benzersiz sayilir.
+        const tmap = {};
         const rows = (data || []).map(function (r) {
           const d = fixTrDeep(r.data) || {};           // bozuk kodlama onarilir
           const projler = (d.projects && d.projects.length) ? d.projects : [];
           const m = fmeaMetrikleri(projler);
           const uid = r.user_id;
+          const kisi = nameFromEmail(r.email) || '(isimsiz)';
           // onay durumlarini say
           let onayli = 0, bekleyen = 0, red = 0;
           projler.forEach(function (p) {
             const dd = fmeaOnayDurumu(p);
-            if (dd === 'onayli') onayli++; else if (dd === 'bekliyor') bekleyen++; else if (dd === 'red') red++;
+            if (dd === 'onayli') onayli++; else if (dd === 'bekleyen') bekleyen++; else if (dd === 'red') red++;
           });
           const aktif = Math.max(0, projler.length - onayli - bekleyen - red);
+          const devam = Math.max(0, projler.length - onayli);
+          projler.forEach(function (p) {
+            const firma = String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
+            const anahtar = firma ? 'f::' + firma.toLowerCase() : 'n::' + kisi + '::' + ((p && p.name) || '');
+            if (!tmap[anahtar]) tmap[anahtar] = { ad: firma || ((p && p.name) || '(isimsiz)'), kisi: kisi, fmea: 0, onayli: 0, devam: 0 };
+            const t = tmap[anahtar];
+            t.fmea++;
+            if (fmeaOnayDurumu(p) === 'onayli') t.onayli++; else t.devam++;
+          });
           store[uid] = {
             projler: projler.map(function (p) {
-              return { ad: (p && p.name) || '(isimsiz)', durum: fmeaOnayDurumu(p), tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses', zaman: p && p.updatedAt, m: fmeaMetrikleri([p]) };
+              return { ad: (p && p.name) || '(isimsiz)', firma: String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim(), durum: fmeaOnayDurumu(p), tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses', zaman: p && p.updatedAt, m: fmeaMetrikleri([p]) };
             })
           };
           return {
             uid: uid, email: nameFromEmail(r.email) || '(isimsiz)', admin: !!r.is_admin, onay: !!r.approved,
             guncelleme: r.updated_at, fmea: projler.length,
-            onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif,
+            onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif, devam: devam,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
         window.__ckRows = rows;
+        window.__ckTedarikci = Object.keys(tmap).map(function (k) { return tmap[k]; })
+          .sort(function (a, b2) { return b2.fmea - a.fmea || a.ad.localeCompare(b2.ad, 'tr'); });
         const st = document.getElementById('ckStamp');
         if (st) st.textContent = 'Son yükleme: ' + ckTarih(new Date().toISOString()) + ' · ' + rows.length + ' kullanıcı · ' +
+          window.__ckTedarikci.length + ' tedarikçi · ' +
           rows.reduce(function (a, r) { return a + r.bekleyen; }, 0) + ' FMEA onay bekliyor';
         ckCiz(rows);
       } catch (e) {
