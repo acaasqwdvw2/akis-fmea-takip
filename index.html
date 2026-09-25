@@ -422,6 +422,7 @@ let nodes = [], selected = null;
     }
 
     async function doLogout() {
+      cloudDirty = true;
       try { await syncCloudNow(); } catch (e) {}
       try { if (sbClient) await sbClient.auth.signOut(); } catch (e) {}
       cloudUser = null;
@@ -588,19 +589,20 @@ let nodes = [], selected = null;
         if (error) return false;
         if (!data || !data.data) return false;
         const d = data.data;
-        if (d.nodes) {
+        // BOS BULUT VERISI YEREL VERIYI EZMESIN (tedarikci kaybi onlemi)
+        if (d.nodes && d.nodes.length) {
           try { localStorage.setItem(key, JSON.stringify(d.nodes)); } catch (e) {}
           nodes = d.nodes || [];
         }
-        if (d.fmeaMeta) {
+        if (d.fmeaMeta && Object.keys(d.fmeaMeta).length) {
           try { localStorage.setItem(metaKey, JSON.stringify(d.fmeaMeta)); } catch (e) {}
           fmeaMeta = d.fmeaMeta || {};
         }
-        if (d.projects) {
+        if (d.projects && d.projects.length) {
           try { localStorage.setItem(projectsKey, JSON.stringify(d.projects)); } catch (e) {}
           projects = d.projects || [];
         }
-        if (typeof d.currentProject === 'string') {
+        if (typeof d.currentProject === 'string' && d.currentProject) {
           try { localStorage.setItem(currentKey, d.currentProject); } catch (e) {}
           currentProject = d.currentProject;
         }
@@ -934,11 +936,9 @@ function save() {
       }
       currentProject = name;
       upsertProject(name, nodes, fmeaMeta);
-      try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
       try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
-      try { localStorage.setItem(currentKey, currentProject); } catch (e) {}
-      await downloadPortableHtml();
-      render();
+      save();
+      try { await downloadPortableHtml(); } catch (e) {}
     }
 
     var handleKey = 'proses_fmea_handle_v1';
