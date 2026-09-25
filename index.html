@@ -326,7 +326,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .onay-btn:disabled{background:#9aa7ab;cursor:not-allowed;filter:none}
     /* onay rozetleri */
     .onay-b{display:inline-block;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;white-space:nowrap}
-    .onay-b.taslak{background:#eceff1;color:#546e7a}
+    .onay-b.aktif{background:#e3edf6;color:#33608c}
     .onay-b.bekliyor{background:#fff3cd;color:#8a6d1f}
     .onay-b.onayli{background:#d6ecd8;color:#2e6b32}
     .onay-b.red{background:#f7dcdc;color:#a33}
@@ -728,7 +728,7 @@ let nodes = [], selected = null;
       return (d === 'bekliyor' || d === 'onayli' || d === 'red') ? d : 'taslak';
     }
     function onayEtiket(d) {
-      const m = { taslak: ['Taslak', 'taslak'], bekliyor: ['Onay bekliyor', 'bekliyor'], onayli: ['Onaylı', 'onayli'], red: ['Reddedildi', 'red'] };
+      const m = { taslak: ['Aktif', 'aktif'], bekliyor: ['Onay bekliyor', 'bekliyor'], onayli: ['Onaylı', 'onayli'], red: ['Reddedildi', 'red'] };
       const x = m[d] || m.taslak;
       return '<span class="onay-b ' + x[1] + '">' + x[0] + '</span>';
     }
@@ -847,7 +847,7 @@ let nodes = [], selected = null;
       const p = [];
       if (r.onayli) p.push('<span class="onay-b onayli">' + r.onayli + ' Onaylı</span>');
       if (r.bekleyen) p.push('<span class="onay-b bekliyor">' + r.bekleyen + ' Bekleyen</span>');
-      if (r.taslak) p.push('<span class="onay-b taslak">' + r.taslak + ' Taslak</span>');
+      if (r.aktif) p.push('<span class="onay-b aktif">' + r.aktif + ' Aktif</span>');
       if (r.red) p.push('<span class="onay-b red">' + r.red + ' Red</span>');
       return p.length ? p.join(' ') : '<span class="ck-none">—</span>';
     }
@@ -902,7 +902,7 @@ let nodes = [], selected = null;
       const t = document.getElementById('ckTiles');
       const b = document.getElementById('ckBody');
       if (!t || !b) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, onayli: 0, bekleyen: 0, red: 0, taslak: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
 
@@ -910,11 +910,11 @@ let nodes = [], selected = null;
       const durumGrubu = ckGrup('Onay Durumu',
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay Yönetimi ekranını aç') +
         ckKutuT('Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
-        ckKutuT('Taslak', S.taslak, '', 'filtre', 'taslak', 'Sadece taslak FMEA\'ları göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       );
       // --- KAPSAM: kac kullanici, ne kadar icerik ---
       const kapsamGrubu = ckGrup('Kapsam',
+        ckKutuT('Aktif FMEA', S.aktif, '', 'filtre', 'aktif', 'Sadece aktif (henüz onaylanmamış) FMEA\'ları göster') +
         ckKutuT('Kullanıcı', rows.length, ckTabloAcik ? 'aktif' : '', 'tablo', '', 'Kullanıcı tablosunu aç/kapat') +
         ckKutu('FMEA', S.fmea) + ckKutu('Proses', S.proses) +
         ckKutu('İşlem', S.islem) + ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
@@ -932,7 +932,7 @@ let nodes = [], selected = null;
       b.hidden = false;
       // filtre aktifse sadece o durumdaki FMEA'ya sahip kullanicilar gosterilir
       const goster = ckFiltre ? rows.filter(function (r) { return (r[ckFiltre] || 0) > 0; }) : rows;
-      const baslikEk = ckFiltre ? ' <span class="ck-b mid">' + (ckFiltre === 'onayli' ? 'Onaylı' : ckFiltre === 'bekleyen' ? 'Onay Bekleyen' : ckFiltre === 'red' ? 'Reddedilen' : 'Taslak') + ' filtresi</span>' +
+      const baslikEk = ckFiltre ? ' <span class="ck-b mid">' + (ckFiltre === 'onayli' ? 'Onaylı' : ckFiltre === 'bekleyen' ? 'Onay Bekleyen' : ckFiltre === 'red' ? 'Reddedilen' : 'Aktif') + ' filtresi</span>' +
         ' <button class="light" style="padding:2px 8px;font-size:11px" onclick="ckFiltreTikla(\'' + ckFiltre + '\')">Filtreyi kaldır</button>' : '';
       if (!rows.length) { b.innerHTML = '<p class="ck-none">Kayıtlı kullanıcı yok.</p>'; return; }
       if (!goster.length) { b.innerHTML = '<p class="ck-none" style="padding:10px 4px">Bu filtreye uyan FMEA yok.</p>'; return; }
@@ -965,7 +965,7 @@ let nodes = [], selected = null;
             const dd = fmeaOnayDurumu(p);
             if (dd === 'onayli') onayli++; else if (dd === 'bekliyor') bekleyen++; else if (dd === 'red') red++;
           });
-          const taslak = Math.max(0, projler.length - onayli - bekleyen - red);
+          const aktif = Math.max(0, projler.length - onayli - bekleyen - red);
           store[uid] = {
             projler: projler.map(function (p) {
               return { ad: (p && p.name) || '(isimsiz)', durum: fmeaOnayDurumu(p), tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses', zaman: p && p.updatedAt, m: fmeaMetrikleri([p]) };
@@ -974,7 +974,7 @@ let nodes = [], selected = null;
           return {
             uid: uid, email: nameFromEmail(r.email) || '(isimsiz)', admin: !!r.is_admin, onay: !!r.approved,
             guncelleme: r.updated_at, fmea: projler.length,
-            onayli: onayli, bekleyen: bekleyen, red: red, taslak: taslak,
+            onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz
           };
