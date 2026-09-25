@@ -293,13 +293,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <div id="adminModal" style="display:none"></div>
   <style>
     #ckTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin:12px 0 16px}
-    .ck-tile{background:#f2f7f8;border:1px solid #d7e5e8;border-radius:8px;padding:9px 10px;text-align:center}
+    .ck-tile{background:#f2f7f8;border:1px solid #d7e5e8;border-radius:8px;padding:9px 10px;text-align:center;
+      overflow:hidden}
     .ck-tile.uyari{background:#fff4f2;border-color:#f0c8bf}
     .ck-tile.iyi{background:#f1f8f2;border-color:#c9e3cd}
     .ck-tile.bekliyor{background:#fff9e8;border-color:#e8d59a}
     .ck-tile.aktif{background:#e8f2f4;border-color:#1f5f6b;box-shadow:0 0 0 2px rgba(31,95,107,.18)}
     .ck-tile.aktif .ck-lbl{color:#1f5f6b;font-weight:700}
-    .ck-num{font-size:20px;font-weight:800;color:#1f5f6b;line-height:1.15}
+    .ck-num{font-size:20px;font-weight:800;color:#1f5f6b;line-height:1.15;
+      font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;white-space:pre}
     .ck-tile.uyari .ck-num{color:#b00020}
     .ck-lbl{font-size:10.5px;color:#5a6b70;margin-top:3px;font-weight:600;letter-spacing:.2px}
     #ckTable{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -849,11 +851,39 @@ let nodes = [], selected = null;
       return '<div class="ck-grup"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
     }
     function ckKutu(lbl, val, snf) {
-      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num" data-hedef="' + val + '">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKutuT(lbl, val, snf, tip, deger, aciklama) {
       return '<div class="ck-tile ' + (snf || '') + ' tiklanir" onclick="ckTikla(\'' + tip + '\',\'' + (deger || '') + '\')" title="' + aciklama + '">' +
-        '<div class="ck-num">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+        '<div class="ck-num" data-hedef="' + val + '">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+    }
+    // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın
+    var ckAnimYapildi = false;
+    function ckSayiAnimasyon() {
+      const kap = document.getElementById('ckTiles');
+      if (!kap || ckAnimYapildi) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { ckAnimYapildi = true; return; }
+      const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-hedef]'));
+      if (!eller.length) return;
+      ckAnimYapildi = true;
+      // her kutu kendi hedefine gore ayri sayilir; hane sayisi sabit tutulur (kayma olmaz)
+      const bosluk = '\u00A0';
+      const bas = (window.performance && performance.now) ? performance.now() : Date.now();
+      const sure = 800;
+      function adim(simdi) {
+        const g = Math.min(1, (simdi - bas) / sure);
+        const e = 1 - Math.pow(1 - g, 3);   // easeOutCubic
+        eller.forEach(function (el) {
+          const hedef = el.getAttribute('data-hedef');
+          const h = parseFloat(hedef) || 0;
+          let s = String(Math.round(h * e));
+          while (s.length < hedef.length) s = bosluk + s;   // " 0" -> " 12" : genislik sabit
+          el.textContent = s;
+        });
+        if (g < 1) { if (window.requestAnimationFrame) requestAnimationFrame(adim); }
+        else eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
+      }
+      if (window.requestAnimationFrame) requestAnimationFrame(adim); else adim(bas + sure);
     }
     function ckDurumHucre(r) {
       const p = [];
@@ -924,7 +954,7 @@ let nodes = [], selected = null;
 
       // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
       const ozetGrubu = ckGrup('Özet',
-        '<div class="ck-tile buyuk"><div class="ck-num">' + tSayi + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
+        '<div class="ck-tile buyuk"><div class="ck-num" data-hedef="' + tSayi + '">' + tSayi + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
@@ -958,6 +988,7 @@ let nodes = [], selected = null;
         ckKutu('Aksiyonsuz Hata', S.aksiyonsuz, S.aksiyonsuz ? 'uyari' : '')
       );
       t.innerHTML = ozetGrubu + tGrup + durumGrubu + kapsamGrubu + riskGrubu;
+      try { ckSayiAnimasyon(); } catch (e) {}
 
       if (!ckTabloAcik) { b.innerHTML = ''; b.hidden = true; return; }
       b.hidden = false;
@@ -1289,7 +1320,10 @@ let nodes = [], selected = null;
         } else if (event === 'SIGNED_OUT') {
           cloudUser = null;
           cloudApproved = false;
-          cloudIsAdmin = false;
+      cloudIsAdmin = false;
+      // yeni giris ilk acilista rakam animasyonu tekrar oynatsin
+      ckAnimYapildi = false;
+      window.__ckRows = null; window.__ckSatir = null; window.__ckTedarikci = null;
           scopeKeysForUser(null);
           nodes = []; projects = []; currentProject = ''; fmeaMeta = {};
           try { paintAccount(); } catch (e) {}
