@@ -473,8 +473,15 @@ let nodes = [], selected = null;
       try {
         const { data, error } = await sbClient
           .from('fmea_user_data')
-          .upsert({ user_id: cloudUser.id, email: cloudUser.email || '', data: {}, approved: false, is_admin: false }, { onConflict: 'user_id' });
+          .select('user_id')
+          .eq('user_id', cloudUser.id)
+          .maybeSingle();
         if (error) return false;
+        if (data) return true;
+        const { error: insErr } = await sbClient
+          .from('fmea_user_data')
+          .insert({ user_id: cloudUser.id, email: cloudUser.email || '', data: {}, approved: false, is_admin: false });
+        if (insErr) return false;
         return true;
       } catch (e) { return false; }
     }
