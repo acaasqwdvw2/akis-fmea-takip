@@ -459,6 +459,19 @@ let nodes = [], selected = null;
       if (!cloudDirty) return;
       cloudDirty = false;
       try {
+        // YEREL BOSSA BULUTU EZME: baska bir cihazda veri varken buradaki bos durum
+        // buluttaki tedarikci/proje listesini siliyordu.
+        const bosYerel = (!nodes || nodes.length === 0) && (!projects || projects.length === 0);
+        if (bosYerel) {
+          const { data: mevcut, error: rErr } = await sbClient
+            .from('fmea_user_data')
+            .select('data')
+            .eq('user_id', cloudUser.id)
+            .maybeSingle();
+          const cd = mevcut && mevcut.data ? mevcut.data : null;
+          const bulutDolu = cd && ((cd.projects && cd.projects.length > 0) || (cd.nodes && cd.nodes.length > 0));
+          if (!rErr && bulutDolu) { cloudDirty = false; return; }
+        }
         const { error } = await sbClient
           .from('fmea_user_data')
           .upsert({ user_id: cloudUser.id, data: cloudPayload(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -885,6 +898,7 @@ function save() {
     }
 
     function selectProject(name) {
+      if (!name) { return; }
       if (currentProject) upsertProject(currentProject, nodes, fmeaMeta);
       const p = projects.find(x => x.name === name);
       if (p) {
