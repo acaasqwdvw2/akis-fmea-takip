@@ -290,13 +290,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="authBtns"><button class="btnSignup" onclick="doLogout()">Çıkış Yap</button></div>
     </div>
   </div>
-  <div id="adminModal" style="display:none">
-    <div id="authCard" style="width:min(480px,94vw)">
-      <h2>Yönetici: Onay Bekleyenler</h2>
-      <div id="adminList" style="max-height:55vh;overflow:auto;margin-top:10px"></div>
-      <div class="authBtns"><button class="btnSignup" onclick="closeAdminModal()">Kapat</button></div>
-    </div>
-  </div>
+  <div id="adminModal" style="display:none"></div>
   <style>
     #ckTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin:12px 0 16px}
     .ck-tile{background:#f2f7f8;border:1px solid #d7e5e8;border-radius:8px;padding:9px 10px;text-align:center}
@@ -337,6 +331,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckTiles{margin:12px 0 14px}
     #ckPage #ckBody{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 10px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05);overflow-x:auto}
+    #adminPage{padding:16px 20px 28px;max-width:1400px;margin:0 auto}
+    #adminPage #adminList{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 12px 10px;
+      box-shadow:0 1px 3px rgba(0,0,0,.05)}
+    #adminPage #adminList p{margin:12px 2px}
     @media(max-width:640px){
       .ck-head{flex-direction:column;align-items:stretch}
       .ck-head-r{justify-content:flex-end}
@@ -369,6 +367,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     </div>
     <div id="ckTiles"></div>
     <div id="ckBody"></div>
+  </div>
+  <div id="adminPage" style="display:none">
+    <div class="ck-head">
+      <div class="ck-head-l">
+        <h2>Onay Yönetimi</h2>
+        <div class="ck-sub" id="onayStamp">Yönetici onayı bekleyen kullanıcılar</div>
+      </div>
+      <div class="ck-head-r">
+        <button class="primary" onclick="loadPendingUsers()">Yenile</button>
+      </div>
+    </div>
+    <div id="adminList"></div>
   </div>
   
   <div class="toolbar">
@@ -444,7 +454,7 @@ let nodes = [], selected = null;
       const em = cloudUser ? (cloudUser.email || '') : '';
       const nm = nameFromEmail(em);
       u.textContent = nm ? nm : '';
-      u.title = em;
+      u.title = nm;
     }
     let projects = [], currentProject = '';
     let fmeaType = 'proses';
@@ -654,14 +664,25 @@ let nodes = [], selected = null;
     }
 
     // ===== Yönetici: onay bekleyenleri yönet =====
+    // Alt bolum iki sabit sayfa arasinda degisir (acilan pencere yok)
+    var adminView = 'cockpit';
+    function switchAdminView(v) {
+      if (!cloudIsAdmin) return;
+      adminView = (v === 'onay') ? 'onay' : 'cockpit';
+      const ck = document.getElementById('ckPage');
+      const ap = document.getElementById('adminPage');
+      if (ck) ck.style.display = (adminView === 'cockpit') ? 'block' : 'none';
+      if (ap) ap.style.display = (adminView === 'onay') ? 'block' : 'none';
+      try {
+        window.scrollTo(0, 0);
+        if (adminView === 'cockpit') { ckYenile(); } else { loadPendingUsers(); }
+      } catch (e) {}
+    }
     function openAdminModal() {
-      const m = document.getElementById('adminModal');
-      if (m) m.style.display = 'flex';
-      loadPendingUsers();
+      switchAdminView('onay');
     }
     function closeAdminModal() {
-      const m = document.getElementById('adminModal');
-      if (m) m.style.display = 'none';
+      switchAdminView('cockpit');
     }
 
     // ================= YÖNETİCİ KOKPİTİ =================
@@ -699,8 +720,8 @@ let nodes = [], selected = null;
       return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKapat(rows) {
-      return rows.map(function (r) { return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.uid + '\')">' +
-        '<td>' + r.email + (r.admin ? ' <span class="ck-b ok">admin</span>' : '') + (r.onay ? '' : ' <span class="ck-b mid">onay bekliyor</span>') + '</td>' +
+      return rows.map(function (r) {       return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.uid + '\')">' +
+        '<td>' + nameFromEmail(r.email) + (r.admin ? ' <span class="ck-b ok">admin</span>' : '') + (r.onay ? '' : ' <span class="ck-b mid">onay bekliyor</span>') + '</td>' +
         '<td>' + r.fmea + '</td><td>' + r.proses + '</td><td>' + r.islem + '</td>' +
         '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
         '<td>' + r.rpnDolu + '</td>' +
@@ -773,7 +794,7 @@ let nodes = [], selected = null;
             })
           };
           return {
-            uid: uid, email: r.email || '(e-posta yok)', admin: !!r.is_admin, onay: !!r.approved,
+            uid: uid, email: nameFromEmail(r.email) || '(isimsiz)', admin: !!r.is_admin, onay: !!r.approved,
             guncelleme: r.updated_at, fmea: projler.length,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz
@@ -788,18 +809,18 @@ let nodes = [], selected = null;
       }
     }
     function openCockpit() {
-      // kokpit artik sabit sayfa; sadece yeniler ve en uste kaydirir
-      ckYenile();
-      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+      switchAdminView('cockpit');
     }
     function closeCockpit() { /* kokpit kalicidir, kapatma gerekmez */ }
-    // Yonetici hesabinda FMEA olusturma ekrani tamamen kapanir; sadece kokpit kalir
+    // Yonetici hesabinda FMEA olusturma ekrani tamamen kapanir; sadece kokpit/onay kalir
     function applyAdminMode() {
       const kokpitOnly = !!(cloudUser && cloudIsAdmin);
       try { document.body.classList.toggle('ck-only', kokpitOnly); } catch (e) {}
-      const page = document.getElementById('ckPage');
-      if (page) page.style.display = kokpitOnly ? 'block' : 'none';
-      if (kokpitOnly) { try { ckYenile(); } catch (e) {} }
+      const ck = document.getElementById('ckPage');
+      const ap = document.getElementById('adminPage');
+      if (ck) ck.style.display = (kokpitOnly && adminView === 'cockpit') ? 'block' : 'none';
+      if (ap) ap.style.display = (kokpitOnly && adminView === 'onay') ? 'block' : 'none';
+      if (kokpitOnly) { try { if (adminView === 'onay') loadPendingUsers(); else ckYenile(); } catch (e) {} }
       return kokpitOnly;
     }
 
@@ -832,7 +853,7 @@ let nodes = [], selected = null;
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #e3ecee;padding:8px 0';
         const mail = document.createElement('span');
-        mail.textContent = r.email || '(bilinmiyor)';
+        mail.textContent = nameFromEmail(r.email) || '(bilinmiyor)';
         mail.style.cssText = 'font-size:13px;color:#33484d;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
         const btns = document.createElement('span');
         btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
