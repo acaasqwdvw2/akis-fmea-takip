@@ -297,6 +297,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="authBtns"><button class="btnSignup" onclick="closeAdminModal()">Kapat</button></div>
     </div>
   </div>
+  <style>
+    #ckTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin:12px 0 16px}
+    .ck-tile{background:#f2f7f8;border:1px solid #d7e5e8;border-radius:8px;padding:9px 10px;text-align:center}
+    .ck-tile.uyari{background:#fff4f2;border-color:#f0c8bf}
+    .ck-tile.iyi{background:#f1f8f2;border-color:#c9e3cd}
+    .ck-num{font-size:20px;font-weight:800;color:#1f5f6b;line-height:1.15}
+    .ck-tile.uyari .ck-num{color:#b00020}
+    .ck-lbl{font-size:10.5px;color:#5a6b70;margin-top:3px;font-weight:600;letter-spacing:.2px}
+    #ckTable{width:100%;border-collapse:collapse;font-size:12.5px}
+    #ckTable th{background:#e8eff0;color:#33484d;font-size:11px;padding:7px 6px;text-align:right;font-weight:700;position:sticky;top:0;z-index:2}
+    #ckTable th:first-child,#ckTable td:first-child{text-align:left}
+    #ckTable td{padding:7px 6px;text-align:right;border-bottom:1px solid #eef3f4;color:#26343a}
+    #ckTable tr.ck-user{cursor:pointer;background:#fbfdfd}
+    #ckTable tr.ck-user:hover{background:#eef6f7}
+    #ckTable tr.ck-user td:first-child{font-weight:700}
+    .ck-b{display:inline-block;min-width:20px;padding:1px 6px;border-radius:9px;background:#e8eff0;font-weight:700}
+    .ck-b.hot{background:#ffd9d4;color:#b00020}
+    .ck-b.mid{background:#ffeccc;color:#8a5200}
+    .ck-b.ok{background:#dff0e2;color:#2e7d32}
+    .ck-detail td{background:#f7fafb;padding:0}
+    .ck-in{padding:9px 10px;font-size:12px;color:#33484d}
+    .ck-in b{color:#1f5f6b}
+    .ck-fmea{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #dde8ea}
+    .ck-fmea:last-child{border-bottom:0}
+    .ck-sub{color:#6b7d82;font-size:11px}
+    .ck-none{color:#8a9a9e;font-style:italic}
+  </style>
+  <div id="cockpitModal" style="display:none">
+    <div id="authCard" style="width:min(1080px,96vw);max-height:92vh;overflow:auto">
+      <h2 style="margin-bottom:0">Yönetici Kokpiti</h2>
+      <div class="ck-sub" id="ckStamp">—</div>
+      <div id="ckTiles"></div>
+      <div id="ckBody"></div>
+      <div class="authBtns">
+        <button class="btnSignup" onclick="ckYenile()">Yenile</button>
+        <button class="btnSignup" onclick="closeCockpit()">Kapat</button>
+      </div>
+    </div>
+  </div>
   <header>
     <img id="siteLogo" src="data:image/jpeg;base64,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" alt="Logo">
     <div id="brandTitle">
@@ -309,7 +348,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="cnt-card" data-key="islem"><span class="cnt-num">0</span><span class="cnt-label">İşlem</span></div>
       <div class="cnt-card" data-key="hata"><span class="cnt-num">0</span><span class="cnt-label">Hata</span></div>
     </div>
-    <div id="userBar"><span id="userName"></span><button id="adminBtn" onclick="openAdminModal()" style="display:none">Onay Yönetimi</button><button onclick="doLogout()">Çıkış</button></div>
+    <div id="userBar"><span id="userName"></span><button id="cockpitBtn" onclick="openCockpit()" style="display:none">Yönetici Kokpiti</button><button id="adminBtn" onclick="openAdminModal()" style="display:none">Onay Yönetimi</button><button onclick="doLogout()">Çıkış</button></div>
     <div id="verinfo" style="display:none"></div>
   </header>
   
@@ -587,6 +626,8 @@ let nodes = [], selected = null;
         cloudIsAdmin = !!(data && data.is_admin);
         const aBtn = document.getElementById('adminBtn');
         if (aBtn) aBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
+        const cBtn = document.getElementById('cockpitBtn');
+        if (cBtn) cBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
         return cloudApproved;
       } catch (e) { return false; }
     }
@@ -599,6 +640,140 @@ let nodes = [], selected = null;
     }
     function closeAdminModal() {
       const m = document.getElementById('adminModal');
+      if (m) m.style.display = 'none';
+    }
+
+    // ================= YÖNETİCİ KOKPİTİ =================
+    // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
+    function fmeaMetrikleri(projects) {
+      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0 };
+      (projects || []).forEach(function (p) {
+        (p && p.nodes ? p.nodes : []).forEach(function (n) {
+          if (n.type === 'process') m.proses++;
+          const ap = n.altProsesler;
+          if (!ap || !ap.length) return;
+          m.islem += ap.length;
+          ap.forEach(function (s) {
+            ((s && s.hatalar) ? s.hatalar : []).forEach(function (h) {
+              m.hata++;
+              const r = (parseFloat(h.s) || 0) * (parseFloat(h.o) || 0) * (parseFloat(h.d) || 0);
+              if (r > 0) { m.rpnDolu++; if (r >= 200) m.kritik++; else if (r >= 100) m.yuksek++; }
+              if (String(h.sinif || '').toLowerCase().indexOf('emniyet') >= 0) m.emniyet++;
+              if (!String(h.aksiyon || '').trim()) m.aksiyonsuz++;
+            });
+          });
+        });
+      });
+      return m;
+    }
+    function ckSayi(n, snf) { return '<span class="ck-b ' + (snf || '') + '">' + n + '</span>'; }
+    function ckTarih(v) {
+      if (!v) return '—';
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return '—';
+      const p = function (x) { return (x < 10 ? '0' : '') + x; };
+      return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    function ckKutu(lbl, val, snf) {
+      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+    }
+    function ckKapat(rows) {
+      return rows.map(function (r) { return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.uid + '\')">' +
+        '<td>' + r.email + (r.admin ? ' <span class="ck-b ok">admin</span>' : '') + (r.onay ? '' : ' <span class="ck-b mid">onay bekliyor</span>') + '</td>' +
+        '<td>' + r.fmea + '</td><td>' + r.proses + '</td><td>' + r.islem + '</td>' +
+        '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
+        '<td>' + r.rpnDolu + '</td>' +
+        '<td>' + ckSayi(r.yuksek + r.kritik, (r.kritik ? 'hot' : (r.yuksek ? 'mid' : ''))) + '</td>' +
+        '<td>' + ckSayi(r.emniyet, r.emniyet ? 'hot' : '') + '</td>' +
+        '<td>' + ckSayi(r.aksiyonsuz, r.aksiyonsuz ? 'mid' : '') + '</td>' +
+        '<td style="font-size:11px;color:#6b7d82">' + ckTarih(r.guncelleme) + '</td></tr>'; }).join('');
+    }
+    window.ckSatirAc = function (uid) {
+      const g = document.getElementById('ck-det-' + uid);
+      if (!g) return;
+      if (g.style.display !== 'none') { g.style.display = 'none'; return; }
+      const k = window.__ckSatir || {};
+      const r = k[uid];
+      if (!r) return;
+      if (!r.projler.length) { g.querySelector('.ck-in').innerHTML = '<span class="ck-none">Bu kullanıcıda henüz FMEA kaydı yok.</span>'; }
+      else {
+        g.querySelector('.ck-in').innerHTML = r.projler.map(function (p) {
+          return '<div class="ck-fmea"><div><b>' + p.ad + '</b><div class="ck-sub">' + p.tip +
+            ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></div><div style="white-space:nowrap">' +
+            'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
+            ' &nbsp;RPN: ' + ckSayi(p.m.rpnDolu, 'ok') +
+            (p.m.yuksek + p.m.kritik ? ' &nbsp;Riskli: ' + ckSayi(p.m.yuksek + p.m.kritik, p.m.kritik ? 'hot' : 'mid') : '') +
+            (p.m.emniyet ? ' &nbsp;Emniyet: ' + ckSayi(p.m.emniyet, 'hot') : '') +
+            (p.m.aksiyonsuz ? ' &nbsp;Aksiyonsuz: ' + ckSayi(p.m.aksiyonsuz, 'mid') : '') +
+            '</div></div>';
+        }).join('');
+      }
+      g.style.display = '';
+    };
+    function ckCiz(rows) {
+      const t = document.getElementById('ckTiles');
+      const b = document.getElementById('ckBody');
+      if (!t || !b) return;
+      const S = { kullanici: 0, fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0 };
+      rows.forEach(function (r) { for (const k in S) if (k !== 'kullanici') S[k] += r[k]; });
+      S.kullanici = rows.length;
+      t.innerHTML = ckKutu('Kullanıcı', S.kullanici) + ckKutu('FMEA', S.fmea) + ckKutu('Proses', S.proses) +
+        ckKutu('İşlem', S.islem) + ckKutu('Hata', S.hata, S.hata ? 'uyari' : '') +
+        ckKutu('RPN Dolu', S.rpnDolu, S.rpnDolu ? 'iyi' : '') +
+        ckKutu('Riskli (RPN≥100)', S.yuksek + S.kritik, (S.yuksek + S.kritik) ? 'uyari' : '') +
+        ckKutu('Emniyet Kritik', S.emniyet, S.emniyet ? 'uyari' : '') +
+        ckKutu('Aksiyonsuz Hata', S.aksiyonsuz, S.aksiyonsuz ? 'uyari' : '');
+      if (!rows.length) { b.innerHTML = '<p class="ck-none">Kayıtlı kullanıcı yok.</p>'; return; }
+      b.innerHTML = '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Proses</th><th>İşlem</th>' +
+        '<th>Hata</th><th>RPN Dolu</th><th>Riskli</th><th>Emniyet</th><th>Aksiyonsuz</th><th>Son Guncelleme</th></tr></thead><tbody>' +
+        ckKapat(rows).split('</tr>').filter(Boolean).map(function (tr) {
+          const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="10"><div class="ck-in"></div></td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    async function ckYenile() {
+      if (!sbClient || !cloudUser || !cloudIsAdmin) return;
+      const t = document.getElementById('ckTiles'), b = document.getElementById('ckBody');
+      if (t) t.innerHTML = '';
+      if (b) b.innerHTML = '<p style="padding:16px">Yükleniyor…</p>';
+      try {
+        const { data, error } = await sbClient.from('fmea_user_data')
+          .select('user_id,email,approved,is_admin,updated_at,data');
+        if (error) throw error;
+        const store = {};
+        const rows = (data || []).map(function (r) {
+          const d = r.data;
+          const projler = (d && d.projects && d.projects.length) ? d.projects : [];
+          const m = fmeaMetrikleri(projler);
+          const uid = r.user_id;
+          store[uid] = {
+            projler: projler.map(function (p) {
+              return { ad: (p && p.name) || '(isimsiz)', tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses', zaman: p && p.updatedAt, m: fmeaMetrikleri([p]) };
+            })
+          };
+          return {
+            uid: uid, email: r.email || '(e-posta yok)', admin: !!r.is_admin, onay: !!r.approved,
+            guncelleme: r.updated_at, fmea: projler.length,
+            proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu,
+            kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz
+          };
+        }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
+        window.__ckSatir = store;
+        const st = document.getElementById('ckStamp');
+        if (st) st.textContent = 'Son yükleme: ' + ckTarih(new Date().toISOString()) + ' · ' + rows.length + ' kullanıcı';
+        ckCiz(rows);
+      } catch (e) {
+        if (b) b.innerHTML = '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>';
+      }
+    }
+    function openCockpit() {
+      if (!sbClient || !cloudUser || !cloudIsAdmin) return;
+      const m = document.getElementById('cockpitModal');
+      if (m) m.style.display = 'flex';
+      ckYenile();
+    }
+    function closeCockpit() {
+      const m = document.getElementById('cockpitModal');
       if (m) m.style.display = 'none';
     }
 
@@ -688,6 +863,8 @@ let nodes = [], selected = null;
               const usb = document.getElementById('userBar');
               const aBtn = document.getElementById('adminBtn');
               if (aBtn) aBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
+              const cBtn = document.getElementById('cockpitBtn');
+              if (cBtn) cBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
               paintAccount();
               if (!approved) {
                 if (usb) usb.style.display = 'flex';
