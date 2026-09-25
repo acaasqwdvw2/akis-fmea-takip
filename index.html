@@ -850,38 +850,50 @@ let nodes = [], selected = null;
     function ckGrup(baslik, icerik) {
       return '<div class="ck-grup"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
     }
+    // Turkce sayi bicimi: 1234 -> "1.234"
+    function ckSayiFmt(v) {
+      const n = Number(v) || 0;
+      try { return n.toLocaleString('tr-TR'); } catch (e) { return String(n); }
+    }
     function ckKutu(lbl, val, snf) {
-      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num" data-hedef="' + val + '">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+      const ham = Number(val) || 0;
+      const f = ckSayiFmt(ham);
+      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num" data-sayi="' + ham + '" data-hedef="' + f + '">' + f + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKutuT(lbl, val, snf, tip, deger, aciklama) {
+      const ham = Number(val) || 0;
+      const f = ckSayiFmt(ham);
       return '<div class="ck-tile ' + (snf || '') + ' tiklanir" onclick="ckTikla(\'' + tip + '\',\'' + (deger || '') + '\')" title="' + aciklama + '">' +
-        '<div class="ck-num" data-hedef="' + val + '">' + val + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+        '<div class="ck-num" data-sayi="' + ham + '" data-hedef="' + f + '">' + f + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
-    // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın
+    // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın.
+    // Kutular sirayla (kademeli) baslar, boylece dalga efekti olusur.
     var ckAnimYapildi = false;
     function ckSayiAnimasyon() {
       const kap = document.getElementById('ckTiles');
       if (!kap || ckAnimYapildi) return;
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { ckAnimYapildi = true; return; }
-      const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-hedef]'));
+      const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-sayi]'));
       if (!eller.length) return;
       ckAnimYapildi = true;
-      // her kutu kendi hedefine gore ayri sayilir; hane sayisi sabit tutulur (kayma olmaz)
       const bosluk = '\u00A0';
+      const sure = 1400;        // tek kutu animasyon suresi
+      const gecikme = 60;       // her kutu bir sonrakinden 60ms sonra baslar
       const bas = (window.performance && performance.now) ? performance.now() : Date.now();
-      const sure = 800;
       function adim(simdi) {
-        const g = Math.min(1, (simdi - bas) / sure);
-        const e = 1 - Math.pow(1 - g, 3);   // easeOutCubic
-        eller.forEach(function (el) {
+        let bitti = true;
+        eller.forEach(function (el, i) {
+          const gec = Math.max(0, (simdi - bas - i * gecikme) / sure);
+          if (gec >= 1) { el.textContent = el.getAttribute('data-hedef'); return; }
+          bitti = false;
+          const h = parseFloat(el.getAttribute('data-sayi')) || 0;
           const hedef = el.getAttribute('data-hedef');
-          const h = parseFloat(hedef) || 0;
-          let s = String(Math.round(h * e));
-          while (s.length < hedef.length) s = bosluk + s;   // " 0" -> " 12" : genislik sabit
+          const e = 1 - Math.pow(1 - gec, 3);   // easeOutCubic
+          let s = ckSayiFmt(Math.round(h * e));
+          while (s.length < hedef.length) s = bosluk + s;   // " 0" -> "12" : genislik sabit
           el.textContent = s;
         });
-        if (g < 1) { if (window.requestAnimationFrame) requestAnimationFrame(adim); }
-        else eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
+        if (!bitti && window.requestAnimationFrame) requestAnimationFrame(adim);
       }
       if (window.requestAnimationFrame) requestAnimationFrame(adim); else adim(bas + sure);
     }
@@ -954,7 +966,7 @@ let nodes = [], selected = null;
 
       // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
       const ozetGrubu = ckGrup('Özet',
-        '<div class="ck-tile buyuk"><div class="ck-num" data-hedef="' + tSayi + '">' + tSayi + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
+        '<div class="ck-tile buyuk"><div class="ck-num" data-sayi="' + tSayi + '" data-hedef="' + ckSayiFmt(tSayi) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
