@@ -249,6 +249,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ONAY KAPISI: bu kural olmadan pendingScreen normal akista duruyor ve uygulama
      onay bekleyen kullaniciya acik kaliyordu. Tam ekran katman zorunlu. */
   #pendingScreen{position:fixed;top:0;left:0;right:0;bottom:0;background:#f3f6f7;z-index:9000;display:none;align-items:center;justify-content:center;padding:16px}
+  /* EKRAN UYARISI: alert() guvenilir degil (bazi tarayici/tablet gomulunde gorunmez).
+     Butun onay/reddet sonuclari burada gorunur sekilde yazilir. */
+  #ckBildirim{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:12000;max-width:min(560px,92vw);display:none;
+    flex-direction:column;gap:8px;pointer-events:none}
+  #ckBildirim .bild{pointer-events:auto;padding:12px 16px;border-radius:10px;font:600 14px/1.45 Calibri,"Segoe UI",Arial,sans-serif;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);color:#fff;word-break:break-word}
+  #ckBildirim .bild.hata{background:#c0392b}
+  #ckBildirim .bild.uyari{background:#b9770e}
+  #ckBildirim .bild.oldu{background:#4b7f52}
 #authCard{background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);padding:28px;width:min(380px,100%)}
 #authCard h2{margin:0 0 4px;color:#26343a;font-size:20px}
 #authCard p.sub{color:#5a6b70;font-size:13px;margin:0 0 16px}
@@ -769,11 +778,11 @@ let nodes = [], selected = null;
     function onayaGonder() {
       if (cloudIsAdmin || !cloudApproved) return;
       const p = aktifProje();
-      if (!p) { alert('Önce bir tedarikçi seçin veya yeni FMEA oluşturun.'); return; }
+      if (!p) { ckBildir('Önce bir tedarikçi seçin veya yeni FMEA oluşturun.', 'uyari'); return; }
       const d = fmeaOnayDurumu(p);
-      if (d === 'onayli') { alert('Bu FMEA zaten onaylanmış.'); return; }
+      if (d === 'onayli') { ckBildir('Bu FMEA zaten onaylanmış.', 'uyari'); return; }
       const m = fmeaMetrikleri([p]);
-      if (!m.proses && !m.islem && !m.hata) { alert('Göndermek için FMEA içeriği girilmeli (proses/işlem/hata).'); return; }
+      if (!m.proses && !m.islem && !m.hata) { ckBildir('Göndermek için FMEA içeriği girilmeli (proses/işlem/hata).', 'uyari'); return; }
       if (!confirm('"' + ((p.fmeaMeta && p.fmeaMeta.firma) || p.name) + '" FMEA\'sı yönetici onayına gönderilsin mi?')) return;
       p.onayDurumu = 'bekliyor';
       p.onayZaman = Date.now();
@@ -783,7 +792,7 @@ let nodes = [], selected = null;
       save();
       paintOnayBtn();
       refreshProjectSel();
-      alert('FMEA onaya gönderildi. Durumu "Onay bekliyor" olarak değişti.');
+      ckBildir('FMEA onaya gönderildi. Durumu "Onay bekliyor" olarak değişti.', 'oldu');
     }
 
     // ===== Yönetici: onay bekleyenleri yönet =====
@@ -1153,38 +1162,38 @@ let nodes = [], selected = null;
 
     // Admin, kullanicinin projesindeki onay durumunu gunceller (RLS: admin her satiri yazabilir)
     async function fmeaOnayGuncelle(uid, pname, durum) {
-      if (!sbClient) { alert('Veritabanı bağlantısı yok.'); return false; }
-      if (!cloudIsAdmin) { alert('Bu işlem için yönetici yetkisi gerekli.'); return false; }
+      if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return false; }
+      if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return false; }
       try {
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('data').eq('user_id', uid).maybeSingle();
         if (error) throw error;
         const d = (data && data.data) || {};
-        if (!d.projects || !d.projects.length) { alert('Kullanıcı verisi bulunamadı.'); return; }
+        if (!d.projects || !d.projects.length) { ckBildir('Kullanıcı verisi bulunamadı.', 'hata'); return false; }
         let bulundu = false;
         d.projects.forEach(function (p) {
           if (p && p.name === pname) { p.onayDurumu = durum; p.onayZaman = Date.now(); bulundu = true; }
         });
-        if (!bulundu) { alert('FMEA bulunamadı: ' + pname); return; }
+        if (!bulundu) { ckBildir('FMEA bulunamadı: ' + pname, 'hata'); return false; }
       const u = await sbClient.from('fmea_user_data')
         .update({ data: d, updated_at: new Date().toISOString() })
         .eq('user_id', uid)
         .select('user_id');
       if (u.error) throw u.error;
-      if (!u.data || !u.data.length) { alert('Güncellenemedi: 0 satır etkilendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.'); return false; }
+      if (!u.data || !u.data.length) { ckBildir('Güncellenemedi: 0 satır etkilendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return false; }
       return true;
-      } catch (e) { alert('İşlem hatası: ' + (e.message || e)); return false; }
+      } catch (e) { console.error('fmeaOnayGuncelle:', e); ckBildir('İşlem hatası: ' + (e.message || e), 'hata'); return false; }
     }
 
     async function adminFmeaOnayla(uid, pname) {
       if (!confirm('"' + pname + '" FMEA\'sı onaylansın mı?')) return;
       const ok = await fmeaOnayGuncelle(uid, pname, 'onayli');
-      if (ok) { alert('FMEA onaylandı.'); loadOnayBekleyenFmea(); }
+      if (ok) { ckBildir('FMEA onaylandı.', 'oldu'); loadOnayBekleyenFmea(); }
     }
     async function adminFmeaReddet(uid, pname) {
       if (!confirm('"' + pname + '" FMEA\'sı reddedilsin mi?')) return;
       const ok = await fmeaOnayGuncelle(uid, pname, 'red');
-      if (ok) { alert('FMEA reddedildi.'); loadOnayBekleyenFmea(); }
+      if (ok) { ckBildir('FMEA reddedildi.', 'oldu'); loadOnayBekleyenFmea(); }
     }
 
     // Onay bekleyen hesaplar: is_admin=false AND approved=false
@@ -1248,32 +1257,65 @@ let nodes = [], selected = null;
       list.appendChild(uy);
     }
 
+    // Ekran uyarisi: onay/reddet sonuclari gorunur sekilde yazilir (alert() yerine)
+    function ckBildir(mesaj, tip) {
+      try {
+        let kap = document.getElementById('ckBildirim');
+        if (!kap) {
+          kap = document.createElement('div');
+          kap.id = 'ckBildirim';
+          document.body.appendChild(kap);
+        }
+        const b = document.createElement('div');
+        b.className = 'bild ' + (tip || 'hata');
+        b.textContent = mesaj;
+        kap.appendChild(b);
+        kap.style.display = 'flex';
+        setTimeout(function () {
+          if (b.parentNode) b.parentNode.removeChild(b);
+          if (kap.children.length === 0) kap.style.display = 'none';
+        }, 9000);
+      } catch (e) { try { alert(mesaj); } catch (e2) {} }
+    }
+
     async function adminApprove(uid) {
-      if (!sbClient) { alert('Veritabanı bağlantısı yok.'); return; }
-      if (!cloudIsAdmin) { alert('Bu işlem için yönetici yetkisi gerekli.'); return; }
-      if (!uid) { alert('Kullanıcı kimliği bulunamadı.'); return; }
-      const { data, error } = await sbClient
-        .from('fmea_user_data')
-        .update({ approved: true, updated_at: new Date().toISOString() })
-        .eq('user_id', uid)
-        .select('user_id');
-      if (error) { alert('Onay hatası: ' + (error.message || error)); return; }
-      if (!data || !data.length) { alert('Onay yazılamadı: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.'); return; }
-      loadPendingUsers();
+      try {
+        if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return; }
+        if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return; }
+        if (!uid) { ckBildir('Kullanıcı kimliği bulunamadı.', 'hata'); return; }
+        const { data, error } = await sbClient
+          .from('fmea_user_data')
+          .update({ approved: true, updated_at: new Date().toISOString() })
+          .eq('user_id', uid)
+          .select('user_id');
+        if (error) { console.error('adminApprove:', error); ckBildir('Onay hatası: ' + (error.message || error), 'hata'); return; }
+        if (!data || !data.length) { console.error('adminApprove 0 satir'); ckBildir('Onay yazılamadı: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return; }
+        ckBildir('Hesap onaylandı.', 'oldu');
+        loadPendingUsers();
+      } catch (e) {
+        console.error('adminApprove istisna:', e);
+        ckBildir('Onay sırasında hata: ' + (e && e.message ? e.message : e), 'hata');
+      }
     }
 
     async function adminReject(uid) {
-      if (!sbClient) { alert('Veritabanı bağlantısı yok.'); return; }
-      if (!cloudIsAdmin) { alert('Bu işlem için yönetici yetkisi gerekli.'); return; }
-      if (!uid) { alert('Kullanıcı kimliği bulunamadı.'); return; }
-      const { data, error } = await sbClient
-        .from('fmea_user_data')
-        .update({ is_admin: false, approved: false, updated_at: new Date().toISOString() })
-        .eq('user_id', uid)
-        .select('user_id');
-      if (error) { alert('Reddetme hatası: ' + (error.message || error)); return; }
-      if (!data || !data.length) { alert('Reddedilemedi: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.'); return; }
-      loadPendingUsers();
+      try {
+        if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return; }
+        if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return; }
+        if (!uid) { ckBildir('Kullanıcı kimliği bulunamadı.', 'hata'); return; }
+        const { data, error } = await sbClient
+          .from('fmea_user_data')
+          .update({ is_admin: false, approved: false, updated_at: new Date().toISOString() })
+          .eq('user_id', uid)
+          .select('user_id');
+        if (error) { console.error('adminReject:', error); ckBildir('Reddetme hatası: ' + (error.message || error), 'hata'); return; }
+        if (!data || !data.length) { console.error('adminReject 0 satir'); ckBildir('Reddedilemedi: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return; }
+        ckBildir('Hesap reddedildi.', 'oldu');
+        loadPendingUsers();
+      } catch (e) {
+        console.error('adminReject istisna:', e);
+        ckBildir('Reddetme sırasında hata: ' + (e && e.message ? e.message : e), 'hata');
+      }
     }
 
     
