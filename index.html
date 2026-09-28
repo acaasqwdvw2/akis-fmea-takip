@@ -364,15 +364,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckTiles .ck-tile.buyuk{background:#1f5f6b;border-color:#1f5f6b}
     #ckTiles .ck-tile.buyuk .ck-num{color:#fff;font-size:30px}
     #ckTiles .ck-tile.buyuk .ck-lbl{color:#cfe6ea;font-weight:700}
-    /* tedarikci rozetleri */
-    .ck-ted{display:flex;flex-wrap:wrap;gap:6px}
-    .ck-ted-chip{display:inline-flex;align-items:center;gap:6px;background:#f2f7f8;border:1px solid #d7e5e8;
-      border-radius:14px;padding:4px 10px;font-size:12px;color:#33484d;max-width:280px;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .ck-ted-chip b{background:#1f5f6b;color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
-    .ck-ted-chip.tam{background:#f1f8f2;border-color:#c9e3cd}
-    .ck-ted-chip.tam b{background:#4d8a4c}
-    /* TEDARIKCI KARTLARI: pop-up icinde rozet degil kart seklinde gosterilir */
+    /* TEDARIKCI KARTLARI: pop-up icinde kart seklinde gosterilir */
     .ck-ted-kartlar{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
     .ck-ted-k{background:#fbfdfd;border:1px solid #d7e5e8;border-left:4px solid #1f5f6b;border-radius:10px;
       padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -421,7 +413,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckPop-kapat:hover{background:#dde7e9}
     #ckPop-ic{display:block;padding:14px 16px 18px;overflow:auto;flex:1 1 auto}
     #ckPop-ic .ck-grup-t{padding-top:0}
-    #ckPop-ic .ck-ted{display:flex;flex-wrap:wrap;gap:7px}
     #ckPop.ted #ckPop-kutu{width:min(920px,96vw)}
     #adminPage #adminList{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 12px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -890,8 +881,20 @@ let nodes = [], selected = null;
 
     // ================= YÖNETİCİ KOKPİTİ =================
     // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
+    // "GG.AA.YYYY" veya ISO metni Date'e cevirir; okunamazsa null
+    function ckTarihCoz(v) {
+      const s = String(v || '').trim();
+      if (!s) return null;
+      let m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+      if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
     function fmeaMetrikleri(projects) {
-      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0 };
+      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0 };
+      const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
       (projects || []).forEach(function (p) {
         (p && p.nodes ? p.nodes : []).forEach(function (n) {
           if (n.type === 'process') m.proses++;
@@ -905,8 +908,17 @@ let nodes = [], selected = null;
               if (r > 0) { m.rpnDolu++; if (r >= 200) m.kritik++; else if (r >= 100) m.yuksek++; }
               else m.puanlanmamis++;
               if (String(h.sinif || '').toLowerCase().indexOf('emniyet') >= 0) m.emniyet++;
-              if (!String(h.aksiyon || '').trim()) m.aksiyonsuz++; else m.aksiyonlu++;
-              if (String(h.gerceklesenTarih || '').trim()) m.aksiyonTamam++;
+              const ak = String(h.aksiyon || '').trim();
+              const bitti = String(h.gerceklesenTarih || '').trim();
+              if (!ak) m.aksiyonsuz++;
+              else {
+                m.aksiyonlu++;
+                if (bitti) m.aksiyonTamam++;                       // gerceklesmis (her zaman belirlenenin alt kumesi)
+                else {
+                  const hd = ckTarihCoz(h.hedefTarih);
+                  if (hd && hd.getTime() < bugun.getTime()) m.aksiyonGecikmis++;   // hedef tarih gecmis, yapilmamis
+                }
+              }
             });
           });
         });
@@ -984,10 +996,10 @@ let nodes = [], selected = null;
       return '<div style="font-size:12px;color:#6b7d82;padding:0 2px 7px">' +
         (ckFiltre ? '<span class="ck-b mid">' + ckFiltreAdi() + ' filtresi</span> ' : '') + '</div>' +
         '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th><th>İşlem</th>' +
-        '<th>Hata</th><th>Riskli</th><th>Emniyet</th><th>Puanlanmamış</th><th>Aksiyonsuz</th><th>Son Guncelleme</th></tr></thead><tbody>' +
+        '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th><th>Son Guncelleme</th></tr></thead><tbody>' +
         ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
           const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="11"><div class="ck-in"></div></td></tr>';
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="10"><div class="ck-in"></div></td></tr>';
         }).join('') + '</tbody></table>';
     }
     function ckOnayHtml() {
@@ -1038,10 +1050,9 @@ let nodes = [], selected = null;
         '<td>' + ckDurumHucre(r) + '</td>' +
         '<td>' + r.proses + '</td><td>' + r.islem + '</td>' +
         '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
-        '<td>' + ckSayi(r.yuksek + r.kritik, (r.kritik ? 'hot' : (r.yuksek ? 'mid' : ''))) + '</td>' +
-        '<td>' + ckSayi(r.emniyet, r.emniyet ? 'hot' : '') + '</td>' +
-        '<td>' + ckSayi(r.puanlanmamis, r.puanlanmamis ? 'mid' : '') + '</td>' +
-        '<td>' + ckSayi(r.aksiyonsuz, r.aksiyonsuz ? 'mid' : '') + '</td>' +
+        '<td>' + ckSayi(r.aksiyonlu, r.aksiyonlu ? 'mid' : '') + '</td>' +
+        '<td>' + ckSayi(r.aksiyonTamam, r.aksiyonTamam ? 'ok' : '') + '</td>' +
+        '<td>' + ckSayi(r.aksiyonGecikmis, r.aksiyonGecikmis ? 'hot' : '') + '</td>' +
         '<td style="font-size:11px;color:#6b7d82">' + ckTarih(r.guncelleme) + '</td></tr>'; }).join('');
     }
     window.ckSatirAc = function (uid) {
@@ -1061,9 +1072,9 @@ let nodes = [], selected = null;
             ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></div><div style="white-space:nowrap">' +
             'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
             ' &nbsp;RPN: ' + ckSayi(p.m.rpnDolu, 'ok') +
-            (p.m.yuksek + p.m.kritik ? ' &nbsp;Riskli: ' + ckSayi(p.m.yuksek + p.m.kritik, p.m.kritik ? 'hot' : 'mid') : '') +
-            (p.m.emniyet ? ' &nbsp;Emniyet: ' + ckSayi(p.m.emniyet, 'hot') : '') +
-            (p.m.aksiyonsuz ? ' &nbsp;Aksiyonsuz: ' + ckSayi(p.m.aksiyonsuz, 'mid') : '') +
+            ' &nbsp;Belirlenen: ' + ckSayi(p.m.aksiyonlu, p.m.aksiyonlu ? 'mid' : '') +
+            ' &nbsp;Gerçekleşen: ' + ckSayi(p.m.aksiyonTamam, p.m.aksiyonTamam ? 'ok' : '') +
+            (p.m.aksiyonGecikmis ? ' &nbsp;Gecikmiş: ' + ckSayi(p.m.aksiyonGecikmis, 'hot') : '') +
             '</div></div>';
         }).join('');
       }
@@ -1072,7 +1083,7 @@ let nodes = [], selected = null;
     function ckCiz(rows) {
       const t = document.getElementById('ckTiles');
       if (!t) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
       const tEd = window.__ckTedarikci || [];
@@ -1092,17 +1103,18 @@ let nodes = [], selected = null;
         ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
         ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
       );
-      // --- RISK ve AKSIYON ---
-      const riskGrubu = ckGrup('Risk ve Aksiyon',
-        ckKutu('Belirlenen Aksiyon', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '') +
-        ckKutu('Tamamlanan Aksiyon', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '')
+      // --- AKSIYON ---
+      const aksiyonGrubu = ckGrup('Aksiyon',
+        ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '') +
+        ckKutu('Aksiyon Gerçekleşmiş', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '') +
+        ckKutu('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '')
       );
       // --- DURUM: en altta, yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay bekleyenleri göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       );
-      t.innerHTML = ozetGrubu + kapsamGrubu + riskGrubu + durumGrubu;
+      t.innerHTML = ozetGrubu + kapsamGrubu + aksiyonGrubu + durumGrubu;
     }
     async function ckYenile() {
       if (!sbClient || !cloudUser || !cloudIsAdmin) return;
@@ -1154,7 +1166,7 @@ let nodes = [], selected = null;
             onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif, devam: devam,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz,
-      aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam
+            aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam, aksiyonGecikmis: m.aksiyonGecikmis
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
