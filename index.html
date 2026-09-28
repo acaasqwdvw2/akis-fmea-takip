@@ -568,6 +568,8 @@ let nodes = [], selected = null;
     var cloudMsgBusy = false;
     var cloudApproved = false;
     var cloudIsAdmin = false;
+    // Hesap reddi isareti: bulutta data.hesapReddi icinde tasir (ayri sutun gerekmez)
+    var cloudReddi = null;
 
     var AUTH_DISABLED = false; // Kullanici girisi ACIK. Kapatmak icin: true
     function initSupabase() {
@@ -637,7 +639,10 @@ let nodes = [], selected = null;
         fmeaMeta: fmeaMeta,
         currentProject: currentProject,
         projects: projects,
-        kpEdits: kp
+        kpEdits: kp,
+        // Yonetici reddi isareti: payload sabit anahtarlarla kuruldugu icin
+        // elle korunur, aksi halde her kayitta silinirdi
+        hesapReddi: cloudReddi
       };
     }
 
@@ -706,6 +711,8 @@ let nodes = [], selected = null;
         if (error) return false;
         if (!data || !data.data) return false;
         const d = fixTrDeep(data.data) || {};   // bozuk kodlanmis eski veri onarilir
+        // Hesap reddi isareti data.hesapReddi icinde tasir; kayit sirasinda silinmesin
+        cloudReddi = d.hesapReddi || null;
         // BOS BULUT VERISI YEREL VERIYI EZMESIN (tedarikci kaybi onlemi)
         if (d.nodes && d.nodes.length) {
           try { localStorage.setItem(key, JSON.stringify(d.nodes)); } catch (e) {}
@@ -1312,55 +1319,39 @@ let nodes = [], selected = null;
       if (ok) { ckBildir('FMEA reddedildi.', 'oldu'); loadOnayBekleyenFmea(); }
     }
 
-    // Onay bekleyen hesaplar: is_admin=false AND approved=false AND rejected_at IS NULL
-    // NOT: rejected_at sutunu veritabaninda yoksa reddetme kalici olamaz; eski yonteme dusulur
-    // ve yoneticiye SQL'in calistirilmasi gerektigi acikca bildirilir.
-    var ckReddetSutun = null;   // null=bilinmiyor, true=sutun var, false=yok
-    var ckReddetUyariVerildi = false;
-    function ckSutunYokMu(error) {
-      if (!error) return false;
-      const m = String(error.message || '') + ' ' + String(error.details || '') + ' ' + String(error.code || '');
-      return /rejected_at/.test(m) || /PGRST204/.test(m) || /schema cache/i.test(m);
-    }
-    function ckSqlUyarisi() {
-      if (ckReddetUyariVerildi) return;
-      ckReddetUyariVerildi = true;
-      ckBildir('VERİTABANI GÜNCELLEMESİ GEREKİYOR: Reddetilen hesaplar listeden çıksın diye fmea_user_data tablosuna rejected_at sütunu eklenmeli. Supabase → SQL Editor → "alter table public.fmea_user_data add column if not exists rejected_at timestamptz;" komutunu bir kez çalıştırın.', 'uyari');
-    }
+    // Onay bekleyen hesaplar: is_admin=false AND approved=false
+    // RED ISARETI data.hesapReddi icinde tasir; ayri veritabani sutunu gerekmez.
     var cloudRejectedRows = [];
+
+    // Kullanicinin data'sini okuyup yeni nesne dondurur (red isareti eklenip cikarilir)
+    async function ckHesapRediYaz(uid, isaret) {
+      const oku = await sbClient.from('fmea_user_data').select('data').eq('user_id', uid).maybeSingle();
+      if (oku.error) throw oku.error;
+      const d = (oku.data && oku.data.data && typeof oku.data.data === 'object') ? oku.data.data : {};
+      if (isaret) d.hesapReddi = isaret; else delete d.hesapReddi;
+      const yaz = await sbClient.from('fmea_user_data')
+        .update({ data: d, updated_at: new Date().toISOString() })
+        .eq('user_id', uid).select('user_id');
+      if (yaz.error) throw yaz.error;
+      return !!(yaz.data && yaz.data.length);
+    }
 
     async function loadPendingUsers() {
       const list = document.getElementById('adminList');
       if (!list || !sbClient || !cloudUser || !cloudIsAdmin) return;
       list.innerHTML = 'Yükleniyor…';
       loadOnayBekleyenFmea();
-      const alanlar = 'user_id,email,approved,is_admin,updated_at' + (ckReddetSutun === false ? '' : ',rejected_at');
       try {
-        let q = sbClient.from('fmea_user_data').select(alanlar).eq('approved', false);
-        if (ckReddetSutun !== false) q = q.is('rejected_at', null);
-        const { data, error } = await q.order('updated_at', { ascending: true });
-        if (error && ckSutunYokMu(error)) {
-          // Sutun yok: eski yontemle devam et, yoneticiyi uyar
-          ckReddetSutun = false;
-          ckSqlUyarisi();
-          const r2 = await sbClient.from('fmea_user_data')
-            .select('user_id,email,approved,is_admin,updated_at')
-            .eq('approved', false).order('updated_at', { ascending: true });
-          if (r2.error) { list.innerHTML = 'Hata: ' + (r2.error.message || ''); return; }
-          cloudPendingRows = r2.data || [];
-          cloudRejectedRows = [];
-          renderPendingUsers(list);
-          return;
-        }
+        const { data, error } = await sbClient
+          .from('fmea_user_data')
+          .select('user_id,email,approved,is_admin,updated_at,data')
+          .eq('approved', false)
+          .order('updated_at', { ascending: true });
         if (error) { list.innerHTML = 'Hata: ' + (error.message || ''); return; }
-        ckReddetSutun = true;
-        cloudPendingRows = data || [];
-        // Reddedilenler ayri listede
-        const r3 = await sbClient.from('fmea_user_data')
-          .select('user_id,email,approved,is_admin,updated_at,rejected_at')
-          .eq('approved', false).not('rejected_at', 'is', null)
-          .order('rejected_at', { ascending: false });
-        cloudRejectedRows = (!r3.error && r3.data) ? r3.data : [];
+        const hepsi = data || [];
+        const reddiVar = r => !!(r && r.data && r.data.hesapReddi);
+        cloudPendingRows = hepsi.filter(r => !reddiVar(r));
+        cloudRejectedRows = hepsi.filter(reddiVar);
         renderPendingUsers(list);
       } catch (e) { list.innerHTML = 'Hata: ' + e.message; }
     }
@@ -1410,13 +1401,7 @@ let nodes = [], selected = null;
       const h2 = document.createElement('h3');
       h2.textContent = 'Reddedilen Hesaplar (' + cloudRejectedRows.length + ')';
       rj.appendChild(h2);
-      if (ckReddetSutun === false) {
-        const w = document.createElement('p');
-        w.className = 'ck-none';
-        w.style.padding = '6px 2px;color:#b9770e';
-        w.textContent = 'Reddedilen hesapları görebilmek için veritabanına rejected_at sütunu eklenmeli (SQL Editor).';
-        rj.appendChild(w);
-      } else if (!cloudRejectedRows.length) {
+      if (!cloudRejectedRows.length) {
         const p = document.createElement('p');
         p.className = 'ck-none';
         p.style.padding = '6px 2px';
@@ -1428,7 +1413,7 @@ let nodes = [], selected = null;
         row.className = 'onay-satir';
         const mail = document.createElement('span');
         mail.className = 'onay-kisi';
-        mail.textContent = (nameFromEmail(r.email) || '(bilinmiyor)') + ' · reddedildi ' + ckTarih(r.rejected_at);
+        mail.textContent = (nameFromEmail(r.email) || '(bilinmiyor)') + ' · reddedildi ' + ckTarih(r.data && r.data.hesapReddi);
         const btns = document.createElement('span');
         btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
         const okB = document.createElement('button');
@@ -1440,7 +1425,7 @@ let nodes = [], selected = null;
         row.appendChild(btns);
         rj.appendChild(row);
       });
-      if (cloudRejectedRows.length || ckReddetSutun !== false) list.appendChild(rj);
+      list.appendChild(rj);
     }
 
     // Ekran uyarisi: onay/reddet sonuclari gorunur sekilde yazilir (alert() yerine)
@@ -1470,16 +1455,10 @@ let nodes = [], selected = null;
         if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return; }
         if (!uid) { ckBildir('Kullanıcı kimliği bulunamadı.', 'hata'); return; }
         const simdi = new Date().toISOString();
-        // rejected_at temizlenir: eski reddetme kalkar, hesap tekrar normal duruma doner
-        let yama = { approved: true, updated_at: simdi };
-        if (ckReddetSutun !== false) yama.rejected_at = null;
-        let { data, error } = await sbClient.from('fmea_user_data').update(yama).eq('user_id', uid).select('user_id');
-        if (error && ckSutunYokMu(error) && yama.rejected_at !== undefined) {
-          ckReddetSutun = false; ckSqlUyarisi();
-          const r2 = await sbClient.from('fmea_user_data')
-            .update({ approved: true, updated_at: simdi }).eq('user_id', uid).select('user_id');
-          data = r2.data; error = r2.error;
-        }
+        // once red isaretini kaldir, sonra onayla
+        await ckHesapRediYaz(uid, null);
+        const { data, error } = await sbClient.from('fmea_user_data')
+          .update({ approved: true, updated_at: simdi }).eq('user_id', uid).select('user_id');
         if (error) { console.error('adminApprove:', error); ckBildir('Onay hatası: ' + (error.message || error), 'hata'); return; }
         if (!data || !data.length) { console.error('adminApprove 0 satir'); ckBildir('Onay yazılamadı: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return; }
         ckBildir('Hesap onaylandı.', 'oldu');
@@ -1496,23 +1475,15 @@ let nodes = [], selected = null;
         if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return; }
         if (!uid) { ckBildir('Kullanıcı kimliği bulunamadı.', 'hata'); return; }
         const simdi = new Date().toISOString();
-        // KRITIK: approved=false zaten yaziliydi; kalici olmasi icin rejected_at isaretlenir
-        let yama = { is_admin: false, approved: false, updated_at: simdi };
-        if (ckReddetSutun !== false) yama.rejected_at = simdi;
-        let { data, error } = await sbClient.from('fmea_user_data').update(yama).eq('user_id', uid).select('user_id');
-        if (error && ckSutunYokMu(error) && yama.rejected_at !== undefined) {
-          ckReddetSutun = false; ckSqlUyarisi();
-          const r2 = await sbClient.from('fmea_user_data')
-            .update({ is_admin: false, approved: false, updated_at: simdi }).eq('user_id', uid).select('user_id');
-          data = r2.data; error = r2.error;
-        }
+        // KRITIK: approved=false zaten yaziliydi, bu yuzden kalici olmasi icin
+        // data.hesapReddi isareti yazilir; bekleyen listesi bunu dikkate alir.
+        const isaretOk = await ckHesapRediYaz(uid, simdi);
+        const { data, error } = await sbClient.from('fmea_user_data')
+          .update({ is_admin: false, approved: false, updated_at: simdi }).eq('user_id', uid).select('user_id');
         if (error) { console.error('adminReject:', error); ckBildir('Reddetme hatası: ' + (error.message || error), 'hata'); return; }
         if (!data || !data.length) { console.error('adminReject 0 satir'); ckBildir('Reddedilemedi: 0 satır güncellendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return; }
-        if (ckReddetSutun === false) {
-          ckBildir('Hesap reddedildi ANCAK listeden kalkmaz: veritabanında rejected_at sütunu yok. Supabase SQL Editor\'de "alter table public.fmea_user_data add column if not exists rejected_at timestamptz;" komutunu çalıştırıp sayfayı yenileyin.', 'uyari');
-        } else {
-          ckBildir('Hesap reddedildi ve listeden kaldırıldı.', 'oldu');
-        }
+        if (!isaretOk) { ckBildir('Hesap reddedildi ama kalıcı işaret yazılamadı (RLS).', 'uyari'); }
+        else ckBildir('Hesap reddedildi ve listeden kaldırıldı.', 'oldu');
         loadPendingUsers();
       } catch (e) {
         console.error('adminReject istisna:', e);
@@ -1570,7 +1541,7 @@ let nodes = [], selected = null;
       ckFiltre = null;
       try { ckPopKapat(); } catch (e) {}
       window.__ckRows = null; window.__ckSatir = null; window.__ckTedarikci = null;
-      cloudRejectedRows = []; ckReddetSutun = null; ckReddetUyariVerildi = false;
+      cloudRejectedRows = []; cloudReddi = null;
           scopeKeysForUser(null);
           nodes = []; projects = []; currentProject = ''; fmeaMeta = {};
           try { paintAccount(); } catch (e) {}
