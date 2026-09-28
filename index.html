@@ -390,6 +390,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckPage #ckBody{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 10px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05);overflow-x:auto}
     #adminPage{padding:16px 20px 28px;max-width:1400px;margin:0 auto}
+    /* KOKPIT KART POP-UP: kart tiklaninca icerik sayfa altinda degil, ortada pencerede acilir.
+       Butun tiklanabilir kartlar ayni mantigi kullanir. */
+    #ckPop{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,35,40,.45);z-index:11000;
+      display:none;align-items:center;justify-content:center;padding:18px}
+    #ckPop.aci{display:flex}
+    #ckPop-kutu{background:#fff;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.3);
+      width:min(1080px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+    #ckPop-bas{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:13px 16px;border-bottom:1px solid #d7e5e8;background:#f7fbfb;flex:0 0 auto}
+    #ckPop-bas h3{margin:0;font-size:16px;color:#1f5f6b}
+    #ckPop-kapat{background:#eef3f4;border:1px solid #c9d8db;border-radius:6px;font-size:17px;line-height:1;
+      width:32px;height:32px;cursor:pointer;color:#1f5f6b;font-weight:700;flex:0 0 auto}
+    #ckPop-kapat:hover{background:#dde7e9}
+    #ckPop-ic{display:block;padding:14px 16px 18px;overflow:auto;flex:1 1 auto}
+    #ckPop-ic .ck-grup-t{padding-top:0}
+    #ckPop .ck-ted{display:flex;flex-wrap:wrap;gap:7px}
     #adminPage #adminList{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 12px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05)}
     #adminPage #adminList p{margin:12px 2px}
@@ -426,6 +442,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     </div>
     <div id="ckTiles"></div>
     <div id="ckBody"></div>
+  </div>
+  <!-- KOKPIT KART POP-UP: tum kartlar icin ortak pencere -->
+  <div id="ckPop" onclick="if(event.target===this) ckPopKapat()">
+    <div id="ckPop-kutu" role="dialog" aria-modal="true">
+      <div id="ckPop-bas">
+        <h3 id="ckPop-title">Liste</h3>
+        <button id="ckPop-kapat" onclick="ckPopKapat()" title="Kapat" aria-label="Kapat">&times;</button>
+      </div>
+      <div id="ckPop-ic"></div>
+    </div>
   </div>
   <div id="adminPage" style="display:none">
     <div class="ck-head">
@@ -799,15 +825,32 @@ let nodes = [], selected = null;
     // Alt bolum iki sabit sayfa arasinda degisir (acilan pencere yok)
     var adminView = 'cockpit';
     // Kullanici sayisi kutusunun altindaki tabloyu ac/kapat (veri onbellekten cizilir)
-    var ckTabloAcik = false;
-    var ckFiltre = null;   // 'onayli' | 'taslak' | 'red' | 'bekleyen' | null
-    function ckTabloGoster() {
-      ckTabloAcik = !ckTabloAcik;
-      const b = document.getElementById('ckBody');
-      if (ckTabloAcik && !window.__ckRows) { try { ckYenile(); return; } catch (e) {} }
-      if (window.__ckRows) { try { ckCiz(window.__ckRows); } catch (e) {} }
-      else if (b) b.hidden = !ckTabloAcik;
+    var ckFiltre = null;   // 'onayli' | 'red' | 'bekleyen' | 'devam' | null
+    // KOKPIT KART POP-UP: her kart tiklandiginda icerik sayfa altinda degil ortada pencerede acilir.
+    var ckPopTip = null;   // su an acik olan kartin tipi (Yenile ile icerigi tazelemek icin)
+    function ckPopAc(baslik, html) {
+      const p = document.getElementById('ckPop');
+      const t = document.getElementById('ckPop-title');
+      const c = document.getElementById('ckPop-ic');
+      if (!p || !c) return;
+      if (t) t.textContent = baslik;
+      c.innerHTML = html;
+      p.classList.add('aci');
+      p.style.display = 'flex';
     }
+    function ckPopKapat() {
+      const p = document.getElementById('ckPop');
+      if (p) { p.classList.remove('aci'); p.style.display = 'none'; }
+      ckPopTip = null;
+    }
+    // ESC ile kapansin
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        const p = document.getElementById('ckPop');
+        if (p && p.classList.contains('aci')) ckPopKapat();
+      }
+    });
+    function ckTabloGoster() { ckPopIcerikUygula('tablo'); }
     function switchAdminView(v) {
       if (!cloudIsAdmin) return;
       adminView = (v === 'onay') ? 'onay' : 'cockpit';
@@ -883,25 +926,82 @@ let nodes = [], selected = null;
       if (r.red) p.push('<span class="onay-b red">' + r.red + ' Red</span>');
       return p.length ? p.join(' ') : '<span class="ck-none">—</span>';
     }
-    var ckTedAcik = false;
-    // "Toplam Tedarikci" kutusuna tiklaninca tedarikci listesi acilir/kapanir
-    function ckTedarikciAcKapat() {
-      const g = document.getElementById('ckTedGrup');
-      const k = document.getElementById('ckTedKutu');
-      ckTedAcik = !ckTedAcik;
-      if (g) g.style.display = ckTedAcik ? '' : 'none';
-      if (k) { if (ckTedAcik) k.classList.add('aktif'); else k.classList.remove('aktif'); }
+    // ===== KOKPIT KART POP-UP =====
+    // Butun tiklanabilir kartlar ayni mantikla calisir: icerik sayfa altina degil,
+    // ortada bir pencerede (pop-up) acilir.
+    function ckPopBaslik(tip) {
+      if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
+      if (tip === 'onay') return 'Onay Bekleyenler';
+      return 'Kullanıcı Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
+    }
+    function ckFiltreAdi() {
+      return ckFiltre === 'onayli' ? 'Onaylı'
+        : ckFiltre === 'bekleyen' ? 'Onay Bekleyen'
+        : ckFiltre === 'red' ? 'Reddedilen'
+        : ckFiltre === 'devam' ? 'Devam Eden' : '';
+    }
+    function ckTedarikciHtml() {
+      const tEd = window.__ckTedarikci || [];
+      if (!tEd.length) return '<p class="ck-none">Kayıtlı tedarikçi yok.</p>';
+      return '<div class="ck-ted">' + tEd.map(function (t) {
+        return '<span class="ck-ted-chip' + (t.onayli === t.fmea && t.fmea ? ' tam' : '') + '" title="' + esc(t.ad) + ' — ' +
+          t.kisi + ' · ' + t.fmea + ' FMEA · ' + t.onayli + ' onaylı">' + esc(t.ad) +
+          '<b>' + t.fmea + '</b></span>';
+      }).join('') + '</div>';
+    }
+    function ckTabloHtml() {
+      const rows = window.__ckRows || [];
+      if (!rows.length) return '<p class="ck-none">Kayıtlı kullanıcı yok.</p>';
+      const goster = ckFiltre ? rows.filter(function (r) { return (r[ckFiltre] || 0) > 0; }) : rows;
+      if (!goster.length) return '<p class="ck-none" style="padding:10px 4px">Bu filtreye uyan FMEA yok.</p>';
+      return '<div style="font-size:12px;color:#6b7d82;padding:0 2px 7px">' +
+        (ckFiltre ? '<span class="ck-b mid">' + ckFiltreAdi() + ' filtresi</span> ' : '') + '</div>' +
+        '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th><th>İşlem</th>' +
+        '<th>Hata</th><th>Riskli</th><th>Emniyet</th><th>Puanlanmamış</th><th>Aksiyonsuz</th><th>Son Guncelleme</th></tr></thead><tbody>' +
+        ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
+          const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="11"><div class="ck-in"></div></td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    function ckOnayHtml() {
+      const f = document.getElementById('onayFmeaList');
+      const l = document.getElementById('adminList');
+      const a = l ? l.innerHTML : '';
+      const b = f ? f.innerHTML : '';
+      if (!a.trim() && !b.trim()) return '<p class="ck-none">Onay bekleyen kayıt yok.</p>';
+      return (b ? b : '') + (a ? a : '');
+    }
+    function ckPopIcerik(tip) {
+      if (tip === 'tedarikci') return ckTedarikciHtml();
+      if (tip === 'onay') return ckOnayHtml();
+      return ckTabloHtml();
+    }
+    // Pencereyi ac; veri gerekiyorsa once yukle, sonra doldur.
+    function ckPopIcerikUygula(tip) {
+      ckPopTip = tip;
+      const bas = ckPopBaslik(tip);
+      if (tip === 'onay') {
+        ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>');
+        loadPendingUsers().then(function () { if (ckPopTip === 'onay') ckPopAc(ckPopBaslik('onay'), ckOnayHtml()); });
+        return;
+      }
+      if (tip === 'tedarikci') {
+        if (!window.__ckTedarikci && !window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
+        ckPopAc(bas, ckTedarikciHtml());
+        return;
+      }
+      if (!window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
+      ckPopAc(bas, ckTabloHtml());
     }
     function ckTikla(tip, deger) {
-      if (tip === 'tablo') { ckTabloGoster(); return; }
-      if (tip === 'onay') { switchAdminView('onay'); return; }
+      if (tip === 'tablo') { ckPopIcerikUygula('tablo'); return; }
+      if (tip === 'onay') { ckPopIcerikUygula('onay'); return; }
       if (tip === 'filtre') { ckFiltreTikla(deger); return; }
-      if (tip === 'tedarikci') { ckTedarikciAcKapat(); return; }
+      if (tip === 'tedarikci') { ckPopIcerikUygula('tedarikci'); return; }
     }
     function ckFiltreTikla(f) {
       ckFiltre = (ckFiltre === f) ? null : f;
-      if (ckFiltre) ckTabloAcik = true;
-      if (window.__ckRows) { try { ckCiz(window.__ckRows); } catch (e) {} } else { try { ckYenile(); } catch (e) {} }
+      ckPopIcerikUygula('tablo');
     }
     function ckKapat(rows) {
       return rows.map(function (r) {
@@ -944,8 +1044,7 @@ let nodes = [], selected = null;
     };
     function ckCiz(rows) {
       const t = document.getElementById('ckTiles');
-      const b = document.getElementById('ckBody');
-      if (!t || !b) return;
+      if (!t) return;
       const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
@@ -953,25 +1052,15 @@ let nodes = [], selected = null;
       const tSayi = tEd.length;
 
       // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
+      // Kartlar tiklandiginda icerik pop-up pencerede acilir (sayfa altina degil).
       const ozetGrubu = ckGrup('Özet',
-        '<div class="ck-tile buyuk tiklanir' + (ckTedAcik ? ' aktif' : '') + '" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç / kapat">' +
+        '<div class="ck-tile buyuk tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
           '<div class="ck-num">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
       );
-      // --- TEDARIKCILER: "Toplam Tedarikci" kutusuna tiklaninca acilir ---
-      let tGrup = '';
-      if (tSayi) {
-        tGrup = '<div class="ck-grup" id="ckTedGrup" style="display:' + (ckTedAcik ? '' : 'none') + '">' +
-          '<div class="ck-grup-h">Tedarikçiler (' + tSayi + ')</div><div class="ck-grup-t">' +
-          '<div class="ck-ted">' + tEd.map(function (t) {
-            return '<span class="ck-ted-chip' + (t.onayli === t.fmea && t.fmea ? ' tam' : '') + '" title="' + esc(t.ad) + ' — ' + t.kisi + ' · ' +
-              t.fmea + ' FMEA · ' + t.onayli + ' onaylı">' + esc(t.ad) +
-              '<b>' + t.fmea + '</b></span>';
-          }).join('') + '</div></div></div>';
-      }
-      // --- KAPSAM: icerik ---
+      // --- KAPSAM: icerik (statik kartlar, pop-up acmaz) ---
       const kapsamGrubu = ckGrup('Kapsam',
         ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
         ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
@@ -983,32 +1072,16 @@ let nodes = [], selected = null;
       );
       // --- DURUM: en altta, yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
-        ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay Yönetimi ekranını aç') +
+        ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay bekleyenleri göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       );
-      t.innerHTML = ozetGrubu + tGrup + kapsamGrubu + riskGrubu + durumGrubu;
-
-      if (!ckTabloAcik) { b.innerHTML = ''; b.hidden = true; return; }
-      b.hidden = false;
-      // filtre aktifse sadece o durumdaki FMEA'ya sahip kullanicilar gosterilir
-      const goster = ckFiltre ? rows.filter(function (r) { return (r[ckFiltre] || 0) > 0; }) : rows;
-      const baslikEk = ckFiltre ? ' <span class="ck-b mid">' + (ckFiltre === 'onayli' ? 'Onaylı' : ckFiltre === 'bekleyen' ? 'Onay Bekleyen' : ckFiltre === 'red' ? 'Reddedilen' : 'Devam Eden') + ' filtresi</span>' +
-        ' <button class="light" style="padding:2px 8px;font-size:11px" onclick="ckFiltreTikla(\'' + ckFiltre + '\')">Filtreyi kaldır</button>' : '';
-      if (!rows.length) { b.innerHTML = '<p class="ck-none">Kayıtlı kullanıcı yok.</p>'; return; }
-      if (!goster.length) { b.innerHTML = '<p class="ck-none" style="padding:10px 4px">Bu filtreye uyan FMEA yok.</p>'; return; }
-      b.innerHTML = '<div style="font-size:12px;color:#6b7d82;padding:7px 2px 3px">' + baslikEk + '</div>' +
-        '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th><th>İşlem</th>' +
-        '<th>Hata</th><th>Riskli</th><th>Emniyet</th><th>Puanlanmamış</th><th>Aksiyonsuz</th><th>Son Guncelleme</th></tr></thead><tbody>' +
-        ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
-          const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="11"><div class="ck-in"></div></td></tr>';
-        }).join('') + '</tbody></table>';
+      t.innerHTML = ozetGrubu + kapsamGrubu + riskGrubu + durumGrubu;
     }
     async function ckYenile() {
       if (!sbClient || !cloudUser || !cloudIsAdmin) return;
-      const t = document.getElementById('ckTiles'), b = document.getElementById('ckBody');
-      if (t) t.innerHTML = '';
-      if (b) { b.innerHTML = ''; b.hidden = !ckTabloAcik; }
+      const t = document.getElementById('ckTiles');
+      // Veri varken kartlari bosaltma: yenileme sirasinda ekran bos kalmasin
+      if (t && !window.__ckRows) t.innerHTML = '';
       try {
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('user_id,email,approved,is_admin,updated_at,data');
@@ -1062,10 +1135,10 @@ let nodes = [], selected = null;
           window.__ckTedarikci.length + ' tedarikçi · ' +
           rows.reduce(function (a, r) { return a + r.bekleyen; }, 0) + ' FMEA onay bekliyor';
         ckCiz(rows);
+        // Acik olan pop-up varsa icerigini tazele (Yenile butonu)
+        if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip)); } catch (e) {} }
       } catch (e) {
-        if (b) {
-          if (ckTabloAcik) { b.hidden = false; b.innerHTML = '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>'; }
-        }
+        if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>'); } catch (e2) {} }
       }
     }
     function openCockpit() {
@@ -1364,8 +1437,9 @@ let nodes = [], selected = null;
           cloudUser = null;
           cloudApproved = false;
       cloudIsAdmin = false;
-      // yeni giris ilk acilista rakam animasyonu tekrar oynatsin
-      ckTedAcik = false;
+      // cikis yapinca kokpit onbellegi ve acik pop-up temizlenir
+      ckFiltre = null;
+      try { ckPopKapat(); } catch (e) {}
       window.__ckRows = null; window.__ckSatir = null; window.__ckTedarikci = null;
           scopeKeysForUser(null);
           nodes = []; projects = []; currentProject = ''; fmeaMeta = {};
