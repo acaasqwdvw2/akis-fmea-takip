@@ -807,8 +807,6 @@ let nodes = [], selected = null;
         window.scrollTo(0, 0);
         if (adminView === 'cockpit') { ckYenile(); } else { loadPendingUsers(); }
       } catch (e) {}
-      // kokpit gorunur olunca animasyonu tetikle (login sirasinda harcanmis olabilir)
-      if (adminView === 'cockpit') { setTimeout(function () { try { ckSayiAnimasyon(); } catch (e) {} }, 60); }
     }
     function openAdminModal() {
       switchAdminView('onay');
@@ -820,7 +818,7 @@ let nodes = [], selected = null;
     // ================= YÖNETİCİ KOKPİTİ =================
     // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
     function fmeaMetrikleri(projects) {
-      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0 };
+      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0 };
       (projects || []).forEach(function (p) {
         (p && p.nodes ? p.nodes : []).forEach(function (n) {
           if (n.type === 'process') m.proses++;
@@ -834,7 +832,8 @@ let nodes = [], selected = null;
               if (r > 0) { m.rpnDolu++; if (r >= 200) m.kritik++; else if (r >= 100) m.yuksek++; }
               else m.puanlanmamis++;
               if (String(h.sinif || '').toLowerCase().indexOf('emniyet') >= 0) m.emniyet++;
-              if (!String(h.aksiyon || '').trim()) m.aksiyonsuz++;
+              if (!String(h.aksiyon || '').trim()) m.aksiyonsuz++; else m.aksiyonlu++;
+              if (String(h.gerceklesenTarih || '').trim()) m.aksiyonTamam++;
             });
           });
         });
@@ -858,75 +857,11 @@ let nodes = [], selected = null;
       try { return n.toLocaleString('tr-TR'); } catch (e) { return String(n); }
     }
     function ckKutu(lbl, val, snf) {
-      const ham = Number(val) || 0;
-      const f = ckSayiFmt(ham);
-      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num" data-sayi="' + ham + '" data-hedef="' + f + '">' + f + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKutuT(lbl, val, snf, tip, deger, aciklama) {
-      const ham = Number(val) || 0;
-      const f = ckSayiFmt(ham);
       return '<div class="ck-tile ' + (snf || '') + ' tiklanir" onclick="ckTikla(\'' + tip + '\',\'' + (deger || '') + '\')" title="' + aciklama + '">' +
-        '<div class="ck-num" data-sayi="' + ham + '" data-hedef="' + f + '">' + f + '</div><div class="ck-lbl">' + lbl + '</div></div>';
-    }
-    // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın.
-    // Kutular sirayla (kademeli) baslar, boylece dalga efekti olusur.
-    var ckAnimYapildi = false;
-    // TEK zaman tabani: performance.now() ve Date.now() karistirilirsa animasyon aninda atlanir
-    function ckSimdi() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
-    // Kokpit gercekten gorunur mu? (giris ekrani / onay bekleniyor ekrani acikken animasyon harcanmasin)
-    function ckGorunurMu() {
-      const kap = document.getElementById('ckTiles');
-      if (!kap) return false;
-      try {
-        const as = document.getElementById('authScreen');
-        if (as && getComputedStyle(as).display !== 'none') return false;
-      } catch (e) {}
-      try {
-        const ps = document.getElementById('pendingScreen');
-        if (ps && ps.style.display === 'flex') return false;
-      } catch (e) {}
-      return !!(kap.offsetWidth || kap.offsetHeight || kap.getClientRects().length);
-    }
-    function ckSayiAnimasyon() {
-      const kap = document.getElementById('ckTiles');
-      if (!kap || ckAnimYapildi) return;
-      if (!ckGorunurMu()) return;
-      const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-sayi]'));
-      if (!eller.length) return;
-      ckAnimYapildi = true;
-      // NOT: requestAnimationFrame KULLANILMAZ. rAF arka planda/tarayici kisitinda durup
-      // rakamlari 0'da birakabiliyordu. setTimeout dongusu her ortamda tamamlanir.
-      const azalt = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-      const sure = azalt ? 500 : 2200;     // tek kutu animasyon suresi
-      const gecikme = azalt ? 20 : 90;     // her kutu bir sonrakinden kac ms sonra baslar
-      const adimMs = 30;                   // ~33 kare/sn yeterli ve akici
-      const bosluk = '\u00A0';
-      const bas = ckSimdi();
-      let bittiMi = false;
-      function bitir() {
-        bittiMi = true;
-        eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
-      }
-      function adim() {
-        if (bittiMi) return;
-        const simdi = ckSimdi();
-        let bitti = true;
-        eller.forEach(function (el, i) {
-          const gec = Math.max(0, (simdi - bas - i * gecikme) / sure);
-          if (gec >= 1) { el.textContent = el.getAttribute('data-hedef'); return; }
-          bitti = false;
-          const h = parseFloat(el.getAttribute('data-sayi')) || 0;
-          const hedef = el.getAttribute('data-hedef');
-          const e = 1 - Math.pow(1 - gec, 2);   // easeOutQuad
-          let s = ckSayiFmt(Math.round(h * e));
-          while (s.length < hedef.length) s = bosluk + s;   // " 0" -> "12" : genislik sabit
-          el.textContent = s;
-        });
-        if (bitti) { bitir(); return; }
-        setTimeout(adim, adimMs);
-      }
-      setTimeout(adim, 0);
-      setTimeout(bitir, 1000 * (azalt ? 1.2 : 4.2));   // guvenlik: her kosulda dogru degere oturur
+        '<div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckDurumHucre(r) {
       const p = [];
@@ -936,10 +871,20 @@ let nodes = [], selected = null;
       if (r.red) p.push('<span class="onay-b red">' + r.red + ' Red</span>');
       return p.length ? p.join(' ') : '<span class="ck-none">—</span>';
     }
+    var ckTedAcik = false;
+    // "Toplam Tedarikci" kutusuna tiklaninca tedarikci listesi acilir/kapanir
+    function ckTedarikciAcKapat() {
+      const g = document.getElementById('ckTedGrup');
+      const k = document.getElementById('ckTedKutu');
+      ckTedAcik = !ckTedAcik;
+      if (g) g.style.display = ckTedAcik ? '' : 'none';
+      if (k) { if (ckTedAcik) k.classList.add('aktif'); else k.classList.remove('aktif'); }
+    }
     function ckTikla(tip, deger) {
       if (tip === 'tablo') { ckTabloGoster(); return; }
       if (tip === 'onay') { switchAdminView('onay'); return; }
       if (tip === 'filtre') { ckFiltreTikla(deger); return; }
+      if (tip === 'tedarikci') { ckTedarikciAcKapat(); return; }
     }
     function ckFiltreTikla(f) {
       ckFiltre = (ckFiltre === f) ? null : f;
@@ -989,7 +934,7 @@ let nodes = [], selected = null;
       const t = document.getElementById('ckTiles');
       const b = document.getElementById('ckBody');
       if (!t || !b) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
       const tEd = window.__ckTedarikci || [];
@@ -997,41 +942,39 @@ let nodes = [], selected = null;
 
       // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
       const ozetGrubu = ckGrup('Özet',
-        '<div class="ck-tile buyuk"><div class="ck-num" data-sayi="' + tSayi + '" data-hedef="' + ckSayiFmt(tSayi) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
+        '<div class="ck-tile buyuk tiklanir' + (ckTedAcik ? ' aktif' : '') + '" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç / kapat">' +
+          '<div class="ck-num">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
       );
-      // --- TEDARIKCILER: benzersiz firma adlari ---
+      // --- TEDARIKCILER: "Toplam Tedarikci" kutusuna tiklaninca acilir ---
       let tGrup = '';
       if (tSayi) {
-        tGrup = ckGrup('Tedarikçiler (' + tSayi + ')',
+        tGrup = '<div class="ck-grup" id="ckTedGrup" style="display:' + (ckTedAcik ? '' : 'none') + '">' +
+          '<div class="ck-grup-h">Tedarikçiler (' + tSayi + ')</div><div class="ck-grup-t">' +
           '<div class="ck-ted">' + tEd.map(function (t) {
             return '<span class="ck-ted-chip' + (t.onayli === t.fmea && t.fmea ? ' tam' : '') + '" title="' + esc(t.ad) + ' — ' + t.kisi + ' · ' +
               t.fmea + ' FMEA · ' + t.onayli + ' onaylı">' + esc(t.ad) +
               '<b>' + t.fmea + '</b></span>';
-          }).join('') + '</div>');
+          }).join('') + '</div></div></div>';
       }
-      // --- DURUM: yonetici ne yapmali? ---
+      // --- KAPSAM: icerik ---
+      const kapsamGrubu = ckGrup('Kapsam',
+        ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
+        ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
+      );
+      // --- RISK ve AKSIYON ---
+      const riskGrubu = ckGrup('Risk ve Aksiyon',
+        ckKutu('Belirlenen Aksiyon', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '') +
+        ckKutu('Tamamlanan Aksiyon', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '')
+      );
+      // --- DURUM: en altta, yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay Yönetimi ekranını aç') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       );
-      // --- KAPSAM: kullanicilar ve icerik ---
-      const kapsamGrubu = ckGrup('Kapsam',
-        ckKutuT('Kullanıcı', rows.length, ckTabloAcik ? 'aktif' : '', 'tablo', '', 'Kullanıcı tablosunu aç/kapat') +
-        ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
-        ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
-      );
-      // --- RISK: kalite acigi nerede? ---
-      const riskGrubu = ckGrup('Risk ve Kalite',
-        ckKutu('Riskli (RPN≥100)', riskli, riskli ? 'uyari' : '') +
-        ckKutu('Emniyet Kritik', S.emniyet, S.emniyet ? 'uyari' : '') +
-        ckKutu('Puanlanmamış Hata', S.puanlanmamis, S.puanlanmamis ? 'bekliyor' : '') +
-        ckKutu('Aksiyonsuz Hata', S.aksiyonsuz, S.aksiyonsuz ? 'uyari' : '')
-      );
-      t.innerHTML = ozetGrubu + tGrup + durumGrubu + kapsamGrubu + riskGrubu;
-      try { ckSayiAnimasyon(); } catch (e) {}
+      t.innerHTML = ozetGrubu + tGrup + kapsamGrubu + riskGrubu + durumGrubu;
 
       if (!ckTabloAcik) { b.innerHTML = ''; b.hidden = true; return; }
       b.hidden = false;
@@ -1094,7 +1037,8 @@ let nodes = [], selected = null;
             guncelleme: r.updated_at, fmea: projler.length,
             onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif, devam: devam,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
-            kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz
+            kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz,
+      aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
@@ -1125,7 +1069,6 @@ let nodes = [], selected = null;
       if (ck) ck.style.display = (kokpitOnly && adminView === 'cockpit') ? 'block' : 'none';
       if (ap) ap.style.display = (kokpitOnly && adminView === 'onay') ? 'block' : 'none';
       if (kokpitOnly) { try { if (adminView === 'onay') loadPendingUsers(); else ckYenile(); } catch (e) {} }
-      if (kokpitOnly && adminView === 'cockpit') { setTimeout(function () { try { ckSayiAnimasyon(); } catch (e) {} }, 120); }
       return kokpitOnly;
     }
 
@@ -1366,7 +1309,7 @@ let nodes = [], selected = null;
           cloudApproved = false;
       cloudIsAdmin = false;
       // yeni giris ilk acilista rakam animasyonu tekrar oynatsin
-      ckAnimYapildi = false;
+      ckTedAcik = false;
       window.__ckRows = null; window.__ckSatir = null; window.__ckTedarikci = null;
           scopeKeysForUser(null);
           nodes = []; projects = []; currentProject = ''; fmeaMeta = {};
