@@ -372,6 +372,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-ted-chip b{background:#1f5f6b;color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
     .ck-ted-chip.tam{background:#f1f8f2;border-color:#c9e3cd}
     .ck-ted-chip.tam b{background:#4d8a4c}
+    /* TEDARIKCI KARTLARI: pop-up icinde rozet degil kart seklinde gosterilir */
+    .ck-ted-kartlar{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+    .ck-ted-k{background:#fbfdfd;border:1px solid #d7e5e8;border-left:4px solid #1f5f6b;border-radius:10px;
+      padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+    .ck-ted-k.tam{border-left-color:#4d8a4c;background:#f7fcf7}
+    .ck-ted-k .ad{font-weight:700;color:#1f5f6b;font-size:14px;line-height:1.3;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ck-ted-k .kisi{font-size:11px;color:#6b7d82;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ck-ted-k .say{row-gap:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+      border-top:1px dashed #d7e5e8;padding-top:7px;margin-top:1px}
+    .ck-ted-k .say div{text-align:center;background:#f2f7f8;border-radius:7px;padding:4px 2px}
+    .ck-ted-k .say b{display:block;font-size:16px;color:#1f5f6b;line-height:1.15}
+    .ck-ted-k .say i{display:block;font-style:normal;font-size:10px;color:#6b7d82;margin-top:1px}
+    .ck-ted-k .say .a b{color:#b9770e}
+    .ck-ted-k .say .o b{color:#4d8a4c}
+    .ck-ted-k .say .b b{color:#1f5f6b}
     #ckTiles .ck-tile{transition:transform .12s ease,box-shadow .12s ease}
     #ckBody[hidden]{display:none}
     .ck-tile.tiklanir{cursor:pointer}
@@ -405,7 +421,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckPop-kapat:hover{background:#dde7e9}
     #ckPop-ic{display:block;padding:14px 16px 18px;overflow:auto;flex:1 1 auto}
     #ckPop-ic .ck-grup-t{padding-top:0}
-    #ckPop .ck-ted{display:flex;flex-wrap:wrap;gap:7px}
+    #ckPop-ic .ck-ted{display:flex;flex-wrap:wrap;gap:7px}
+    #ckPop.ted #ckPop-kutu{width:min(920px,96vw)}
     #adminPage #adminList{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 12px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05)}
     #adminPage #adminList p{margin:12px 2px}
@@ -828,13 +845,14 @@ let nodes = [], selected = null;
     var ckFiltre = null;   // 'onayli' | 'red' | 'bekleyen' | 'devam' | null
     // KOKPIT KART POP-UP: her kart tiklandiginda icerik sayfa altinda degil ortada pencerede acilir.
     var ckPopTip = null;   // su an acik olan kartin tipi (Yenile ile icerigi tazelemek icin)
-    function ckPopAc(baslik, html) {
+    function ckPopAc(baslik, html, tip) {
       const p = document.getElementById('ckPop');
       const t = document.getElementById('ckPop-title');
       const c = document.getElementById('ckPop-ic');
       if (!p || !c) return;
       if (t) t.textContent = baslik;
       c.innerHTML = html;
+      p.classList.toggle('ted', tip === 'tedarikci');
       p.classList.add('aci');
       p.style.display = 'flex';
     }
@@ -943,10 +961,19 @@ let nodes = [], selected = null;
     function ckTedarikciHtml() {
       const tEd = window.__ckTedarikci || [];
       if (!tEd.length) return '<p class="ck-none">Kayıtlı tedarikçi yok.</p>';
-      return '<div class="ck-ted">' + tEd.map(function (t) {
-        return '<span class="ck-ted-chip' + (t.onayli === t.fmea && t.fmea ? ' tam' : '') + '" title="' + esc(t.ad) + ' — ' +
-          t.kisi + ' · ' + t.fmea + ' FMEA · ' + t.onayli + ' onaylı">' + esc(t.ad) +
-          '<b>' + t.fmea + '</b></span>';
+      return '<div class="ck-ted-kartlar">' + tEd.map(function (t) {
+        const tam = t.fmea > 0 && t.onayli === t.fmea;
+        return '<div class="ck-ted-k' + (tam ? ' tam' : '') + '">' +
+          '<div class="ad" title="' + esc(t.ad) + '">' + esc(t.ad) + '</div>' +
+          '<div class="kisi" title="' + esc(t.kisi) + '">' + esc(t.kisi) + '</div>' +
+          '<div class="say">' +
+            '<div class="b"><b>' + ckSayiFmt(t.fmea) + '</b><i>Toplam FMEA</i></div>' +
+            '<div class="a"><b>' + ckSayiFmt(t.devam) + '</b><i>Aktif FMEA</i></div>' +
+            '<div class="o"><b>' + ckSayiFmt(t.onayli) + '</b><i>Onaylı FMEA</i></div>' +
+          '</div>' +
+          (t.bekleyen || t.red ? '<div class="kisi">Onay bekleyen: ' + ckSayiFmt(t.bekleyen) +
+            ' · Red: ' + ckSayiFmt(t.red) + '</div>' : '') +
+        '</div>';
       }).join('') + '</div>';
     }
     function ckTabloHtml() {
@@ -982,16 +1009,16 @@ let nodes = [], selected = null;
       const bas = ckPopBaslik(tip);
       if (tip === 'onay') {
         ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>');
-        loadPendingUsers().then(function () { if (ckPopTip === 'onay') ckPopAc(ckPopBaslik('onay'), ckOnayHtml()); });
+        loadPendingUsers().then(function () { if (ckPopTip === 'onay') ckPopAc(ckPopBaslik('onay'), ckOnayHtml(), 'onay'); });
         return;
       }
       if (tip === 'tedarikci') {
         if (!window.__ckTedarikci && !window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
-        ckPopAc(bas, ckTedarikciHtml());
+        ckPopAc(bas, ckTedarikciHtml(), 'tedarikci');
         return;
       }
       if (!window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
-      ckPopAc(bas, ckTabloHtml());
+      ckPopAc(bas, ckTabloHtml(), 'tablo');
     }
     function ckTikla(tip, deger) {
       if (tip === 'tablo') { ckPopIcerikUygula('tablo'); return; }
@@ -1107,10 +1134,14 @@ let nodes = [], selected = null;
           projler.forEach(function (p) {
             const firma = String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
             const anahtar = firma ? 'f::' + firma.toLowerCase() : 'n::' + kisi + '::' + ((p && p.name) || '');
-            if (!tmap[anahtar]) tmap[anahtar] = { ad: firma || ((p && p.name) || '(isimsiz)'), kisi: kisi, fmea: 0, onayli: 0, devam: 0 };
+            if (!tmap[anahtar]) tmap[anahtar] = { ad: firma || ((p && p.name) || '(isimsiz)'), kisi: kisi, fmea: 0, onayli: 0, devam: 0, bekleyen: 0, red: 0 };
             const t = tmap[anahtar];
             t.fmea++;
-            if (fmeaOnayDurumu(p) === 'onayli') t.onayli++; else t.devam++;
+            const td = fmeaOnayDurumu(p);
+            if (td === 'onayli') t.onayli++;
+            else if (td === 'bekleyen') { t.bekleyen++; t.devam++; }
+            else if (td === 'red') { t.red++; t.devam++; }
+            else t.devam++;
           });
           store[uid] = {
             projler: projler.map(function (p) {
@@ -1136,7 +1167,7 @@ let nodes = [], selected = null;
           rows.reduce(function (a, r) { return a + r.bekleyen; }, 0) + ' FMEA onay bekliyor';
         ckCiz(rows);
         // Acik olan pop-up varsa icerigini tazele (Yenile butonu)
-        if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip)); } catch (e) {} }
+        if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip), ckPopTip); } catch (e) {} }
       } catch (e) {
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>'); } catch (e2) {} }
       }
