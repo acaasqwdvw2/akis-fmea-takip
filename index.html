@@ -871,6 +871,8 @@ let nodes = [], selected = null;
     // Ilk acilista rakamlar 0'dan hedef deger sayacagi sekilde animasyonla artsın.
     // Kutular sirayla (kademeli) baslar, boylece dalga efekti olusur.
     var ckAnimYapildi = false;
+    // TEK zaman tabani: performance.now() ve Date.now() karistirilirsa animasyon aninda atlanir
+    function ckSimdi() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
     // Kokpit gercekten gorunur mu? (giris ekrani / onay bekleniyor ekrani acikken animasyon harcanmasin)
     function ckGorunurMu() {
       const kap = document.getElementById('ckTiles');
@@ -888,40 +890,43 @@ let nodes = [], selected = null;
     function ckSayiAnimasyon() {
       const kap = document.getElementById('ckTiles');
       if (!kap || ckAnimYapildi) return;
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { ckAnimYapildi = true; return; }
       if (!ckGorunurMu()) return;
       const eller = [].slice.call(kap.querySelectorAll('.ck-num[data-sayi]'));
       if (!eller.length) return;
       ckAnimYapildi = true;
+      // NOT: requestAnimationFrame KULLANILMAZ. rAF arka planda/tarayici kisitinda durup
+      // rakamlari 0'da birakabiliyordu. setTimeout dongusu her ortamda tamamlanir.
+      const azalt = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      const sure = azalt ? 500 : 2200;     // tek kutu animasyon suresi
+      const gecikme = azalt ? 20 : 90;     // her kutu bir sonrakinden kac ms sonra baslar
+      const adimMs = 30;                   // ~33 kare/sn yeterli ve akici
       const bosluk = '\u00A0';
-      const sure = 2200;        // tek kutu animasyon suresi
-      const gecikme = 90;       // her kutu bir sonrakinden 90ms sonra baslar
-      const bas = (window.performance && performance.now) ? performance.now() : Date.now();
-      let bitti = false;
-      function adim(simdi) {
-        let hepsiBitti = true;
+      const bas = ckSimdi();
+      let bittiMi = false;
+      function bitir() {
+        bittiMi = true;
+        eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
+      }
+      function adim() {
+        if (bittiMi) return;
+        const simdi = ckSimdi();
+        let bitti = true;
         eller.forEach(function (el, i) {
           const gec = Math.max(0, (simdi - bas - i * gecikme) / sure);
           if (gec >= 1) { el.textContent = el.getAttribute('data-hedef'); return; }
-          hepsiBitti = false;
+          bitti = false;
           const h = parseFloat(el.getAttribute('data-sayi')) || 0;
           const hedef = el.getAttribute('data-hedef');
-          const e = 1 - Math.pow(1 - gec, 2);   // easeOutQuad: cubic'ten yavas, sayma hissi belirgin
+          const e = 1 - Math.pow(1 - gec, 2);   // easeOutQuad
           let s = ckSayiFmt(Math.round(h * e));
           while (s.length < hedef.length) s = bosluk + s;   // " 0" -> "12" : genislik sabit
           el.textContent = s;
         });
-        if (hepsiBitti) { bitti = true; return; }
-        if (window.requestAnimationFrame) requestAnimationFrame(adim);
-        else setTimeout(function () { adim(Date.now()); }, 40);
+        if (bitti) { bitir(); return; }
+        setTimeout(adim, adimMs);
       }
-      if (window.requestAnimationFrame) requestAnimationFrame(adim);
-      else setTimeout(function () { adim(Date.now()); }, 40);
-      // guvenlik: sekme arka planda kaldiginda rAF durur, rakamlar yine de dogru degere oturur
-      setTimeout(function () {
-        if (bitti) return;
-        eller.forEach(function (el) { el.textContent = el.getAttribute('data-hedef'); });
-      }, 4600);
+      setTimeout(adim, 0);
+      setTimeout(bitir, 1000 * (azalt ? 1.2 : 4.2));   // guvenlik: her kosulda dogru degere oturur
     }
     function ckDurumHucre(r) {
       const p = [];
