@@ -388,6 +388,75 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckBody[hidden]{display:none}
     .ck-tile.tiklanir{cursor:pointer}
     .ck-tile.tiklanir:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.13)}
+
+    /* ==================== RENK SISTEMI ==================== */
+    :root{
+      --ck-teal:#0f766e; --ck-teal-2:#14b8a6; --ck-blue:#1d4ed8; --ck-blue-2:#3b82f6;
+      --ck-amber:#b45309; --ck-amber-2:#f59e0b; --ck-purple:#6d28d9; --ck-purple-2:#8b5cf6;
+      --ck-green:#15803d; --ck-green-2:#22c55e; --ck-red:#b91c1c; --ck-red-2:#ef4444;
+      --ck-ink:#0f2b33; --ck-muted:#5b7076; --ck-line:#d7e5e8;
+    }
+    /* Grup basliklari renkli aksan + renkli harti */
+    .ck-grup{position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(15,43,51,.06)}
+    .ck-grup::before{content:'';position:absolute;left:0;right:0;top:0;height:4px}
+    .ck-grup-h{padding-left:10px;position:relative}
+    .ck-grup-h::before{content:'';position:absolute;left:0;top:2px;bottom:2px;width:4px;border-radius:2px}
+    .ck-grup.a-teal{background:linear-gradient(180deg,#f0fdfa 0%,#ffffff 46%)}
+    .ck-grup.a-teal::before{background:linear-gradient(90deg,var(--ck-teal),var(--ck-teal-2))}
+    .ck-grup.a-teal .ck-grup-h{color:var(--ck-teal)} .ck-grup.a-teal .ck-grup-h::before{background:var(--ck-teal-2)}
+    .ck-grup.a-blue{background:linear-gradient(180deg,#eff6ff 0%,#ffffff 46%)}
+    .ck-grup.a-blue::before{background:linear-gradient(90deg,var(--ck-blue),var(--ck-blue-2))}
+    .ck-grup.a-blue .ck-grup-h{color:var(--ck-blue)} .ck-grup.a-blue .ck-grup-h::before{background:var(--ck-blue-2)}
+    .ck-grup.a-amber{background:linear-gradient(180deg,#fffbeb 0%,#ffffff 46%)}
+    .ck-grup.a-amber::before{background:linear-gradient(90deg,var(--ck-amber),var(--ck-amber-2))}
+    .ck-grup.a-amber .ck-grup-h{color:var(--ck-amber)} .ck-grup.a-amber .ck-grup-h::before{background:var(--ck-amber-2)}
+    .ck-grup.a-purple{background:linear-gradient(180deg,#f5f3ff 0%,#ffffff 46%)}
+    .ck-grup.a-purple::before{background:linear-gradient(90deg,var(--ck-purple),var(--ck-purple-2))}
+    .ck-grup.a-purple .ck-grup-h{color:var(--ck-purple)} .ck-grup.a-purple .ck-grup-h::before{background:var(--ck-purple-2)}
+    /* Sayilar: renkli, okunakli */
+    .ck-num{background:linear-gradient(180deg,var(--ck-teal) 0%,#0b5f59 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+      text-shadow:none;font-size:23px;letter-spacing:-.3px}
+    .ck-lbl{color:#3f565c;font-weight:700}
+    .ck-tile.iyi .ck-num{background:linear-gradient(180deg,var(--ck-green-2),var(--ck-green));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .ck-tile.bekliyor .ck-num{background:linear-gradient(180deg,var(--ck-amber-2),var(--ck-amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .ck-tile.uyari .ck-num{background:linear-gradient(180deg,var(--ck-red-2),var(--ck-red));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .ck-tile.hot{background:linear-gradient(180deg,#fef2f2,#fff);border-color:#fca5a5;box-shadow:0 0 0 2px rgba(239,68,68,.12)}
+    .ck-tile.iyi{background:linear-gradient(180deg,#f0fdf4,#fff);border-color:#86efac}
+    .ck-tile.bekliyor{background:linear-gradient(180deg,#fffbeb,#fff);border-color:#fcd34d}
+    .ck-tile.uyari{background:linear-gradient(180deg,#fff1f2,#fff);border-color:#fda4af}
+    .ck-tile.aktif{background:linear-gradient(180deg,#ecfeff,#fff);border-color:#67e8f9}
+    /* Baslik */
+    .ck-head{background:linear-gradient(100deg,#0f766e 0%,#0d9488 42%,#2563eb 100%);border:0;border-left:0}
+    .ck-head h2,.ck-head .ck-sub{color:#fff}
+    .ck-head .ck-sub{opacity:.92}
+    /* Sayi rozetleri */
+    .ck-b{background:#eef2f4}
+    .ck-b.hot{background:linear-gradient(180deg,#fecaca,#fca5a5);color:#7f1d1d}
+    .ck-b.mid{background:linear-gradient(180deg,#fde68a,#fcd34d);color:#78350f}
+    .ck-b.ok{background:linear-gradient(180deg,#bbf7d0,#86efac);color:#14532d}
+    /* Onay rozetleri */
+    .onay-b.aktif{background:linear-gradient(180deg,#a5f3fc,#67e8f9);color:#155e75}
+    .onay-b.bekliyor{background:linear-gradient(180deg,#fde68a,#fbbf24);color:#78350f}
+    .onay-b.onayli{background:linear-gradient(180deg,#bbf7d0,#4ade80);color:#14532d}
+    .onay-b.red{background:linear-gradient(180deg,#fecaca,#f87171);color:#7f1d1d}
+    /* Tedarikci kartlari */
+    .ck-ted-k{background:linear-gradient(160deg,#ffffff 0%,#f0fdfa 100%);border-left-color:var(--ck-teal)}
+    .ck-ted-k .ad{color:var(--ck-ink)}
+    .ck-ted-k.tam{background:linear-gradient(160deg,#ffffff 0%,#f0fdf4 100%);border-left-color:var(--ck-green)}
+    .ck-ted-k .say div{background:#eef4f5}
+    .ck-ted-k .say .b b{color:var(--ck-teal)} .ck-ted-k .say .a b{color:var(--ck-amber)} .ck-ted-k .say .o b{color:var(--ck-green)}
+    /* Kullanici tablosu satirlari duruma gore renklenir */
+    #ckTable tbody tr.ck-user:hover{background:#f0fdfa}
+    #ckTable tbody tr.ck-detail{background:#f8fafc}
+    .ck-fmea{border-left:3px solid var(--ck-teal-2);padding-left:8px}
+    /* Butonlar */
+    .ck-btn{background:linear-gradient(180deg,#ffffff,#eef4f5);color:#0f2b33}
+    .ck-btn:hover{background:linear-gradient(180deg,#ecfeff,#cffafe)}
+    #ckExcelBtn{background:linear-gradient(180deg,#15803d,#166534) !important;border-color:#14532d}
+    #ckExcelBtn:hover{filter:brightness(1.12)}
+    /* Pop-up basligi */
+    #ckPop-title{background:linear-gradient(100deg,#0f766e,#0d9488 45%,#6d28d9);color:#fff;border-radius:8px 8px 0 0}
+    body.ck-only{background:linear-gradient(180deg,#eef6f7 0%,#e8eef6 100%)}
     /* Yonetici modu: FMEA olusturma ekrani tamamen gizlenir, sadece kokpit/onay kalir */
     body.ck-only .toolbar,body.ck-only .layout,body.ck-only #count{display:none !important}
     body.ck-only{background:#eef3f4}
@@ -906,7 +975,8 @@ let nodes = [], selected = null;
       return isNaN(d.getTime()) ? null : d;
     }
     function fmeaMetrikleri(projects) {
-      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0 };
+      const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0,
+                  akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0 };
       const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
       (projects || []).forEach(function (p) {
         (p && p.nodes ? p.nodes : []).forEach(function (n) {
@@ -922,16 +992,22 @@ let nodes = [], selected = null;
               else m.puanlanmamis++;
               if (String(h.sinif || '').toLowerCase().indexOf('emniyet') >= 0) m.emniyet++;
               const ak = String(h.aksiyon || '').trim();
+              const faal = String(h.faaliyet || '').trim();
+              const hd = ckTarihCoz(h.hedefTarih);
               const bitti = String(h.gerceklesenTarih || '').trim();
-              if (!ak) m.aksiyonsuz++;
-              else {
-                m.aksiyonlu++;
-                if (bitti) m.aksiyonTamam++;                       // gerceklesmis (her zaman belirlenenin alt kumesi)
-                else {
-                  const hd = ckTarihCoz(h.hedefTarih);
-                  if (hd && hd.getTime() < bugun.getTime()) m.aksiyonGecikmis++;   // hedef tarih gecmis, yapilmamis
-                }
-              }
+              const sorumluVar = !!String(h.sorumlu || '').trim();
+              /* --- alan dolulugu (tanilama icin) --- */
+              if (ak) m.akAlan++;
+              if (faal) m.faalAlan++;
+              if (String(h.hedefTarih || '').trim()) m.hedefDolu++;
+              if (bitti) m.gercekDolu++;
+              if (sorumluVar) m.sorumluDolu++;
+              /* --- aksiyon var mi? "Alınan Aksiyonlar" veya "Önerilen Faaliyet" --- */
+              const faalVar = !!(ak || faal);
+              if (!faalVar) { m.aksiyonsuz++; return; }
+              m.aksiyonlu++;
+              if (bitti) m.aksiyonTamam++;                       // gerceklesmis
+              else if (hd && hd.getTime() < bugun.getTime()) m.aksiyonGecikmis++;   // hedef gecmis, yapilmamis
             });
           });
         });
@@ -946,16 +1022,16 @@ let nodes = [], selected = null;
       const p = function (x) { return (x < 10 ? '0' : '') + x; };
       return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
-    function ckGrup(baslik, icerik) {
-      return '<div class="ck-grup"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
+    function ckGrup(baslik, icerik, aksan) {
+      return '<div class="ck-grup a-' + (aksan || 'n') + '"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
     }
     // Turkce sayi bicimi: 1234 -> "1.234"
     function ckSayiFmt(v) {
       const n = Number(v) || 0;
       try { return n.toLocaleString('tr-TR'); } catch (e) { return String(n); }
     }
-    function ckKutu(lbl, val, snf) {
-      return '<div class="ck-tile ' + (snf || '') + '"><div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+    function ckKutu(lbl, val, snf, baslik) {
+      return '<div class="ck-tile ' + (snf || '') + '"' + (baslik ? ' title="' + esc(baslik) + '"' : '') + '><div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKutuT(lbl, val, snf, tip, deger, aciklama) {
       return '<div class="ck-tile ' + (snf || '') + ' tiklanir" onclick="ckTikla(\'' + tip + '\',\'' + (deger || '') + '\')" title="' + aciklama + '">' +
@@ -1197,8 +1273,13 @@ let nodes = [], selected = null;
             (p.firma ? ' · ' + p.firma : '') +
             ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></span></div><div style="white-space:nowrap">' +
             'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
-            ' &nbsp;RPN: ' + ckSayi(p.m.rpnDolu, 'ok') +
-            ' &nbsp;Belirlenen: ' + ckSayi(p.m.aksiyonlu, p.m.aksiyonlu ? 'mid' : '') +
+            ' &nbsp;Alınan aksiyon: ' + ckSayi(p.m.akAlan, p.m.akAlan ? 'mid' : '') +
+            ' &nbsp;Önerilen faaliyet: ' + ckSayi(p.m.faalAlan, p.m.faalAlan ? 'mid' : '') +
+            ' &nbsp;Sorumlu: ' + ckSayi(p.m.sorumluDolu, p.m.sorumluDolu ? 'mid' : '') +
+            ' &nbsp;Hedef tarih: ' + ckSayi(p.m.hedefDolu, p.m.hedefDolu ? 'mid' : '') +
+            ' &nbsp;Gerçekleşen: ' + ckSayi(p.m.gercekDolu, p.m.gercekDolu ? 'ok' : '') +
+            '<br>' +
+            'Aksiyon belirlenmiş: ' + ckSayi(p.m.aksiyonlu, p.m.aksiyonlu ? 'mid' : '') +
             ' &nbsp;Gerçekleşen: ' + ckSayi(p.m.aksiyonTamam, p.m.aksiyonTamam ? 'ok' : '') +
             (p.m.aksiyonGecikmis ? ' &nbsp;Gecikmiş: ' + ckSayi(p.m.aksiyonGecikmis, 'hot') : '') +
             '</div></div>';
@@ -1209,7 +1290,7 @@ let nodes = [], selected = null;
     function ckCiz(rows) {
       const t = document.getElementById('ckTiles');
       if (!t) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0, akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
       const tEd = window.__ckTedarikci || [];
@@ -1223,23 +1304,30 @@ let nodes = [], selected = null;
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
-      );
+      , 'teal');
       // --- KAPSAM: icerik (statik kartlar, pop-up acmaz) ---
       const kapsamGrubu = ckGrup('Kapsam',
         ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
         ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
-      );
+      , 'blue');
       // --- AKSIYON ---
+      const akTooltip = 'FMEA satirinda "Alınan Aksiyonlar" veya "Önerilen Faaliyet" dolu olan hata sayısı.\n' +
+        'Alan dolulukları → Alınan Aksiyonlar: ' + ckSayiFmt(S.akAlan) +
+        ' | Önerilen Faaliyet: ' + ckSayiFmt(S.faalAlan) +
+        ' | Sorumlu: ' + ckSayiFmt(S.sorumluDolu) +
+        ' | Hedef Tamamlama Tarihi: ' + ckSayiFmt(S.hedefDolu) +
+        ' | Gerçekleşen Tarih: ' + ckSayiFmt(S.gercekDolu) +
+        '\nToplam hata: ' + ckSayiFmt(S.hata);
       const aksiyonGrubu = ckGrup('Aksiyon',
-        ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '') +
-        ckKutu('Aksiyon Gerçekleşmiş', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '') +
-        ckKutu('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '')
-      );
+        ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '', akTooltip) +
+        ckKutu('Aksiyon Gerçekleşmiş', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '', 'Hedef Tamamlama Tarihi / Gerçekleşen Tarih alanlarına göre: aksiyon belirlenmiş olup "Gerçekleşen Tarih" girilmiş hata sayısı.') +
+        ckKutu('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'Aksiyonu var, "Gerçekleşen Tarih" boş ve "Hedef Tamamlama Tarihi" geçmiş olan hata sayısı.')
+      , 'amber');
       // --- DURUM: en altta, yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay bekleyenleri göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
-      );
+      , 'purple');
       t.innerHTML = ozetGrubu + kapsamGrubu + aksiyonGrubu + durumGrubu;
     }
     async function ckYenile() {
@@ -1293,7 +1381,8 @@ let nodes = [], selected = null;
             onayli: onayli, bekleyen: bekleyen, red: red, aktif: aktif, devam: devam,
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz,
-            aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam, aksiyonGecikmis: m.aksiyonGecikmis
+            aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam, aksiyonGecikmis: m.aksiyonGecikmis,
+            akAlan: m.akAlan, faalAlan: m.faalAlan, hedefDolu: m.hedefDolu, gercekDolu: m.gercekDolu, sorumluDolu: m.sorumluDolu
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
