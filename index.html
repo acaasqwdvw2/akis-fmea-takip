@@ -475,7 +475,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     /* ===== YARI BOY KOKPIT: kart alani sol ve sagdan daraltildi ===== */
     #ckPage{max-width:1010px;padding:12px 0 22px 12px;margin:0}
-    #ckTiles{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px;margin:9px 0 12px}
+    #ckTiles{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px;margin:9px auto 12px;max-width:50%}
     .ck-grup{padding:7px 8px 9px;border-radius:8px}
     .ck-grup-h{font-size:9px;letter-spacing:.6px;margin-bottom:5px;padding-left:8px}
     .ck-grup-t{grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:6px}
@@ -1466,11 +1466,11 @@ let nodes = [], selected = null;
         '<button type="button" class="ck-btn" onclick="ckAksiyonDenetimi()">🔍 Aksiyon denetimi</button>' +
         '<span style="font-size:11px">Satırı açıp FMEA\'ları işaretle; her dosya tüm sayfaları içerir.</span>' +
         '</div>' +
-        '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th><th>İşlem</th>' +
+        '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th>' +
         '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th><th>Son Guncelleme</th></tr></thead><tbody>' +
         ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
           const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="10"><div class="ck-in"></div></td></tr>';
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="9"><div class="ck-in"></div></td></tr>';
         }).join('') + '</tbody></table>';
     }
     function ckOnayHtml() {
@@ -1519,7 +1519,7 @@ let nodes = [], selected = null;
         '<td>' + nameFromEmail(r.email) + (r.admin ? ' <span class="ck-b ok">admin</span>' : '') + (r.onay ? '' : ' <span class="ck-b mid">hesap onay bekliyor</span>') + '</td>' +
         '<td>' + r.fmea + '</td>' +
         '<td>' + ckDurumHucre(r) + '</td>' +
-        '<td>' + r.proses + '</td><td>' + r.islem + '</td>' +
+        '<td>' + r.islem + '</td>' +
         '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
         '<td>' + ckSayi(r.aksiyonlu, r.aksiyonlu ? 'mid' : '') + '</td>' +
         '<td>' + ckSayi(r.aksiyonTamam, r.aksiyonTamam ? 'ok' : '') + '</td>' +
