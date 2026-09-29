@@ -379,10 +379,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-grup-h{font-size:10px;font-weight:800;letter-spacing:.8px;color:#7a8d92;
       text-transform:uppercase;margin-bottom:7px}
     .ck-grup-t{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
-    /* ozet kutusu (ilk kutu daha vurgulu) */
-    #ckTiles .ck-tile.buyuk{background:#1f5f6b;border-color:#1f5f6b}
-    #ckTiles .ck-tile.buyuk .ck-num{color:#fff;font-size:30px}
-    #ckTiles .ck-tile.buyuk .ck-lbl{color:#cfe6ea;font-weight:700}
+    /* Tüm kartlar aynı: ozel "buyuk" vurgusu kaldirildi */
     /* TEDARIKCI KARTLARI: pop-up icinde kart seklinde gosterilir */
     .ck-ted-kartlar{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
     .ck-ted-k{background:#fbfdfd;border:1px solid #d7e5e8;border-left:4px solid #1f5f6b;border-radius:10px;
@@ -1538,7 +1535,7 @@ let nodes = [], selected = null;
       if (!r) return;
       const liste = ckFiltre === 'devam'
         ? r.projler.filter(function (p) { return p.durum !== 'onayli'; })
-        : (ckFiltre ? r.projler.filter(function (p) { return p.durum === ckFiltre; }) : r.projler);
+        : (ckFiltre ? r.projler.filter(function (p) { return p.durum === (ckFiltre === 'bekleyen' ? 'bekliyor' : ckFiltre); }) : r.projler);
       if (!liste.length) { g.querySelector('.ck-in').innerHTML = '<span class="ck-none">Bu kullanıcıda seçili filtreye uyan FMEA yok.</span>'; }
       else {
         g.querySelector('.ck-in').innerHTML = liste.map(function (p) {
@@ -1577,7 +1574,7 @@ let nodes = [], selected = null;
       // --- OZET: ustteki 4 ana sayi (tedarikci sayimi benzersiz firma adina gore) ---
       // Kartlar tiklandiginda icerik pop-up pencerede acilir (sayfa altina degil).
       const ozetGrubu = ckGrup('Özet',
-        '<div class="ck-tile buyuk tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
+        '<div class="ck-tile tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
           '<div class="ck-ico">' + ckIkon('Tedarikçi') + '</div><div class="ck-num" data-hedef="' + (Number(tSayi) || 0) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
@@ -1636,7 +1633,7 @@ let nodes = [], selected = null;
           let onayli = 0, bekleyen = 0, red = 0;
           projler.forEach(function (p) {
             const dd = fmeaOnayDurumu(p);
-            if (dd === 'onayli') onayli++; else if (dd === 'bekleyen') bekleyen++; else if (dd === 'red') red++;
+            if (dd === 'onayli') onayli++; else if (dd === 'bekliyor') bekleyen++; else if (dd === 'red') red++;
           });
           const aktif = Math.max(0, projler.length - onayli - bekleyen - red);
           const devam = Math.max(0, projler.length - onayli);
@@ -1651,7 +1648,7 @@ let nodes = [], selected = null;
             t.fmea++;
             const td = fmeaOnayDurumu(p);
             if (td === 'onayli') t.onayli++;
-            else if (td === 'bekleyen') { t.bekleyen++; t.devam++; }
+            else if (td === 'bekliyor') { t.bekleyen++; t.devam++; }
             else if (td === 'red') { t.red++; t.devam++; }
             else t.devam++;
           });
