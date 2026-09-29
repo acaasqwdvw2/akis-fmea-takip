@@ -265,9 +265,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 #authCard input{width:100%;box-sizing:border-box;border:1px solid #cbd7da;border-radius:7px;padding:10px 12px;font-size:15px;font-family:inherit}
 #authCard .authBtns{display:flex;gap:8px;margin-top:16px}
 #authCard button{flex:1;border:0;border-radius:7px;padding:11px 12px;cursor:pointer;font-weight:700;font-size:14px;color:#fff}
-#authCard .btnLogin{background:#3e8f8d}
-#authCard .btnSignup{background:#3a7ca5}
-#authCard button:hover{filter:brightness(.95)}
+    #authCard .btnLogin{background:#3e8f8d}
+    #authCard .btnSignup{background:#3a7ca5}
+    #authCard button:hover{filter:brightness(.95)}
+    #authCard .authSwitch{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:12px;
+      font-size:12.5px;color:#5a6b70;border-top:1px solid #e8eff0;padding-top:12px}
+    #authCard .authSwitch a{color:#3a7ca5;font-weight:700;text-decoration:none;border-bottom:1px dashed #3a7ca5}
+    #authCard .authSwitch a:hover{color:#2c5f80}
+    #authCard .pwHint{font-size:11.5px;font-weight:700;margin-top:5px;min-height:15px;color:#5a6b70}
+    #authCard .pwHint.no{color:#b00020}
+    #authCard .pwHint.ok{color:#2e7d32}
+    #authCard input.pwHatali{border-color:#d9534f;background:#fff6f5}
+    #authCard input.pwDogru{border-color:#5cb85c;background:#f4fbf4}
 #authMsg{font-size:13px;margin-top:12px;min-height:18px;color:#b00020}
 #authMsg.ok{color:#2e7d32}
     #userBar{display:flex;align-items:center;justify-content:flex-end;font-size:12px;color:#5a6b70}
@@ -281,16 +290,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <body>
   <div id="authScreen">
     <div id="authCard">
-      <h2>Proses Akış &amp; FMEA Girişi</h2>
-      <p class="sub">Hesabınızla giriş yapın. İlk kez kullanıyorsanız "Kayıt Ol" ile hesap oluşturun.</p>
+      <h2 id="authBaslik">Proses Akış &amp; FMEA Girişi</h2>
+      <p class="sub" id="authAlt">Hesabınızla giriş yapın.</p>
       <label>Kullanıcı adı</label>
-      <input id="authName" type="text" placeholder="Kullanıcı adın (örn. ahmet)" autocomplete="username" maxlength="40">
+      <input id="authName" type="text" placeholder="Kullanıcı adın (örn. ahmet)" autocomplete="username" maxlength="40" oninput="authTemizle()">
       <label>Şifre</label>
-      <input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password">
-      <div class="authBtns">
-        <button class="btnLogin" onclick="doLogin()">Giriş Yap</button>
-        <button class="btnSignup" onclick="doSignup()">Kayıt Ol</button>
+      <input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password" oninput="authTemizle()">
+      <div id="authTekrarKutu" style="display:none">
+        <label>Şifre (Tekrar)</label>
+        <input id="authPass2" type="password" placeholder="Şifreyi tekrar girin" autocomplete="new-password" oninput="authTekrarKontrol()">
+        <div id="authTekrarYazi" class="pwHint"></div>
       </div>
+      <div class="authBtns">
+        <button class="btnLogin" id="authBtnGiris" onclick="doLogin()">Giriş Yap</button>
+        <button class="btnSignup" id="authBtnKayit" onclick="doSignup()">Kayıt Ol</button>
+      </div>
+      <div class="authSwitch"><span id="authSwitchYazi"></span><a id="authSwitchLink" href="#" onclick="authModDegistir();return false"></a></div>
       <div id="authMsg"></div>
     </div>
   </div>
@@ -662,6 +677,50 @@ let nodes = [], selected = null;
       if (el) { el.textContent = t; el.className = ok ? 'ok' : ''; }
     }
 
+    /* ---- GIRIS / KAYIT MODLARI ---- */
+    let authMod = 'giris';
+    function authModDegistir() {
+      authMod = (authMod === 'giris') ? 'kayit' : 'giris';
+      authModUygula();
+    }
+    function authModUygula() {
+      const kayit = authMod === 'kayit';
+      const b = document.getElementById('authBaslik');
+      const alt = document.getElementById('authAlt');
+      const tekrar = document.getElementById('authTekrarKutu');
+      const gYazi = document.getElementById('authSwitchYazi');
+      const gLink = document.getElementById('authSwitchLink');
+      const p1 = document.getElementById('authPass');
+      const p2 = document.getElementById('authPass2');
+      if (b) b.textContent = kayit ? 'Yeni Hesap Oluştur' : 'Proses Akış & FMEA Girişi';
+      if (alt) alt.textContent = kayit
+        ? 'Kayıt olmak için kullanıcı adı ve şifre belirleyin. Şifreyi iki kez girin.'
+        : 'Hesabınızla giriş yapın.';
+      if (tekrar) tekrar.style.display = kayit ? 'block' : 'none';
+      if (p1) { p1.setAttribute('autocomplete', kayit ? 'new-password' : 'current-password'); p1.placeholder = kayit ? 'Yeni şifreniz (en az 6 karakter)' : '••••••••'; }
+      if (p2) { p2.value = ''; p2.className = ''; }
+      const y = document.getElementById('authTekrarYazi');
+      if (y) { y.textContent = ''; y.className = 'pwHint'; }
+      if (gYazi) gYazi.textContent = kayit ? 'Zaten hesabınız var mı?' : 'Hesabınız yok mu?';
+      if (gLink) gLink.textContent = kayit ? 'Giriş yapın' : 'Kayıt olun';
+      authMsgTxt('');
+    }
+    function authTemizle() {
+      const el = document.getElementById('authMsg');
+      if (el && el.textContent && el.className !== 'ok') { el.textContent = ''; }
+    }
+    function authTekrarKontrol() {
+      const p1 = document.getElementById('authPass'), p2 = document.getElementById('authPass2');
+      const y = document.getElementById('authTekrarYazi');
+      if (!p1 || !p2 || !y) return true;
+      const a = p1.value || '', b = p2.value || '';
+      p1.className = ''; p2.className = '';
+      if (!b) { y.textContent = ''; y.className = 'pwHint'; return true; }
+      if (a === b) { y.textContent = '✓ Şifreler eşleşiyor'; y.className = 'pwHint ok'; p2.className = 'pwDogru'; return true; }
+      y.textContent = '✗ Şifreler eşleşmiyor'; y.className = 'pwHint no'; p2.className = 'pwHatali';
+      return false;
+    }
+
     async function doLogin() {
       const email = nameToEmail((document.getElementById('authName') || {}).value);
       const pass = (document.getElementById('authPass') || {}).value || '';
@@ -674,10 +733,17 @@ let nodes = [], selected = null;
     }
 
     async function doSignup() {
+      if (authMod !== 'kayit') { authModDegistir(); return; }
       const email = nameToEmail((document.getElementById('authName') || {}).value);
       const pass = (document.getElementById('authPass') || {}).value || '';
-      if (!email || !pass) { authMsgTxt('Kullanıcı adı ve şifre girin.'); return; }
-      if (pass.length < 6) { authMsgTxt('Şifre en az 6 karakter olmalı.'); return; }
+      const pass2 = (document.getElementById('authPass2') || {}).value || '';
+      const p1 = document.getElementById('authPass'), p2 = document.getElementById('authPass2');
+      if (p1) p1.className = ''; if (p2) p2.className = '';
+      if (!email) { authMsgTxt('Kullanıcı adı girin.'); return; }
+      if (!pass) { authMsgTxt('Şifre girin.'); return; }
+      if (pass.length < 6) { authMsgTxt('Şifre en az 6 karakter olmalı.'); if (p1) p1.className = 'pwHatali'; return; }
+      if (!pass2) { authMsgTxt('Şifreyi ikinci kez girin.'); if (p2) p2.className = 'pwHatali'; return; }
+      if (pass !== pass2) { authMsgTxt('Şifreler eşleşmiyor.'); authTekrarKontrol(); return; }
       authMsgTxt('Hesap oluşturuluyor…');
       if (!initSupabase()) { authMsgTxt('Supabase yapılandırılmadı. (BURAYA_PROJE_URL ve BURAYA_ANON_KEY doldurulmalı.)'); return; }
       const { data, error } = await sbClient.auth.signUp({ email, password: pass });
@@ -897,7 +963,7 @@ let nodes = [], selected = null;
       if (!p) { ckBildir('Önce bir tedarikçi seçin veya yeni FMEA oluşturun.', 'uyari'); return; }
       const d = fmeaOnayDurumu(p);
       if (d === 'onayli') { ckBildir('Bu FMEA zaten onaylanmış.', 'uyari'); return; }
-      const m = fmeaMetrikleri([p]);
+      const m = fmeaMetrikleri([p], kp);
       if (!m.proses && !m.islem && !m.hata) { ckBildir('Göndermek için FMEA içeriği girilmeli (proses/işlem/hata).', 'uyari'); return; }
       if (!confirm('"' + ((p.fmeaMeta && p.fmeaMeta.firma) || p.name) + '" FMEA\'sı yönetici onayına gönderilsin mi?')) return;
       p.onayDurumu = 'bekliyor';
@@ -974,9 +1040,9 @@ let nodes = [], selected = null;
       const d = new Date(s);
       return isNaN(d.getTime()) ? null : d;
     }
-    function fmeaMetrikleri(projects) {
+    function fmeaMetrikleri(projects, kpEdits) {
       const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0,
-                  akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0 };
+                  akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
       const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
       (projects || []).forEach(function (p) {
         (p && p.nodes ? p.nodes : []).forEach(function (n) {
@@ -991,11 +1057,11 @@ let nodes = [], selected = null;
               if (r > 0) { m.rpnDolu++; if (r >= 200) m.kritik++; else if (r >= 100) m.yuksek++; }
               else m.puanlanmamis++;
               if (String(h.sinif || '').toLowerCase().indexOf('emniyet') >= 0) m.emniyet++;
-              const ak = String(h.aksiyon || '').trim();
-              const faal = String(h.faaliyet || '').trim();
-              const hd = ckTarihCoz(h.hedefTarih);
-              const bitti = String(h.gerceklesenTarih || '').trim();
-              const sorumluVar = !!String(h.sorumlu || '').trim();
+              const ak = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
+              const faal = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
+              const hd = ckTarihCoz(ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']));
+              const bitti = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
+              const sorumluVar = !!ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']);
               /* --- alan dolulugu (tanilama icin) --- */
               if (ak) m.akAlan++;
               if (faal) m.faalAlan++;
@@ -1012,9 +1078,65 @@ let nodes = [], selected = null;
           });
         });
       });
+      /* Kontrol Plani "Reaksiyon Plani" alanlari FMEA satirinda degil, ayri depoda tutulur.
+         Aksiyonlar oraya girilmis olabilir; raporlanir (FMEA sayacina karismaz). */
+      if (kpEdits && typeof kpEdits === 'object') {
+        Object.keys(kpEdits).forEach(function (kk) {
+          const v = kpEdits[kk];
+          if (v && typeof v === 'object' && ckAlan(v, ['reaksiyon', 'reaksiyonPlani', 'aksiyon', 'alinanAksiyon'])) m.cpReaksiyon++;
+        });
+      }
       return m;
     }
     function ckSayi(n, snf) { return '<span class="ck-b ' + (snf || '') + '">' + n + '</span>'; }
+    /* FMEA satirindaki alani okur: farkli yazim/harf buyuklugu toleransli.
+       Eski kayitlarda alan adi farkli olabilir ("aksiyon" / "Aksiyon" / "alinanAksiyon" ...) */
+    function ckAlan(h, adlar) {
+      if (!h) return '';
+      for (let i = 0; i < adlar.length; i++) { const v = String(h[adlar[i]] || '').trim(); if (v) return v; }
+      const buyuk = {};
+      Object.keys(h).forEach(function (k) { buyuk[k.toLowerCase()] = k; });
+      for (let i = 0; i < adlar.length; i++) {
+        const k = buyuk[adlar[i].toLowerCase()];
+        if (k) { const v = String(h[k] || '').trim(); if (v) return v; }
+      }
+      return '';
+    }
+    /* ===== AKSIYON DENETIMI: veride gercekte hangi alanlar dolu? ===== */
+    function ckAksiyonDenetimi() {
+      const raw = window.__ckRawRows || [];
+      let govde = '';
+      raw.forEach(function (r) {
+        const d = (r && r.data) || {};
+        const m = fmeaMetrikleri(d.projects || [], d.kpEdits);
+        if (!m.hata && !m.cpReaksiyon) return;
+        /* ornek satirlar: ilk 3 hata satirinin dolu alanlari */
+        const ornek = [];
+        (((d.projects || []).flatMap(function (p) { return (p && p.nodes) || []; }))
+          .flatMap(function (n) { return (n && n.altProsesler) || []; })
+          .flatMap(function (s) { return (s && s.hatalar) || []; }))
+          .forEach(function (h) {
+            if (ornek.length >= 3) return;
+            const dolu = Object.keys(h || {}).filter(function (k) {
+              return !['tur', 'etki', 'neden', 's', 'o', 'd', 'sinif', 'onkontrol', 'tespitkontrol'].includes(k)
+                && String(h[k] || '').trim() !== '';
+            });
+            if (dolu.length) ornek.push(dolu.map(function (k) { return k + ': ' + String(h[k]); }).join(' · ').slice(0, 220));
+          });
+        govde += '<tr><td>' + esc(nameFromEmail(r.email) || r.user_id) + '</td><td>' + m.fmea + '</td>' +
+          '<td>' + m.hata + '</td><td>' + m.akAlan + '</td><td>' + m.faalAlan + '</td><td>' + m.sorumluDolu + '</td>' +
+          '<td>' + m.hedefDolu + '</td><td>' + m.gercekDolu + '</td><td>' + m.cpReaksiyon + '</td>' +
+          '<td style="font-size:11px;color:#5b7076">' + (ornek.length ? esc(ornek.join('<br>')) : '<i>dolu alan yok</i>') + '</td></tr>';
+      });
+      if (!govde) govde = '<tr><td colspan="10" class="ck-none" style="padding:10px">Hata satırı bulunan kullanıcı yok.</td></tr>';
+      ckPopAc('Aksiyon Denetimi',
+        '<p style="font-size:12px;margin:0 0 10px;color:#0f2b33">FMEA satırlarındaki aksiyon alanlarının doluluk sayıları. ' +
+        '<b>Aksiyon Belirlenmiş</b> = "Alınan Aksiyonlar" veya "Önerilen Faaliyet" dolu olan satırlar. ' +
+        '<b>KP Reaksiyon</b> = Kontrol Planı "Reaksiyon Planı" alanı dolu olan kayıtlar.</p>' +
+        '<table class="ck-table2"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Hata</th><th>Alınan Aksiyon</th>' +
+        '<th>Önerilen Faaliyet</th><th>Sorumlu</th><th>Hedef Tarih</th><th>Gerçekleşen</th><th>KP Reaksiyon</th>' +
+        '<th>Dolu alan örnekleri</th></tr></thead><tbody>' + govde + '</tbody></table>', 'denetim');
+    }
     function ckTarih(v) {
       if (!v) return '—';
       const d = new Date(v);
@@ -1191,6 +1313,7 @@ let nodes = [], selected = null;
         '<button type="button" class="ck-btn" onclick="ckExcelHepsini(1)">Tümünü seç</button>' +
         '<button type="button" class="ck-btn" onclick="ckExcelHepsini(0)">Seçimi kaldır</button>' +
         '<button type="button" class="ck-btn" id="ckExcelBtn" onclick="ckExcelIndir()" style="background:#1d6f42;color:#fff;font-weight:700">⬇ Seçilen FMEA\'ları Excel indir (<span id="ckExcelSay">0</span>)</button>' +
+        '<button type="button" class="ck-btn" onclick="ckAksiyonDenetimi()">🔍 Aksiyon denetimi</button>' +
         '<span style="font-size:11px">Satırı açıp FMEA\'ları işaretle; her dosya tüm sayfaları içerir.</span>' +
         '</div>' +
         '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th><th>İşlem</th>' +
@@ -1290,7 +1413,7 @@ let nodes = [], selected = null;
     function ckCiz(rows) {
       const t = document.getElementById('ckTiles');
       if (!t) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0, akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0, akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
       const tEd = window.__ckTedarikci || [];
@@ -1317,6 +1440,7 @@ let nodes = [], selected = null;
         ' | Sorumlu: ' + ckSayiFmt(S.sorumluDolu) +
         ' | Hedef Tamamlama Tarihi: ' + ckSayiFmt(S.hedefDolu) +
         ' | Gerçekleşen Tarih: ' + ckSayiFmt(S.gercekDolu) +
+        ' | Kontrol Planı Reaksiyon: ' + ckSayiFmt(S.cpReaksiyon) +
         '\nToplam hata: ' + ckSayiFmt(S.hata);
       const aksiyonGrubu = ckGrup('Aksiyon',
         ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '', akTooltip) +
@@ -1339,6 +1463,7 @@ let nodes = [], selected = null;
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('user_id,email,approved,is_admin,updated_at,data');
         if (error) throw error;
+        window.__ckRawRows = data || [];       // denetim ekrani icin ham veri
         const store = {};
         // BENZERSIZ TEDARIKCI SAYIMI: proje adi her kullanicida "Tedarikci 1" oldugu icin
         // firma adi (fmeaMeta.firma) esas alinir; firma yoksa kullanici+proje adi benzersiz sayilir.
@@ -1346,7 +1471,8 @@ let nodes = [], selected = null;
         const rows = (data || []).map(function (r) {
           const d = fixTrDeep(r.data) || {};           // bozuk kodlama onarilir
           const projler = (d.projects && d.projects.length) ? d.projects : [];
-          const m = fmeaMetrikleri(projler);
+          const m = fmeaMetrikleri(projler, d.kpEdits);
+          m.fmea = projler.length;
           const uid = r.user_id;
           const kisi = nameFromEmail(r.email) || '(isimsiz)';
           // onay durumlarini say
@@ -1382,7 +1508,7 @@ let nodes = [], selected = null;
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz,
             aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam, aksiyonGecikmis: m.aksiyonGecikmis,
-            akAlan: m.akAlan, faalAlan: m.faalAlan, hedefDolu: m.hedefDolu, gercekDolu: m.gercekDolu, sorumluDolu: m.sorumluDolu
+            akAlan: m.akAlan, faalAlan: m.faalAlan, hedefDolu: m.hedefDolu, gercekDolu: m.gercekDolu, sorumluDolu: m.sorumluDolu, cpReaksiyon: m.cpReaksiyon
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
@@ -1432,7 +1558,8 @@ let nodes = [], selected = null;
           const projler = (d.projects && d.projects.length) ? d.projects : [];
           projler.forEach(function (p) {
             if (fmeaOnayDurumu(p) !== 'bekliyor') return;
-            const m = fmeaMetrikleri([p]);
+            const m = fmeaMetrikleri([p], d.kpEdits);
+            m.fmea = 1;
             liste.push({
               uid: r.user_id, kisi: nameFromEmail(r.email) || '(isimsiz)',
               ad: (p && p.name) || '(isimsiz)', firma: (p && p.fmeaMeta && p.fmeaMeta.firma) || '',
@@ -1780,6 +1907,7 @@ let nodes = [], selected = null;
       }
       bindAuth();
     })();
+    try { authModUygula(); } catch (e) {}
     // ===== Supabase katmanı sonu =====
 
     function setMeta(k, v) {
