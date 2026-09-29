@@ -795,9 +795,10 @@ let nodes = [], selected = null;
     }
 
     async function syncCloudNow() {
+      if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
       cloudTimer = false;
-      if (!sbClient || !cloudUser) return;
-      if (!cloudDirty) return;
+      if (!sbClient || !cloudUser) return false;
+      if (!cloudDirty) return true;
       cloudDirty = false;
       try {
         // YEREL BOSSA BULUTU EZME: baska bir cihazda veri varken buradaki bos durum
@@ -811,13 +812,14 @@ let nodes = [], selected = null;
             .maybeSingle();
           const cd = mevcut && mevcut.data ? mevcut.data : null;
           const bulutDolu = cd && ((cd.projects && cd.projects.length > 0) || (cd.nodes && cd.nodes.length > 0));
-          if (!rErr && bulutDolu) { cloudDirty = false; return; }
+          if (!rErr && bulutDolu) { cloudDirty = false; return true; }
         }
         const { error } = await sbClient
           .from('fmea_user_data')
           .upsert({ user_id: cloudUser.id, data: cloudPayload(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (error) { cloudDirty = true; }
-      } catch (e) { cloudDirty = true; }
+        if (error) { cloudDirty = true; console.error('BULUT KAYDI BASARISIZ:', error.message || error); return false; }
+        return true;
+      } catch (e) { cloudDirty = true; console.error('BULUT KAYDI HATASI:', e && e.message); return false; }
     }
 
     // ===== Yönetici onayı yardımcıları =====
@@ -957,15 +959,18 @@ let nodes = [], selected = null;
       else if (d === 'red') { b.disabled = false; b.textContent = 'Yeniden Onaya Gönder'; b.title = 'Önceki onay reddedildi, tekrar gönderebilirsiniz'; }
       else { b.disabled = false; b.textContent = 'Onaya Gönder'; b.title = 'Tamamladığınız FMEA\'yı yönetici onayına gönderin'; }
     }
-    function onayaGonder() {
-      if (cloudIsAdmin || !cloudApproved) return;
+    async function onayaGonder() {
+      if (cloudIsAdmin) { ckBildir('Yönetici hesabı onay gönderebilir.', 'uyari'); return; }
+      if (!cloudApproved) { ckBildir('Hesabınız henüz onaylanmadı.', 'uyari'); return; }
       const p = aktifProje();
-      if (!p) { ckBildir('Önce bir tedarikçi seçin veya yeni FMEA oluşturun.', 'uyari'); return; }
+      if (!p) { ckBildir('Önce bir tedarikçi FMEA\'sı oluşturun veya listeden seçin.', 'uyari'); return; }
       const d = fmeaOnayDurumu(p);
+      if (d === 'bekliyor') { ckBildir('Bu FMEA zaten onay bekliyor.', 'uyari'); return; }
       if (d === 'onayli') { ckBildir('Bu FMEA zaten onaylanmış.', 'uyari'); return; }
       const m = fmeaMetrikleri([p], kp);
       if (!m.proses && !m.islem && !m.hata) { ckBildir('Göndermek için FMEA içeriği girilmeli (proses/işlem/hata).', 'uyari'); return; }
-      if (!confirm('"' + ((p.fmeaMeta && p.fmeaMeta.firma) || p.name) + '" FMEA\'sı yönetici onayına gönderilsin mi?')) return;
+      const ad = String((p.fmeaMeta && p.fmeaMeta.firma) || p.name || '');
+      if (typeof confirm === 'function' && !confirm('"' + ad + '" FMEA\'sı yönetici onayına gönderilsin mi?')) return;
       p.onayDurumu = 'bekliyor';
       p.onayZaman = Date.now();
       p.onayNot = '';
@@ -973,8 +978,10 @@ let nodes = [], selected = null;
       cloudDirty = true;
       save();
       paintOnayBtn();
-      refreshProjectSel();
-      ckBildir('FMEA onaya gönderildi. Durumu "Onay bekliyor" olarak değişti.', 'oldu');
+      ckBildir('"' + ad + '" FMEA\'sı gönderiliyor…');
+      const ok = await syncCloudNow();
+      if (ok) ckBildir('FMEA onaya gönderildi. Durumu "Onay bekliyor" olarak değişti.', 'oldu');
+      else ckBildir('Gönderilemedi: veri buluta kaydedilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.', 'hata');
     }
 
     // ===== Yönetici: onay bekleyenleri yönet =====
@@ -1088,6 +1095,22 @@ let nodes = [], selected = null;
       }
       return m;
     }
+    /* ===== TEDARIKCI ADLANDIRMA =====
+       Kullanici FMEA'yi "Firma Adı / Sektör Adı" alanindan isimlendirir. Eski kayitlarda
+       proje adi otomatik "Tedarikci 1" gibi uretilmis olabilir; o zaman kullanici adina dusulur. */
+    function ckJenerikAd(ad) {
+      const s = String(ad || '').trim();
+      if (!s) return true;
+      if (/^\d+$/.test(s)) return true;
+      return /^(tedarik(ç|c)i?|tedarikci|tedarik|supplier|firma|supplier|ted)\s*[-_]?\s*\d*\s*$/i.test(s);
+    }
+    function ckTedAdi(firma, projeAd, kisi) {
+      const f = String(firma || '').trim();
+      const p = String(projeAd || '').trim();
+      if (f && !ckJenerikAd(f)) return f;
+      if (p && !ckJenerikAd(p)) return p;
+      return String(kisi || '').trim() || '(isimsiz)';
+    }
     function ckSayi(n, snf) { return '<span class="ck-b ' + (snf || '') + '">' + n + '</span>'; }
     /* FMEA satirindaki alani okur: farkli yazim/harf buyuklugu toleransli.
        Eski kayitlarda alan adi farkli olabilir ("aksiyon" / "Aksiyon" / "alinanAksiyon" ...) */
@@ -1188,7 +1211,8 @@ let nodes = [], selected = null;
         const tam = t.fmea > 0 && t.onayli === t.fmea;
         return '<div class="ck-ted-k' + (tam ? ' tam' : '') + '">' +
           '<div class="ad" title="' + esc(t.ad) + '">' + esc(t.ad) + '</div>' +
-          '<div class="kisi" title="' + esc(t.kisi) + '">' + esc(t.kisi) + '</div>' +
+          '<div class="kisi" title="' + esc(t.kisi) + '">Kullanıcı: ' + esc(t.kisi) +
+            (Object.keys(t.projeAdleri || {}).length ? ' · FMEA adları: ' + esc(Object.keys(t.projeAdleri).join(', ')) : '') + '</div>' +
           '<div class="say">' +
             '<div class="b"><b>' + ckSayiFmt(t.fmea) + '</b><i>Toplam FMEA</i></div>' +
             '<div class="a"><b>' + ckSayiFmt(t.devam) + '</b><i>Aktif FMEA</i></div>' +
@@ -1392,8 +1416,8 @@ let nodes = [], selected = null;
           const anahtar = uid + '|' + (p._i);
           return '<div class="ck-fmea"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
             '<input type="checkbox" class="ck-xl" data-anahtar="' + anahtar + '"' + (ckExcelSecim[anahtar] ? ' checked' : '') + '>' +
-            '<span><b>' + p.ad + onayEtiket(p.durum) + '</b><div class="ck-sub">' + p.tip +
-            (p.firma ? ' · ' + p.firma : '') +
+            '<span><b>' + esc(ckTedAdi(p.firma, p.ad, r.kisi)) + onayEtiket(p.durum) + '</b><div class="ck-sub">' + p.tip +
+            ' · ' + esc(p.ad) +
             ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></span></div><div style="white-space:nowrap">' +
             'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
             ' &nbsp;Alınan aksiyon: ' + ckSayi(p.m.akAlan, p.m.akAlan ? 'mid' : '') +
@@ -1430,7 +1454,7 @@ let nodes = [], selected = null;
       , 'teal');
       // --- KAPSAM: icerik (statik kartlar, pop-up acmaz) ---
       const kapsamGrubu = ckGrup('Kapsam',
-        ckKutu('Proses', S.proses) + ckKutu('İşlem', S.islem) +
+        ckKutu('Proses', S.islem, '') +
         ckKutu('Hata', S.hata, S.hata ? 'uyari' : '')
       , 'blue');
       // --- AKSIYON ---
@@ -1485,9 +1509,12 @@ let nodes = [], selected = null;
           const devam = Math.max(0, projler.length - onayli);
           projler.forEach(function (p) {
             const firma = String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
-            const anahtar = firma ? 'f::' + firma.toLowerCase() : 'n::' + kisi + '::' + ((p && p.name) || '');
-            if (!tmap[anahtar]) tmap[anahtar] = { ad: firma || ((p && p.name) || '(isimsiz)'), kisi: kisi, fmea: 0, onayli: 0, devam: 0, bekleyen: 0, red: 0 };
+            const projeAd = String((p && p.name) || '').trim();
+            const gorunen = ckTedAdi(firma, projeAd, kisi);
+            const anahtar = gorunen.toLowerCase();
+            if (!tmap[anahtar]) tmap[anahtar] = { ad: gorunen, kisi: kisi, projeAdleri: {}, fmea: 0, onayli: 0, devam: 0, bekleyen: 0, red: 0 };
             const t = tmap[anahtar];
+            if (projeAd && !ckJenerikAd(projeAd)) t.projeAdleri[projeAd] = 1;
             t.fmea++;
             const td = fmeaOnayDurumu(p);
             if (td === 'onayli') t.onayli++;
