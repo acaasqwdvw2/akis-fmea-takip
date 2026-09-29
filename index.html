@@ -472,6 +472,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* Pop-up basligi */
     #ckPop-title{background:linear-gradient(100deg,#0f766e,#0d9488 45%,#6d28d9);color:#fff;border-radius:8px 8px 0 0}
     body.ck-only{background:linear-gradient(180deg,#eef6f7 0%,#e8eef6 100%)}
+
+    /* ===== YARI BOY KOKPIT: kart alani sol ve sagdan daraltildi ===== */
+    #ckPage{max-width:1010px;padding:12px 0 22px 12px;margin:0}
+    #ckTiles{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px;margin:9px 0 12px}
+    .ck-grup{padding:7px 8px 9px;border-radius:8px}
+    .ck-grup-h{font-size:9px;letter-spacing:.6px;margin-bottom:5px;padding-left:8px}
+    .ck-grup-t{grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:6px}
+    .ck-tile{padding:6px 7px;border-radius:6px}
+    .ck-ico{font-size:12px;line-height:1;margin-bottom:1px;opacity:.92}
+    .ck-ad-btn{border:1px solid #cbd5e1;background:#fff;border-radius:5px;cursor:pointer;padding:0 4px;font-size:11px;line-height:16px;color:#0f766e;vertical-align:1px}
+    .ck-ad-btn:hover{background:#0f766e;color:#fff}
+    .ck-tile.tiklanir:hover{transform:none;box-shadow:0 3px 9px rgba(0,0,0,.12)}
+    .ck-tile.aktif{box-shadow:0 0 0 1px rgba(31,95,107,.18)}
+    .ck-num{font-size:17px;line-height:1.1;letter-spacing:-.2px}
+    .ck-lbl{font-size:9.5px;margin-top:2px;letter-spacing:0}
+    .ck-b{padding:0 5px;border-radius:8px;font-size:10.5px}
+    .ck-head{padding:9px 12px;border-radius:8px;gap:8px}
+    .ck-head h2{font-size:16px}
+    .ck-head .ck-sub{font-size:10.5px}
+    .ck-head button{padding:6px 11px;font-size:12px}
     /* Yonetici modu: FMEA olusturma ekrani tamamen gizlenir, sadece kokpit/onay kalir */
     body.ck-only .toolbar,body.ck-only .layout,body.ck-only #count{display:none !important}
     body.ck-only{background:#eef3f4}
@@ -624,6 +644,13 @@ let nodes = [], selected = null;
       currentKey = 'proses_fmea_current_v31' + s;
     }
     function kpKey() { return KP_BASE + scopeOf(cloudUser ? cloudUser.id : null); }
+    // Kontrol Plani duzenlemelerini guvenle okur. DIKKAT: "kp" degiskeni global degil,
+    // cloudPayload() icinde yerel bir deger olarak tanimliydi; disaridan erisim
+    // ReferenceError veriyordu. Bu yuzden her zaman bu yardimci kullanilir.
+    function kpYuku() {
+      try { const v = JSON.parse(localStorage.getItem(kpKey()) || '{}'); return (v && typeof v === 'object') ? v : {}; }
+      catch (e) { return {}; }
+    }
     function nameFromEmail(e) { return String(e || '').split('@')[0] || ''; }
     function loadLocalScope() {
       try { const v = localStorage.getItem(key); nodes = v ? JSON.parse(v) : []; } catch (e) { nodes = []; }
@@ -703,6 +730,12 @@ let nodes = [], selected = null;
       if (y) { y.textContent = ''; y.className = 'pwHint'; }
       if (gYazi) gYazi.textContent = kayit ? 'Zaten hesabınız var mı?' : 'Hesabınız yok mu?';
       if (gLink) gLink.textContent = kayit ? 'Giriş yapın' : 'Kayıt olun';
+      // Giriş ekraninda sadece "Giriş Yap", kayit ekraninda sadece "Kayit Ol" gorunur.
+      // Kayit giris formunun icinden yapilmaz; ayri moda gecilir.
+      const bGiris = document.getElementById('authBtnGiris');
+      const bKayit = document.getElementById('authBtnKayit');
+      if (bGiris) bGiris.style.display = kayit ? 'none' : '';
+      if (bKayit) bKayit.style.display = kayit ? '' : 'none';
       authMsgTxt('');
     }
     function authTemizle() {
@@ -869,6 +902,7 @@ let nodes = [], selected = null;
           try { localStorage.setItem(projectsKey, JSON.stringify(d.projects)); } catch (e) {}
           projects = d.projects || [];
         }
+        ensureCurrentProject();
         if (typeof d.currentProject === 'string' && d.currentProject) {
           try { localStorage.setItem(currentKey, d.currentProject); } catch (e) {}
           currentProject = d.currentProject;
@@ -943,46 +977,69 @@ let nodes = [], selected = null;
       return '<span class="onay-b ' + x[1] + '">' + x[0] + '</span>';
     }
     function aktifProje() {
+      ensureCurrentProject();
       return projects.find(p => p.name === currentProject) || null;
     }
+    // Bulut verisi geldikten sonra secili proje tutmuyorsa ilk projeyi sec.
+    // Aksi halde "Aktif FMEA" bulunamaz, proje menusu "-- Tedarikci Secin --" der
+    // ve Onaya Gonder butonu calismaz.
+    function ensureCurrentProject() {
+      if (!projects.length) { currentProject = ''; return; }
+      const tutuyor = projects.some(p => p && p.name === currentProject);
+      if (tutuyor) return;
+      const bekleyen = projects.find(p => fmeaOnayDurumu(p) === 'bekliyor');
+      const sonraki = (bekleyen || projects[0]).name || '';
+      currentProject = sonraki;
+      try { localStorage.setItem(currentKey, currentProject); } catch (e) {}
+    }
     // Araç çubuğundaki butonu mevcut FMEA'nın durumuna göre günceller
+    // NOT: buton ASLA devre disi birakilmaz. Devre disi buton Chrome'da tiklanma
+    // olayi uretmez, kullanici ne olup bittigini ogrenemez; her durumda aciklamali mesaj verilir.
     function paintOnayBtn() {
       const b = document.getElementById('onayGonderBtn');
       if (!b) return;
+      b.disabled = false;
       if (cloudIsAdmin || !cloudApproved) { b.style.display = 'none'; return; }
       b.style.display = 'inline-block';
       const p = aktifProje();
-      if (!p) { b.disabled = true; b.textContent = 'Onaya Gönder'; b.title = 'Önce bir tedarikçi FMEA\'sı oluşturun'; return; }
+      if (!p) { b.textContent = 'Onaya Gönder'; b.title = 'Önce bir tedarikçi FMEA\'sı oluşturun'; return; }
       const d = fmeaOnayDurumu(p);
-      if (d === 'bekliyor') { b.disabled = true; b.textContent = 'Onay bekliyor'; b.title = 'FMEA yönetici onayına gönderildi'; }
-      else if (d === 'onayli') { b.disabled = true; b.textContent = 'Onaylandı'; b.title = 'Bu FMEA yönetici tarafından onaylandı'; }
-      else if (d === 'red') { b.disabled = false; b.textContent = 'Yeniden Onaya Gönder'; b.title = 'Önceki onay reddedildi, tekrar gönderebilirsiniz'; }
-      else { b.disabled = false; b.textContent = 'Onaya Gönder'; b.title = 'Tamamladığınız FMEA\'yı yönetici onayına gönderin'; }
+      if (d === 'bekliyor') { b.textContent = 'Onay bekliyor'; b.title = 'Bu FMEA yönetici onayına gönderilmiş'; }
+      else if (d === 'onayli') { b.textContent = 'Onaylandı'; b.title = 'Bu FMEA yönetici tarafından onaylandı'; }
+      else if (d === 'red') { b.textContent = 'Yeniden Onaya Gönder'; b.title = 'Önceki onay reddedildi, tekrar gönderebilirsiniz'; }
+      else { b.textContent = 'Onaya Gönder'; b.title = 'Tamamladığınız FMEA\'yı yönetici onayına gönderin'; }
     }
     async function onayaGonder() {
-      if (cloudIsAdmin) { ckBildir('Yönetici hesabı onay gönderebilir.', 'uyari'); return; }
-      if (!cloudApproved) { ckBildir('Hesabınız henüz onaylanmadı.', 'uyari'); return; }
-      const p = aktifProje();
-      if (!p) { ckBildir('Önce bir tedarikçi FMEA\'sı oluşturun veya listeden seçin.', 'uyari'); return; }
-      const d = fmeaOnayDurumu(p);
-      if (d === 'bekliyor') { ckBildir('Bu FMEA zaten onay bekliyor.', 'uyari'); return; }
-      if (d === 'onayli') { ckBildir('Bu FMEA zaten onaylanmış.', 'uyari'); return; }
-      const m = fmeaMetrikleri([p], kp);
-      if (!m.proses && !m.islem && !m.hata) { ckBildir('Göndermek için FMEA içeriği girilmeli (proses/işlem/hata).', 'uyari'); return; }
-      const ad = String((p.fmeaMeta && p.fmeaMeta.firma) || p.name || '');
-      if (typeof confirm === 'function' && !confirm('"' + ad + '" FMEA\'sı yönetici onayına gönderilsin mi?')) return;
-      p.onayDurumu = 'bekliyor';
-      p.onayZaman = Date.now();
-      p.onayNot = '';
-      try { localStorage.setItem(projectsKey, JSON.stringify(projects)); } catch (e) {}
-      cloudDirty = true;
-      save();
-      paintOnayBtn();
-      ckBildir('"' + ad + '" FMEA\'sı gönderiliyor…');
-      const ok = await syncCloudNow();
-      if (ok) ckBildir('FMEA onaya gönderildi. Durumu "Onay bekliyor" olarak değişti.', 'oldu');
-      else ckBildir('Gönderilemedi: veri buluta kaydedilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.', 'hata');
+      try {
+        if (cloudIsAdmin) { ckBildir('Yönetici hesabı onay gönderebilir.', 'uyari'); return; }
+        if (!cloudApproved) { ckBildir('Hesabınız henüz onaylanmadı.', 'uyari'); return; }
+        const p = aktifProje();
+        if (!p) { ckBildir('Önce bir tedarikçi FMEA\'sı oluşturun veya listeden seçin.', 'uyari'); return; }
+        const ad = String((p.fmeaMeta && p.fmeaMeta.firma) || p.name || '');
+        const d = fmeaOnayDurumu(p);
+        if (d === 'bekliyor') { ckBildir('"' + ad + '" FMEA\'sı zaten onay bekliyor. Yönetici onaylayınca bildirim görünecek.', 'uyari'); return; }
+        if (d === 'onayli') { ckBildir('"' + ad + '" FMEA\'sı zaten onaylanmış.', 'uyari'); return; }
+        const m = fmeaMetrikleri([p], kpYuku());
+        if (!m.proses && !m.islem && !m.hata) { ckBildir('"' + ad + '" için FMEA içeriği girilmemiş (proses/işlem/hata boş). Önce FMEA tablosunu doldurun.', 'uyari'); return; }
+        if (typeof confirm === 'function' && !confirm('"' + ad + '" FMEA\'sı yönetici onayına gönderilsin mi?')) {
+          ckBildir('Gönderim iptal edildi.', 'uyari'); return;
+        }
+        p.onayDurumu = 'bekliyor';
+        p.onayZaman = Date.now();
+        p.onayNot = '';
+        try { localStorage.setItem(projectsKey, JSON.stringify(projects)); } catch (e) {}
+        cloudDirty = true;
+        save();
+        paintOnayBtn();
+        ckBildir('"' + ad + '" FMEA\'sı gönderiliyor…');
+        const ok = await syncCloudNow();
+        if (ok) ckBildir('"' + ad + '" FMEA\'sı yönetici onayına gönderildi.', 'oldu');
+        else ckBildir('Gönderilemedi: veri buluta kaydedilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.', 'hata');
+      } catch (e) {
+        ckBildir('Beklenmeyen hata: ' + (e && e.message ? e.message : e), 'hata');
+      }
     }
+    window.onayaGonder = onayaGonder;
 
     // ===== Yönetici: onay bekleyenleri yönet =====
     // Alt bolum iki sabit sayfa arasinda degisir (acilan pencere yok)
@@ -1109,8 +1166,30 @@ let nodes = [], selected = null;
       const p = String(projeAd || '').trim();
       if (f && !ckJenerikAd(f)) return f;
       if (p && !ckJenerikAd(p)) return p;
-      return String(kisi || '').trim() || '(isimsiz)';
+      return '(tedarikçi adı girilmemiş)';
     }
+    /* ===== TEDARIKCI ADI DUZENLEME (yonetici) =====
+       Kullanici "Firma Adı" alanini bos birakmissa tedarikci adi olusmaz. Yonetici buradan
+       yazar ve kayit kalici olarak kullanici satirina yazilir. */
+    window.ckTedAdiDegistir = async function (uid, projeNo, eskiAd) {
+      if (!cloudIsAdmin) { ckBildir('Sadece yönetici tedarikçi adı değiştirebilir.', 'uyari'); return; }
+      const yeni = (prompt('Tedarikçi adı:\n(Firma Adı / Sektör Adı)', eskiAd || '') || '').trim();
+      if (!yeni) { ckBildir('İşlem iptal edildi.', 'uyari'); return; }
+      if (yeni === eskiAd) return;
+      const satir = (window.__ckRawRows || []).find(function (r) { return r.user_id === uid; });
+      if (!satir) { ckBildir('Kullanıcı kaydı bulunamadı.', 'hata'); return; }
+      const d = fixTrDeep(satir.data) || {};
+      const proj = (d.projects || [])[projeNo];
+      if (!proj) { ckBildir('FMEA bulunamadı.', 'hata'); return; }
+      if (!proj.fmeaMeta) proj.fmeaMeta = {};
+      proj.fmeaMeta.firma = yeni;
+      proj.name = yeni;
+      const { error } = await sbClient.from('fmea_user_data')
+        .upsert({ user_id: uid, data: d, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (error) { ckBildir('Kaydedilemedi: ' + (error.message || error), 'hata'); return; }
+      ckBildir('"' + yeni + '" olarak kaydedildi.', 'oldu');
+      await ckYenile();
+    };
     function ckSayi(n, snf) { return '<span class="ck-b ' + (snf || '') + '">' + n + '</span>'; }
     /* FMEA satirindaki alani okur: farkli yazim/harf buyuklugu toleransli.
        Eski kayitlarda alan adi farkli olabilir ("aksiyon" / "Aksiyon" / "alinanAksiyon" ...) */
@@ -1175,12 +1254,59 @@ let nodes = [], selected = null;
       const n = Number(v) || 0;
       try { return n.toLocaleString('tr-TR'); } catch (e) { return String(n); }
     }
+    /* ===== SAYI ARTIS ANIMASYONU =====
+       performance.now() ile baslangic alinir, requestAnimationFrame ile her karede
+       oran hesaplanir. (1-(1-oran)^3) ease-out: hizli baslar, yavas biter.
+       Sayilar veri GELDIGI ANDA cagrilir; hedef deger 0/undefined olursa
+       animasyon anlamsiz kalir, bu yuzden data-hedef her zaman gercek sayiyi tasir. */
+    function animateCount(el, hedef, sure) {
+      if (!el) return;
+      sure = typeof sure === 'number' ? sure : 1200;
+      const baslangic = performance.now();
+      function adim(simdi) {
+        const oran = Math.min((simdi - baslangic) / sure, 1);
+        const yumusatilmis = 1 - Math.pow(1 - oran, 3);
+        el.textContent = ckSayiFmt(Math.round(yumusatilmis * hedef));
+        if (oran < 1) requestAnimationFrame(adim);
+      }
+      requestAnimationFrame(adim);
+    }
+    // Kokpit kartlarindaki tum sayilari hedef degerden yukselterek yazar.
+    // Ayni deger tekrarlanmaz (her yenilemede animasyon yeniden oynamaz).
+    var ckSonSayilar = {};
+    function ckSayilariAnimasyonEt(kapsayici) {
+      if (!kapsayici || !kapsayici.querySelectorAll) return;
+      const azalt = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      Array.prototype.forEach.call(kapsayici.querySelectorAll('.ck-tile .ck-num'), function (el, i) {
+        if (!el.id) el.id = 'ckSayi' + i;
+        const hedef = Number(el.getAttribute('data-hedef')) || 0;
+        if (azalt || ckSonSayilar[el.id] === hedef) { el.textContent = ckSayiFmt(hedef); ckSonSayilar[el.id] = hedef; return; }
+        animateCount(el, hedef, 900);
+        ckSonSayilar[el.id] = hedef;
+      });
+    }
+        // Kartlara kucuk simge: etikete gore otomatik secilir
+    function ckIkon(lbl) {
+      const s = String(lbl || '').toLowerCase();
+      if (s.indexOf('tedarik') >= 0) return '\u{1F3ED}';
+      if (s.indexOf('fmea') >= 0 && s.indexOf('onay') >= 0) return '\u2705';
+      if (s.indexOf('onay') >= 0 && (s.indexOf('bek') >= 0 || s.indexOf('red') >= 0)) return '\u23F3';
+      if (s.indexOf('red') >= 0) return '\u274C';
+      if (s.indexOf('fmea') >= 0) return '\u{1F4CB}';
+      if (s.indexOf('devam') >= 0) return '\u{1F504}';
+      if (s.indexOf('gecik') >= 0) return '\u23F0';
+      if (s.indexOf('gerçek') >= 0 || s.indexOf('gercek') >= 0) return '\u2714';
+      if (s.indexOf('aksiyon') >= 0) return '\u{1F3AF}';
+      if (s.indexOf('hata') >= 0) return '\u26A0';
+      if (s.indexOf('proses') >= 0 || s.indexOf('i̇şlem') >= 0 || s.indexOf('islem') >= 0) return '\u2699';
+      return '\u25CF';
+    }
     function ckKutu(lbl, val, snf, baslik) {
-      return '<div class="ck-tile ' + (snf || '') + '"' + (baslik ? ' title="' + esc(baslik) + '"' : '') + '><div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+      return '<div class="ck-tile ' + (snf || '') + '"' + (baslik ? ' title="' + esc(baslik) + '"' : '') + '><div class="ck-ico">' + ckIkon(lbl) + '</div><div class="ck-num" data-hedef="' + (Number(val) || 0) + '">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckKutuT(lbl, val, snf, tip, deger, aciklama) {
       return '<div class="ck-tile ' + (snf || '') + ' tiklanir" onclick="ckTikla(\'' + tip + '\',\'' + (deger || '') + '\')" title="' + aciklama + '">' +
-        '<div class="ck-num">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
+        '<div class="ck-ico">' + ckIkon(lbl) + '</div><div class="ck-num" data-hedef="' + (Number(val) || 0) + '">' + ckSayiFmt(val) + '</div><div class="ck-lbl">' + lbl + '</div></div>';
     }
     function ckDurumHucre(r) {
       const p = [];
@@ -1416,7 +1542,9 @@ let nodes = [], selected = null;
           const anahtar = uid + '|' + (p._i);
           return '<div class="ck-fmea"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
             '<input type="checkbox" class="ck-xl" data-anahtar="' + anahtar + '"' + (ckExcelSecim[anahtar] ? ' checked' : '') + '>' +
-            '<span><b>' + esc(ckTedAdi(p.firma, p.ad, r.kisi)) + onayEtiket(p.durum) + '</b><div class="ck-sub">' + p.tip +
+            '<span><b>' + esc(ckTedAdi(p.firma, p.ad, r.kisi)) + onayEtiket(p.durum) +
+              (r.admin ? ' <button class="ck-ad-btn" title="Tedarikçi adını düzenle" onclick="event.stopPropagation();ckTedAdiDegistir(\'' + esc(r.uid) + '\',' + p._i + ',\'' + esc(String(p.firma || '')) + '\')">✎</button>' : '') +
+              '</b><div class="ck-sub">' + p.tip +
             ' · ' + esc(p.ad) +
             ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></span></div><div style="white-space:nowrap">' +
             'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
@@ -1477,6 +1605,8 @@ let nodes = [], selected = null;
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       , 'purple');
       t.innerHTML = ozetGrubu + kapsamGrubu + aksiyonGrubu + durumGrubu;
+      // Sayilar veri geldikten SONRA burada animasyona girer (hedef deger hazir)
+      ckSayilariAnimasyonEt(t);
     }
     async function ckYenile() {
       if (!sbClient || !cloudUser || !cloudIsAdmin) return;
@@ -1993,6 +2123,7 @@ function save() {
     }
 
     function refreshProjectSel() {
+      ensureCurrentProject();
       const btn = document.getElementById('projectSelBtn');
       const menu = document.getElementById('projectSelMenu');
       if (!btn || !menu) return;
