@@ -1258,10 +1258,12 @@ let nodes = [], selected = null;
        performance.now() ile baslangic alinir, requestAnimationFrame ile her karede
        oran hesaplanir. (1-(1-oran)^3) ease-out: hizli baslar, yavas biter.
        Sayilar veri GELDIGI ANDA cagrilir; hedef deger 0/undefined olursa
-       animasyon anlamsiz kalir, bu yuzden data-hedef her zaman gercek sayiyi tasir. */
+       animasyon anlamsiz kalir, bu yuzden data-hedef her zaman gercek sayiyi tasir.
+       SURE: sayinin 0'dan hedefe cikma suresi (ms). Tek yerden degistirilebilir. */
+    var CK_ANIM_SURE = 2600;
     function animateCount(el, hedef, sure) {
       if (!el) return;
-      sure = typeof sure === 'number' ? sure : 1200;
+      sure = typeof sure === 'number' ? sure : CK_ANIM_SURE;
       const baslangic = performance.now();
       function adim(simdi) {
         const oran = Math.min((simdi - baslangic) / sure, 1);
@@ -1281,7 +1283,7 @@ let nodes = [], selected = null;
         if (!el.id) el.id = 'ckSayi' + i;
         const hedef = Number(el.getAttribute('data-hedef')) || 0;
         if (azalt || ckSonSayilar[el.id] === hedef) { el.textContent = ckSayiFmt(hedef); ckSonSayilar[el.id] = hedef; return; }
-        animateCount(el, hedef, 900);
+        animateCount(el, hedef, CK_ANIM_SURE);
         ckSonSayilar[el.id] = hedef;
       });
     }
@@ -1575,7 +1577,7 @@ let nodes = [], selected = null;
       // Kartlar tiklandiginda icerik pop-up pencerede acilir (sayfa altina degil).
       const ozetGrubu = ckGrup('Özet',
         '<div class="ck-tile buyuk tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
-          '<div class="ck-num">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
+          '<div class="ck-ico">' + ckIkon('Tedarikçi') + '</div><div class="ck-num" data-hedef="' + (Number(tSayi) || 0) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
