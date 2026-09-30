@@ -474,8 +474,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .ck-gf-ic{display:block;flex:1;min-width:0}
   .ck-gf-tuval{width:100%;max-width:520px;height:auto;display:block;margin:0 auto}
   .ck-gf-tuval circle,.ck-gf-tuval path{transition:opacity .15s ease}
-  .ck-gf-gir{animation:ckGfGir .5s ease both;transform-origin:170px 75px}
-  @keyframes ckGfGir{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+  /* ONEMLI: bu animasyon transform'a DOKUNMAMALI. Dairelerin uzerinde
+     transform="rotate(-90 170 75)" presentation attribute var; CSS transform
+     bunu ezer (animation-fill-mode:both kalici scale(1) birakir) ve dilimler
+     12 yerine 3 saatten baslar, etiketler yanlis dilimden cikar. */
+  .ck-gf-gir{animation:ckGfGir .5s ease both;transform-origin:170px 75px;transform-box:view-box}
+  @keyframes ckGfGir{from{opacity:0}to{opacity:1}}
   @media (prefers-reduced-motion:reduce){.ck-gf-gir{animation:none}}
   .ck-gf-orta{font-size:23px;font-weight:800;fill:#16275f;text-anchor:middle}
   .ck-gf-orta-y{font-size:9px;font-weight:700;letter-spacing:.6px;fill:#8a97a8;text-anchor:middle}
