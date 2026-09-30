@@ -259,6 +259,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   #ckBildirim .bild.hata{background:#c0392b}
   #ckBildirim .bild.uyari{background:#b9770e}
   #ckBildirim .bild.oldu{background:#4b7f52}
+  #ckBildirim .bild.bilgi{background:#2e5aac}
 #authCard{background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);padding:28px;width:min(380px,100%)}
 #authCard .authLogo{display:block;height:58px;width:auto;max-width:100%;object-fit:contain;margin:0 auto 14px}
 #authCard h2{margin:0 0 4px;color:#26343a;font-size:20px;text-align:center}
@@ -453,6 +454,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       background:#fbefd9;color:#b9770e;flex:0 0 auto}
     .ck-pill.risk{background:#f7dad7;color:#c0392b}
     @media (max-width:900px){.ck-ek-izgara{grid-template-columns:1fr;gap:12px}}
+  .ck-ek-izgara.tek{grid-template-columns:1fr;margin-top:12px}
+  .ck-ek-onay{border-color:#d9e2f5;background:#f6f8fd}
+  .ck-ek-ted-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:4px}
+  .ck-ek-ted-kart{background:#fff;border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px;min-width:0}
+  .ck-ek-ted-ad{font-size:12.5px;font-weight:700;color:#16275f;line-height:1.3;margin-bottom:5px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ck-ek-ted-satir{display:flex;align-items:flex-start;gap:7px}
+  .ck-ek-ted-metin{font-size:11.5px;color:#3b4a5a;line-height:1.4;min-width:0}
+  .ck-ek-ted-alt{font-size:11px;color:#9aa5b8;margin-top:5px}
     @media (max-width:700px){
       .ck-uyari{padding:11px 12px;gap:10px;border-radius:10px}
       .ck-uyari-ico{width:30px;height:30px;border-radius:8px}
@@ -629,7 +639,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   </style>
   <header>
-    <img id="siteLogo" alt="Proses Akış FMEA"> alt="Logo">
+    <img id="siteLogo" alt="Proses Akış FMEA">
     <div id="brandTitle">
       <h1 id="authTitle">Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma Uygulaması</h1>
       <p class="authSlogan" style="text-align:left;font-size:15px;line-height:1.5;color:#607d8b;margin:6px 0 0;max-width:640px">Önleyici yaklaşım, sürdürülebilir kalitenin temelidir. Daha güçlü yarınlar için geleceği bugünden güvence altına alıyoruz.</p>
@@ -918,7 +928,7 @@ let nodes = [], selected = null;
        gerceklesen tarih, kontrol plani, akis/projes) buraya bir satir yazar.
        Kayit bulutla birlikte gonderilir; admin "Son Islemler" akisini
        "FMEA guncellendi" yerine "ne degisti" bilgisiyle besler. */
-    var CK_LOG_LIMIT = 60;          // kullanici basina saklanan azami kayit sayisi
+    var CK_LOG_LIMIT = 10;          // SON İŞLEMLER yalnizca son 10 kaydi gosterir; fazlasi saklanmaz
     var CK_LOG_BIRLESTIR_MS = 90000; // ayni alan 90 sn icinde tekrar degistirilirse birlestirilir
     var ckLog = [];                 // {zaman, tur, alan, ozet, proje, anahtar}
     /* Satir (hata) alanlarinin okunabilir adi */
@@ -968,11 +978,30 @@ let nodes = [], selected = null;
     function cloudPayload() {
       let kp = {};
       try { kp = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) { kp = {}; }
+      /* CANLI PROJE YAZIMI (kritik): kullanici ayni projede calisirken duzenlemeler
+         dunya (nodes) uzerinde olur; projects[] kaydi ise yalnizca proje degistirilirken
+         (selectProject/newProject/rename) tazelenir. Admin kokpidi projects[*].nodes
+         okudugu icin, kaydedilmeden yapilan FMEA/aksiyon degisiklikleri admin'de
+         GORUNMEZDI. Burada her gonderimde aktif proje canli veriyle birlestirilir. */
+      let projeListesi = (projects || []).map(function (p) {
+        if (!p || p.name !== currentProject) return p;
+        const kopya = Object.assign({}, p);
+        kopya.nodes = nodes;
+        kopya.fmeaMeta = fmeaMeta;
+        kopya.type = fmeaType;
+        kopya.updatedAt = Date.now();
+        return kopya;
+      });
+      if (currentProject && !projeListesi.some(function (p) { return p && p.name === currentProject; })) {
+        projeListesi = projeListesi.concat([{ name: currentProject, type: fmeaType,
+          nodes: nodes, fmeaMeta: fmeaMeta, updatedAt: Date.now() }]);
+      }
       return {
         nodes: nodes,
         fmeaMeta: fmeaMeta,
+        fmeaType: fmeaType,
         currentProject: currentProject,
-        projects: projects,
+        projects: projeListesi,
         kpEdits: kp,
         // degisiklik kaydi: admin "Son Islemler" akisinda "ne degisti" olarak gosterilir
         degisiklikLog: ckLog.slice(0, CK_LOG_LIMIT),
@@ -989,11 +1018,131 @@ let nodes = [], selected = null;
       cloudTimer = setTimeout(syncCloudNow, 1500);
     }
 
+    /* ===== SENKRON KANONU (KRITIK) =====
+       Sorun: kullanici ayni FMEA projesinde calisirken duzenlemeleri ust duzey
+       "nodes" uzerinde tutulur; "projects[]" kaydi ise yalnizca proje degistirilirken
+       tazelenir. Admin kokpidi projects[*].nodes okudugu icin kullanici "4 hata"
+       yazarken admin "3 hata" gosteriyordu (yedekte eski kalan kayit).
+       Cozum iki katmanli:
+         1) YAZMA: cloudPayload() aktif projeyi canli veriyle birlestirir.
+         2) OKUMA: ckCanliProjeler() bulut kaydindaki aktif projeyi ust duzey
+            nodes/fmeaMeta ile birlestirir; eski surumle yazilmis kayitlar da
+            Boylece ANINDA duzelir (kullanicinin yeni bir degisiklik yapmasina gerek yok). */
+    function ckCanliProjeler(d) {
+      const liste = (d && Object.prototype.toString.call(d.projects) === '[object Array]') ? d.projects.slice() : [];
+      const ad = (d && typeof d.currentProject === 'string') ? d.currentProject.trim() : '';
+      if (!ad) return liste;
+      const canli = (d.nodes && d.nodes.length) ? d.nodes : null;
+      const idx = liste.findIndex(function (p) { return p && p.name === ad; });
+      const eski = idx >= 0 ? liste[idx] : null;
+      if (!canli && eski && eski.nodes && eski.nodes.length) return liste;  // canli veri yoksa silme
+      const yama = { name: ad, type: (eski && eski.type) || d.fmeaType || 'proses',
+        nodes: canli || (eski && eski.nodes) || [], fmeaMeta: d.fmeaMeta || (eski && eski.fmeaMeta) || {} };
+      if (eski) {
+        yama.onayDurumu = eski.onayDurumu;
+        yama.onayZaman = eski.onayZaman;
+        yama.onayNot = eski.onayNot;
+        yama.updatedAt = eski.updatedAt;
+        liste[idx] = Object.assign({}, eski, yama);
+      } else liste.push(yama);
+      return liste;
+    }
+    /* ===== GORUNUR SENKRON UYARISI + OTOMATIK TEKRAR =====
+       Once hatalar yalnizca konsola yaziliyordu; kullanici verisinin
+       kaydedilmedigini hicbir yerde goremiyordu. */
+    var ckSyncDeneme = 0, ckSyncZaman = null;
+    function ckSyncBantGoster(neden) {
+      try {
+        let b = document.getElementById('ckSyncBant');
+        if (!b) {
+          b = document.createElement('div');
+          b.id = 'ckSyncBant';
+          b.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:13000;' +
+            'max-width:min(620px,94vw);display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;' +
+            'background:#c0392b;color:#fff;font:600 13px/1.4 Calibri,"Segoe UI",Arial,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.25)';
+          const y = document.createElement('span');
+          y.id = 'ckSyncBantYazi';
+          const d = document.createElement('button');
+          d.textContent = 'Şimdi dene';
+          d.style.cssText = 'background:#fff;color:#c0392b;border:0;border-radius:6px;padding:6px 11px;cursor:pointer;font-weight:700;flex:0 0 auto';
+          d.onclick = function () { ckSyncDeneme = 0; syncCloudNow(); };
+          b.appendChild(y); b.appendChild(d);
+          document.body.appendChild(b);
+        }
+        const y = document.getElementById('ckSyncBantYazi');
+        if (y) y.textContent = 'Buluta kaydedilemedi (' + (neden || 'bağlantı') + '). Değişiklikleriniz bu cihazda saklanıyor; bağlantı gelince otomatik tekrar denenecek.';
+        b.style.display = 'flex';
+      } catch (e) {}
+    }
+    function ckSyncBantKapat() {
+      try {
+        const b = document.getElementById('ckSyncBant');
+        if (b) b.style.display = 'none';
+      } catch (e) {}
+    }
+    function ckSyncTekrarDene(neden) {
+      ckSyncBantGoster(neden);
+      if (ckSyncZaman) { try { clearTimeout(ckSyncZaman); } catch (e) {} }
+      const gecikmeler = [2000, 5000, 12000, 30000, 60000];
+      const bekle = gecikmeler[Math.min(ckSyncDeneme, gecikmeler.length - 1)];
+      ckSyncDeneme++;
+      ckSyncZaman = setTimeout(function () { syncCloudNow(); }, bekle);
+    }
+    /* ===== SUREKLI SENKRON (KULLANICI TARAFI) =====
+       Sorun: 1,5 sn debounce arka plandaki sekmede tarayici tarafindan kisaltilir;
+       kullanici sekmeyi kapatirsa gonderim yapilmamis olabiliyordu.
+       Cozum: 60 sn'de bir biriktirilmis degisikligi gonder, sekme odaginda ve
+       sayfadan cikarken gonder, ayrica onay durumunu geri cek. */
+    var ckSurekliZaman = null;
+    function ckSurekliSyncBaslat() {
+      if (ckSurekliZaman) return;
+      try {
+        ckSurekliZaman = setInterval(function () { ckSurekliAdim(); }, 60000);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) ckSurekliAdim(); });
+        window.addEventListener('focus', function () { ckSurekliAdim(); });
+        window.addEventListener('pagehide', function () { if (cloudDirty) { try { syncCloudNow(); } catch (e) {} } });
+        window.addEventListener('beforeunload', function () { if (cloudDirty) { try { syncCloudNow(); } catch (e) {} } });
+      } catch (e) {}
+    }
+    function ckSurekliAdim() {
+      if (!sbClient || !cloudUser || document.hidden) return;
+      if (cloudDirty) { syncCloudNow(); return; }
+      ckOnayDurumCek();
+    }
+    /* Yalnizca onay durumu bilgisi guncellenir; icerik/kullanici verisi EZILMEZ. */
+    async function ckOnayDurumCek() {
+      if (!sbClient || !cloudUser) return;
+      try {
+        await refreshCloudStatus();
+        const { data, error } = await sbClient.from('fmea_user_data')
+          .select('data').eq('user_id', cloudUser.id).maybeSingle();
+        if (error || !data || !data.data) return;
+        const d = fixTrDeep(data.data) || {};
+        const bulut = {};
+        (d.projects || []).forEach(function (p) { if (p && p.name) bulut[p.name] = p; });
+        let degisti = false;
+        projects.forEach(function (p) {
+          const b = bulut[p.name];
+          if (!b) return;
+          if (fmeaOnayDurumu(b) !== fmeaOnayDurumu(p) || (b.onayZaman || 0) !== (p.onayZaman || 0)) {
+            p.onayDurumu = b.onayDurumu;
+            p.onayZaman = b.onayZaman;
+            p.onayNot = b.onayNot || '';
+            degisti = true;
+          }
+        });
+        if (degisti) {
+          try { localStorage.setItem(projectsKey, JSON.stringify(projects)); } catch (e) {}
+          try { paintOnayBtn(); refreshProjectSel(); } catch (e) {}
+        }
+        if (d.degisiklikLog) ckLogYukle(d);
+      } catch (e) {}
+    }
     async function syncCloudNow() {
       if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
       cloudTimer = false;
       if (!sbClient || !cloudUser) return false;
-      if (!cloudDirty) return true;
+      if (!cloudDirty) { ckSyncDeneme = 0; ckSyncBantKapat(); return true; }
       cloudDirty = false;
       try {
         // YEREL BOSSA BULUTU EZME: baska bir cihazda veri varken buradaki bos durum
@@ -1007,14 +1156,25 @@ let nodes = [], selected = null;
             .maybeSingle();
           const cd = mevcut && mevcut.data ? mevcut.data : null;
           const bulutDolu = cd && ((cd.projects && cd.projects.length > 0) || (cd.nodes && cd.nodes.length > 0));
-          if (!rErr && bulutDolu) { cloudDirty = false; return true; }
+          if (!rErr && bulutDolu) { cloudDirty = false; ckSyncDeneme = 0; ckSyncBantKapat(); return true; }
         }
         const { error } = await sbClient
           .from('fmea_user_data')
           .upsert({ user_id: cloudUser.id, data: cloudPayload(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (error) { cloudDirty = true; console.error('BULUT KAYDI BASARISIZ:', error.message || error); return false; }
+        if (error) {
+          cloudDirty = true;
+          console.error('BULUT KAYDI BASARISIZ:', error.message || error);
+          ckSyncTekrarDene(error.message || String(error));
+          return false;
+        }
+        ckSyncDeneme = 0; ckSyncBantKapat();
         return true;
-      } catch (e) { cloudDirty = true; console.error('BULUT KAYDI HATASI:', e && e.message); return false; }
+      } catch (e) {
+        cloudDirty = true;
+        console.error('BULUT KAYDI HATASI:', e && e.message);
+        ckSyncTekrarDene(e && e.message);
+        return false;
+      }
     }
 
     // ===== Yönetici onayı yardımcıları =====
@@ -1061,8 +1221,11 @@ let nodes = [], selected = null;
           fmeaMeta = d.fmeaMeta || {};
         }
         if (d.projects && d.projects.length) {
-          try { localStorage.setItem(projectsKey, JSON.stringify(d.projects)); } catch (e) {}
-          projects = d.projects || [];
+          /* canli proje birlestirme: buluttaki ust duzey nodes, currentProject
+             adli kaydin icine yazilir; boylece yeni cihazda da FMEA dolu gelir */
+          const canli = ckCanliProjeler(d);
+          try { localStorage.setItem(projectsKey, JSON.stringify(canli)); } catch (e) {}
+          projects = canli;
         }
         ensureCurrentProject();
         if (typeof d.currentProject === 'string' && d.currentProject) {
@@ -1188,6 +1351,7 @@ let nodes = [], selected = null;
         if (typeof confirm === 'function' && !confirm('"' + ad + '" FMEA\'sı yönetici onayına gönderilsin mi?')) {
           ckBildir('Gönderim iptal edildi.', 'uyari'); return;
         }
+        const eskiDurum = p.onayDurumu, eskiZaman = p.onayZaman, eskiNot = p.onayNot;
         p.onayDurumu = 'bekliyor';
         p.onayZaman = Date.now();
         p.onayNot = '';
@@ -1195,10 +1359,19 @@ let nodes = [], selected = null;
         cloudDirty = true;
         save();
         paintOnayBtn();
-        ckBildir('"' + ad + '" FMEA\'sı gönderiliyor…');
+        ckBildir('"' + ad + '" FMEA\'sı gönderiliyor…', 'bilgi');
         const ok = await syncCloudNow();
-        if (ok) ckBildir('"' + ad + '" FMEA\'sı yönetici onayına gönderildi.', 'oldu');
-        else ckBildir('Gönderilemedi: veri buluta kaydedilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.', 'hata');
+        if (ok) {
+          ckLogEkle('onay', 'FMEA onaya gönderildi', 'onay|' + (p.name || ''));
+          ckBildir('"' + ad + '" FMEA\'sı yönetici onayına gönderildi.', 'oldu');
+        } else {
+          /* ROLLBACK: bulut yazilamadiysa "onaya gonderildi" yanlis bilgi olmasin;
+             eski duruma donulur ve kullaniciya acikca bildirilir. */
+          p.onayDurumu = eskiDurum; p.onayZaman = eskiZaman; p.onayNot = eskiNot;
+          try { localStorage.setItem(projectsKey, JSON.stringify(projects)); } catch (e) {}
+          paintOnayBtn();
+          ckBildir('Gönderilemedi: veri buluta kaydedilemedi (yetki veya internet). Durum geri alındı, tekrar deneyin.', 'hata');
+        }
       } catch (e) {
         ckBildir('Beklenmeyen hata: ' + (e && e.message ? e.message : e), 'hata');
       }
@@ -1287,7 +1460,7 @@ let nodes = [], selected = null;
     }
     function fmeaMetrikleri(projects, kpEdits) {
       const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0,
-                  akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
+                  akAlan: 0, faalAlan: 0, sadeceFaal: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
       const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
       (projects || []).forEach(function (p) {
         (p && p.nodes ? p.nodes : []).forEach(function (n) {
@@ -1310,6 +1483,9 @@ let nodes = [], selected = null;
               /* --- alan dolulugu (tanilama icin) --- */
               if (ak) m.akAlan++;
               if (faal) m.faalAlan++;
+              /* "3 Aksiyon Belirlenmis" sayisinin neden farkli gorundugunu
+                 aciklamak icin: aksiyonu olmayip YALNIZCA onerisi olan satirlar */
+              if (faal && !ak) m.sadeceFaal++;
               if (String(h.hedefTarih || '').trim()) m.hedefDolu++;
               if (bitti) m.gercekDolu++;
               if (sorumluVar) m.sorumluDolu++;
@@ -1362,9 +1538,12 @@ let nodes = [], selected = null;
       const d = fixTrDeep(satir.data) || {};
       const proj = (d.projects || [])[projeNo];
       if (!proj) { ckBildir('FMEA bulunamadı.', 'hata'); return; }
-      if (!proj.fmeaMeta) proj.fmeaMeta = {};
-      proj.fmeaMeta.firma = yeni;
-      proj.name = yeni;
+  if (!proj.fmeaMeta) proj.fmeaMeta = {};
+  proj.fmeaMeta.firma = yeni;
+  proj.name = yeni;
+  /* currentProject da yeni adi gostermeli; aksi halde ust duzey "nodes" eski
+     adi tasir ve kokpikte ayni FMEA ikinci bir satir olarak belirir. */
+  if (String(d.currentProject || '').trim() === String(eskiAd || '').trim()) d.currentProject = yeni;
       const { error } = await sbClient.from('fmea_user_data')
         .upsert({ user_id: uid, data: d, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
       if (error) { ckBildir('Kaydedilemedi: ' + (error.message || error), 'hata'); return; }
@@ -1391,11 +1570,13 @@ let nodes = [], selected = null;
       let govde = '';
       raw.forEach(function (r) {
         const d = (r && r.data) || {};
-        const m = fmeaMetrikleri(d.projects || [], d.kpEdits);
+        const canli = ckCanliProjeler(d);
+        const m = fmeaMetrikleri(canli, d.kpEdits);
+        m.fmea = canli.length;                      // fmeaMetrikleri proje saymaz
         if (!m.hata && !m.cpReaksiyon) return;
         /* ornek satirlar: ilk 3 hata satirinin dolu alanlari */
         const ornek = [];
-        (((d.projects || []).flatMap(function (p) { return (p && p.nodes) || []; }))
+        (((canli || []).flatMap(function (p) { return (p && p.nodes) || []; }))
           .flatMap(function (n) { return (n && n.altProsesler) || []; })
           .flatMap(function (s) { return (s && s.hatalar) || []; }))
           .forEach(function (h) {
@@ -1605,6 +1786,20 @@ let nodes = [], selected = null;
       temiz.sort(function (a, b) { return b.zaman - a.zaman; });
       return adet ? temiz.slice(0, adet) : temiz;
     }
+    /* SON ISLEMLER - TEDARIKCI BAZINDA: her tedarikcinin EN SON degisikligi.
+       Kullanicinin istegi: "hangi tedarikcide en son ne degistiyse onu yaz,
+       bir tedarikci = bir kart". Duz liste yerine tedarikci basina tek kayit. */
+    function ckSonIslemTedarikci(adet) {
+      const liste = ckSonIslemler(0);
+      const enYeni = {};
+      liste.forEach(function (o) {
+        const k = String(o.ad || '').trim() || '(isimsiz)';
+        if (!enYeni[k] || o.zaman > enYeni[k].zaman) enYeni[k] = o;
+      });
+      return Object.keys(enYeni).map(function (k) { return enYeni[k]; })
+        .sort(function (a, b) { return b.zaman - a.zaman; })
+        .slice(0, adet || 10);
+    }
     /* ===== EK BILESENLER: UYARI SERIDI + GECIKME RISKI + SON ISLEMLER =====
        Onay Zamani/onayDurumu ve updatedAt verisinden beslenir; uydurma kayit yok. */
     var CK_RISK_GUN = 7;   // bu kac gun icindeki hedefi "gecikme riski" sayilir
@@ -1657,12 +1852,44 @@ let nodes = [], selected = null;
         (risk.length ? risk.slice(0, 6).map(ckRiskSatiri).join('') +
           (risk.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(risk.length - 6) + ' aksiyon daha</span></div>' : '')
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Gecikmiş veya yaklaşan hedef tarihi bulunmuyor.</span></div>') + '</div>';
-      const olaylar = window.__ckOlaylar || [];
+      /* SON İŞLEMLER: tedarikçi bazlı. Her tedarikçi için kendi kartı,
+         içinde o tedarikçide EN SON ne değiştiği yazar (en fazla 10 tedarikçi). */
+      const olaylar = window.__ckOlayTedarikci || [];
       const olayKarti = '<div class="ck-ek-kart">' +
-        '<div class="ck-ek-baslik">SON İŞLEMLER' + (olaylar.length ? '<span class="ck-ek-adet">' + ckSayiFmt(olaylar.length) + '</span>' : '') + '</div>' +
-        (olaylar.length ? olaylar.map(ckOlaySatiri).join('')
+        '<div class="ck-ek-baslik">SON İŞLEMLER · TEDARİKÇİ BAZINDA' +
+          (olaylar.length ? '<span class="ck-ek-adet">' + ckSayiFmt(olaylar.length) + ' tedarikçi</span>' : '') + '</div>' +
+        (olaylar.length ? '<div class="ck-ek-ted-grid">' + olaylar.map(function (o) {
+          return '<div class="ck-ek-ted-kart"><div class="ck-ek-ted-ad">' + esc(o.ad) + '</div>' +
+            '<div class="ck-ek-ted-satir"><span class="ck-ek-nokta ' + esc(o.tip) + '"></span>' +
+            '<span class="ck-ek-ted-metin">' + esc(o.metin) + '</span></div>' +
+            '<div class="ck-ek-ted-alt">' + esc(o.kisi || '') + ' · ' + esc(ckGecenSure(o.zaman)) + '</div></div>';
+        }).join('') + '</div>'
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Kayıtlı işlem yok.</span></div>') + '</div>';
-      kutu.innerHTML = serit + '<div class="ck-ek-izgara">' + riskKarti + olayKarti + '</div>';
+      /* 3) ONAY BEKLEYEN FMEA'LAR: uyari seridi sayiyi veriyordu ama listenin
+         kendisi hicbir yerde gorunmuyordu. Bekleyen her FMEA proje bazinda listelenir. */
+      const bekleyenler = [];
+      (window.__ckTedRows || []).forEach(function (t) {
+        (t.projler || []).forEach(function (p) {
+          if (p.durum === 'bekliyor') bekleyenler.push({ t: t, p: p });
+        });
+      });
+      bekleyenler.sort(function (a, b) { return (b.p.zaman || 0) - (a.p.zaman || 0); });
+      const onayKarti = '<div class="ck-ek-kart ck-ek-onay">' +
+        '<div class="ck-ek-baslik">ONAY BEKLEYEN FMEA&#39;LAR' +
+          (bekleyenler.length ? '<span class="ck-ek-adet">' + ckSayiFmt(bekleyenler.length) + '</span>' : '') + '</div>' +
+        (bekleyenler.length ? bekleyenler.slice(0, 6).map(function (x) {
+          return '<div class="ck-ek-satir" onclick="ckTikla(\'onay\',\'\')" style="cursor:pointer" title="Onay ekranını aç">' +
+            '<span class="ck-ek-nokta onaya"></span>' +
+            '<span class="ck-ek-ana"><b>' + esc(x.t.ad) + '</b> ' + esc(x.p.ad) +
+            '<span class="ck-ek-alt">' + esc(x.p.kisi) + ' · ' + esc(x.p.tip) +
+              ' · Proses ' + ckSayiFmt(x.p.m.proses) + ' / İşlem ' + ckSayiFmt(x.p.m.islem) +
+              ' / Hata ' + ckSayiFmt(x.p.m.hata) + '</span></span>' +
+            '<span class="ck-ek-zaman">' + (x.p.zaman ? esc(ckTarih(x.p.zaman)) : '&#8212;') + '</span></div>';
+        }).join('') +
+          (bekleyenler.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(bekleyenler.length - 6) + ' FMEA daha</span></div>' : '')
+          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Onay bekleyen FMEA yok.</span></div>') + '</div>';
+      kutu.innerHTML = serit + '<div class="ck-ek-izgara">' + riskKarti + onayKarti + '</div>' +
+        '<div class="ck-ek-izgara tek">' + olayKarti + '</div>';
     }
     function ckGrup(baslik, icerik, aksan) {
       return '<div class="ck-grup a-' + (aksan || 'n') + '"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
@@ -2016,7 +2243,7 @@ let nodes = [], selected = null;
     function ckCiz(rows) {
       const t = document.getElementById('ckTiles');
       if (!t) return;
-      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0, akAlan: 0, faalAlan: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
+      const S = { fmea: 0, proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, onayli: 0, bekleyen: 0, red: 0, aktif: 0, devam: 0, akAlan: 0, faalAlan: 0, sadeceFaal: 0, hedefDolu: 0, gercekDolu: 0, sorumluDolu: 0, cpReaksiyon: 0 };
       rows.forEach(function (r) { for (const k in S) S[k] += (r[k] || 0); });
       const riskli = S.yuksek + S.kritik;
       const tEd = window.__ckTedarikci || [];
@@ -2040,7 +2267,8 @@ let nodes = [], selected = null;
       const akTooltip = 'FMEA satirinda "Alınan Aksiyonlar" veya "Önerilen Faaliyet" dolu olan hata sayısı.\n' +
         'Alan dolulukları → Alınan Aksiyonlar: ' + ckSayiFmt(S.akAlan) +
         ' | Önerilen Faaliyet: ' + ckSayiFmt(S.faalAlan) +
-        ' | Sorumlu: ' + ckSayiFmt(S.sorumluDolu) +
+        (S.sadeceFaal ? '\nYALNIZCA öneri yazılmış (aksiyon girilmemiş): ' + ckSayiFmt(S.sadeceFaal) + ' — bu satırlar sayıya dahildir' : '') +
+        '\nSorumlu: ' + ckSayiFmt(S.sorumluDolu) +
         ' | Hedef Tamamlama Tarihi: ' + ckSayiFmt(S.hedefDolu) +
         ' | Gerçekleşen Tarih: ' + ckSayiFmt(S.gercekDolu) +
         ' | Kontrol Planı Reaksiyon: ' + ckSayiFmt(S.cpReaksiyon) +
@@ -2061,11 +2289,14 @@ let nodes = [], selected = null;
       // Ek bilesenler: uyari seridi + gecikme riski + son islemler
       ckEkCiz();
     }
-    async function ckYenile() {
+    var ckYenileAktif = false;   // ust uste yenileme istegini engeller
+    async function ckYenile(sessiz) {
       if (!sbClient || !cloudUser || !cloudIsAdmin) return;
+      if (ckYenileAktif) return;              // ust uste istek acilmasin
       const t = document.getElementById('ckTiles');
       // Veri varken kartlari bosaltma: yenileme sirasinda ekran bos kalmasin
-      if (t && !window.__ckRows) t.innerHTML = '';
+      if (t && !window.__ckRows && !sessiz) t.innerHTML = '';
+      ckYenileAktif = true;
       try {
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('user_id,email,approved,is_admin,updated_at,data');
@@ -2077,10 +2308,12 @@ let nodes = [], selected = null;
         // firma adi (fmeaMeta.firma) esas alinir; firma yoksa kullanici+proje adi benzersiz sayilir.
         const tmap = {};
         const rows = (data || []).map(function (r) {
-          const d = fixTrDeep(r.data) || {};           // bozuk kodlama onarilir
-          const projler = (d.projects && d.projects.length) ? d.projects : [];
-          const m = fmeaMetrikleri(projler, d.kpEdits);
-          m.fmea = projler.length;
+      const d = fixTrDeep(r.data) || {};           // bozuk kodlama onarilir
+      /* canli proje birlestirme: aktif projenin ust duzey nodes/fmeaMeta'si
+         projects kaydina yazilir; eski surumle yazilmis satirlar da duzelir */
+      const projler = ckCanliProjeler(d);
+      const m = fmeaMetrikleri(projler, d.kpEdits);
+      m.fmea = projler.length;
           const uid = r.user_id;
           const kisi = nameFromEmail(r.email) || '(isimsiz)';
           window.__ckHam[uid] = d;
@@ -2133,7 +2366,7 @@ let nodes = [], selected = null;
             proses: m.proses, islem: m.islem, hata: m.hata, rpnDolu: m.rpnDolu, puanlanmamis: m.puanlanmamis,
             kritik: m.kritik, yuksek: m.yuksek, emniyet: m.emniyet, aksiyonsuz: m.aksiyonsuz,
             aksiyonlu: m.aksiyonlu, aksiyonTamam: m.aksiyonTamam, aksiyonGecikmis: m.aksiyonGecikmis,
-            akAlan: m.akAlan, faalAlan: m.faalAlan, hedefDolu: m.hedefDolu, gercekDolu: m.gercekDolu, sorumluDolu: m.sorumluDolu, cpReaksiyon: m.cpReaksiyon
+            akAlan: m.akAlan, faalAlan: m.faalAlan, sadeceFaal: m.sadeceFaal, hedefDolu: m.hedefDolu, gercekDolu: m.gercekDolu, sorumluDolu: m.sorumluDolu, cpReaksiyon: m.cpReaksiyon
           };
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
@@ -2141,7 +2374,7 @@ let nodes = [], selected = null;
         window.__ckAksiyonlar = ckAksiyonTaramasi();      // hedef tarihli tum aksiyonlar
         window.__ckGecikmis = window.__ckAksiyonlar.filter(function (x) { return x.kalanGun < 0; });
         window.__ckRisk = window.__ckAksiyonlar.filter(function (x) { return x.kalanGun <= CK_RISK_GUN; });
-        window.__ckOlaylar = ckSonIslemler(10);            // "Son İşlemler" akisi
+        window.__ckOlaylar = ckSonIslemler(10);            window.__ckOlayTedarikci = ckSonIslemTedarikci(10);            // "Son İşlemler" akisi
         window.__ckTedarikci = Object.keys(tmap).map(function (k) { return tmap[k]; })
           .sort(function (a, b2) { return b2.fmea - a.fmea || a.ad.localeCompare(b2.ad, 'tr'); });
         /* TEDARIKCI TABLOSU: her tedarikci bir satir. Satir acma dugmesi icin
@@ -2161,9 +2394,39 @@ let nodes = [], selected = null;
         // Acik olan pop-up varsa icerigini tazele (Yenile butonu)
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip), ckPopTip); } catch (e) {} }
       } catch (e) {
+        if (!sessiz) {
+          try { ckBildir('Kokpit verisi alınamadı: ' + (e.message || e), 'hata'); } catch (e3) {}
+        }
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>'); } catch (e2) {} }
       }
+      ckYenileAktif = false;
     }
+    /* ===== KOKPIT OTOMATIK YENILEME =====
+       Sorun: kokpit yalnizca "Yenile" butonu ile guncelleniyordu; kullanicinin
+       FMEA/aksiyon degisiklikleri admin ekraninda kendiliginden gorunmuyordu.
+       Cozum: 60 sn'de bir sessiz yenileme + sekme odagi/sekme gorunurlugu degisince. */
+    var ckYenilemeZaman = null;
+    function ckOtoYenileAc() {
+      ckOtoYenileKapat();
+      try {
+        ckYenilemeZaman = setInterval(function () {
+          if (document.hidden) return;
+          ckYenile(true);
+        }, 60000);
+      } catch (e) {}
+    }
+    function ckOtoYenileKapat() {
+      if (ckYenilemeZaman) { try { clearInterval(ckYenilemeZaman); } catch (e) {} ckYenilemeZaman = null; }
+    }
+    try {
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) return;
+        if (cloudIsAdmin && adminView === 'cockpit') ckYenile(true);
+      });
+      window.addEventListener('focus', function () {
+        if (cloudIsAdmin && adminView === 'cockpit') ckYenile(true);
+      });
+    } catch (e) {}
     function openCockpit() {
       switchAdminView('cockpit');
     }
@@ -2192,10 +2455,10 @@ let nodes = [], selected = null;
         if (error) throw error;
         const liste = [];
         (data || []).forEach(function (r) {
-          const d = fixTrDeep(r.data) || {};
-          const projler = (d.projects && d.projects.length) ? d.projects : [];
-          projler.forEach(function (p) {
-            if (fmeaOnayDurumu(p) !== 'bekliyor') return;
+      const d = fixTrDeep(r.data) || {};
+      const projler = ckCanliProjeler(d);
+      projler.forEach(function (p) {
+        if (fmeaOnayDurumu(p) !== 'bekliyor') return;
             const m = fmeaMetrikleri([p], d.kpEdits);
             m.fmea = 1;
             liste.push({
@@ -2412,7 +2675,7 @@ let nodes = [], selected = null;
           document.body.appendChild(kap);
         }
         const b = document.createElement('div');
-        b.className = 'bild ' + (tip || 'hata');
+        b.className = 'bild ' + (tip || 'bilgi');
         b.textContent = mesaj;
         kap.appendChild(b);
         kap.style.display = 'flex';
@@ -2501,9 +2764,10 @@ let nodes = [], selected = null;
                 try { paintAccount(); } catch (e) {}
                 try { autoNumberNodes(); } catch (e) {}
                 try { refreshProjectSel(); } catch (e) {}
-                try { render(); } catch (e) { console.error('render:', e); }
-                // yonetici girisi: kokpit otomatik acilsin
-                try { if (cloudIsAdmin) openCockpit(); } catch (e) {}
+        try { render(); } catch (e) { console.error('render:', e); }
+        try { ckSurekliSyncBaslat(); } catch (e) {}
+        // yonetici girisi: kokpit otomatik acilsin
+        try { if (cloudIsAdmin) openCockpit(); } catch (e) {}
               });
             }).catch((e) => { console.error('giris akisi:', e); });
           }
