@@ -442,6 +442,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-ek-nokta{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:#b9770e}
     .ck-ek-nokta.onay{background:#1e8449} .ck-ek-nokta.red{background:#c0392b}
     .ck-ek-nokta.onaya{background:#2e5aac} .ck-ek-nokta.guncelleme{background:#b9770e}
+    /* degisiklik turleri (kullanicinin yazdigi kayitlar) */
+    .ck-ek-nokta.alan{background:#2e5aac} .ck-ek-nokta.aksiyon{background:#b9770e}
+    .ck-ek-nokta.hedef{background:#c0392b} .ck-ek-nokta.gerceklesen{background:#1e8449}
+    .ck-ek-nokta.kp{background:#6c3483} .ck-ek-nokta.akis{background:#117a65}
+    .ck-ek-nokta.proje{background:#117a65} .ck-ek-nokta.fmea{background:#2e5aac}
     .ck-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;
       background:#fbefd9;color:#b9770e;flex:0 0 auto}
     .ck-pill.risk{background:#f7dad7;color:#c0392b}
@@ -906,6 +911,58 @@ let nodes = [], selected = null;
       document.getElementById('userBar').style.display = 'none';
     }
 
+    /* ===== DEGISIKLIK KAYDI =====
+       Kullanicinin yaptigi HER degisiklik (FMEA alani, aksiyon, hedef tarih,
+       gerceklesen tarih, kontrol plani, akis/projes) buraya bir satir yazar.
+       Kayit bulutla birlikte gonderilir; admin "Son Islemler" akisini
+       "FMEA guncellendi" yerine "ne degisti" bilgisiyle besler. */
+    var CK_LOG_LIMIT = 60;          // kullanici basina saklanan azami kayit sayisi
+    var CK_LOG_BIRLESTIR_MS = 90000; // ayni alan 90 sn icinde tekrar degistirilirse birlestirilir
+    var ckLog = [];                 // {zaman, tur, alan, ozet, proje, anahtar}
+    /* Satir (hata) alanlarinin okunabilir adi */
+    var CK_ALAN_ADI = {
+      tur: 'Hata türü', etki: 'Etki', neden: 'Neden',
+      s: 'Şiddet', o: 'Oluşum', d: 'Tespit',
+      s2: 'Şiddet (yeni durum)', o2: 'Oluşum (yeni durum)', d2: 'Tespit (yeni durum)',
+      sinif: 'Sınıflandırma', onkontrol: 'Ön kontrol', tespitkontrol: 'Tespit kontrol',
+      faaliyet: 'Önerilen faaliyet', aksiyon: 'Alınan aksiyon', sorumlu: 'Sorumlu',
+      hedefTarih: 'Hedef tamamlama tarihi', gerceklesenTarih: 'Gerçekleşen tarih'
+    };
+    function ckProjeAdi() {
+      try {
+        if (currentProject) return String(currentProject);
+        const p = (projects || [])[0];
+        return p ? (p.name || '') : '';
+      } catch (e) { return ''; }
+    }
+    /* tur: fmea | alan | aksiyon | hedef | gerceklesen | kp | akis | proje | onay */
+    function ckLogEkle(tur, ozet, anahtar) {
+      try {
+        const simdi = Date.now();
+        const proje = ckProjeAdi();
+        const k = anahtar || (tur + '|' + proje);
+        for (let i = 0; i < ckLog.length; i++) {
+          const e = ckLog[i];
+          if (e.anahtar === k && Math.abs(new Date(e.zaman).getTime() - simdi) < CK_LOG_BIRLESTIR_MS) {
+            e.zaman = new Date(simdi).toISOString();   // ayni alan: tek satir kalir, zaman tazelenir
+            e.ozet = ozet;
+            return e;
+          }
+        }
+        const yeni = { zaman: new Date(simdi).toISOString(), tur: tur || 'fmea',
+          ozet: String(ozet || '').slice(0, 240), proje: proje, anahtar: k };
+        ckLog.unshift(yeni);
+        if (ckLog.length > CK_LOG_LIMIT) ckLog.length = CK_LOG_LIMIT;
+        return yeni;
+      } catch (e) { return null; }
+    }
+    function ckLogYukle(d) {
+      try {
+        const l = (d && d.degisiklikLog) || [];
+        ckLog = Array.isArray(l) ? l.slice(0, CK_LOG_LIMIT) : [];
+      } catch (e) { ckLog = []; }
+    }
+
     function cloudPayload() {
       let kp = {};
       try { kp = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) { kp = {}; }
@@ -915,6 +972,8 @@ let nodes = [], selected = null;
         currentProject: currentProject,
         projects: projects,
         kpEdits: kp,
+        // degisiklik kaydi: admin "Son Islemler" akisinda "ne degisti" olarak gosterilir
+        degisiklikLog: ckLog.slice(0, CK_LOG_LIMIT),
         // Yonetici reddi isareti: payload sabit anahtarlarla kuruldugu icin
         // elle korunur, aksi halde her kayitta silinirdi
         hesapReddi: cloudReddi
@@ -1011,6 +1070,8 @@ let nodes = [], selected = null;
         if (d.kpEdits) {
           try { localStorage.setItem(kpKey(), JSON.stringify(d.kpEdits)); } catch (e) {}
         }
+        // degisiklik kaydi buluttan geri alinir (yeni cihazda akis bos gorunmesin)
+        if (d.degisiklikLog) ckLogYukle(d);
         return true;
       } catch (e) { return false; }
     }
@@ -1196,15 +1257,31 @@ let nodes = [], selected = null;
     // ================= YÖNETİCİ KOKPİTİ =================
     // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
     // "GG.AA.YYYY" veya ISO metni Date'e cevirir; okunamazsa null
+    /* Tek tarih ayristirici: 28.09.2026, 28/09/2026, 28-09-2026,
+       28.09.2026 14:30, 2026-09-28, ISO metin ve sayisal ms.
+       ONEMLI: new Date('28.09.2026') tarayicida "Invalid Date" verir;
+       bu yuzden Turkce gun/ay/yil bicimi elle ayristirilir. */
     function ckTarihCoz(v) {
-      const s = String(v || '').trim();
+      if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+      if (typeof v === 'number' && isFinite(v)) return new Date(v);
+      const s = String(v == null ? '' : v).trim();
       if (!s) return null;
-      let m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
-      if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
-      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+      let m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+      if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
       const d = new Date(s);
       return isNaN(d.getTime()) ? null : d;
+    }
+    /* Metinde saat varsa saat de gosterilir (updatedAt ISO -> "01.09.2026 14:30") */
+    function ckTarih(v) {
+      const d = ckTarihCoz(v);
+      if (!d) return '—';
+      const p = function (x) { return (x < 10 ? '0' : '') + x; };
+      const tarih = p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+      const saatli = String(v == null ? '' : v).match(/(\d{1,2}):\d{2}/);
+      if (!saatli) return tarih;
+      return tarih + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
     function fmeaMetrikleri(projects, kpEdits) {
       const m = { proses: 0, islem: 0, hata: 0, rpnDolu: 0, puanlanmamis: 0, kritik: 0, yuksek: 0, emniyet: 0, aksiyonsuz: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0,
@@ -1455,29 +1532,76 @@ let nodes = [], selected = null;
        Gercek kayitlardan uretilir: proje "onayZaman" damgasi (gonderim/onay/red)
        ve "updatedAt" (FMEA guncelleme). Gonderim aninda ikisi de yazildigi icin
        ayni kare iki kez gosterilmez; metin kaydin gercek durumundan gelir. */
+    /* Kullanicinin "degisiklikLog" kaydi -> admin akisindaki nokta rengi */
+    function ckOlayTip(tur) {
+      return ({
+        alan: 'alan', aksiyon: 'aksiyon', hedef: 'hedef', gerceklesen: 'gerceklesen',
+        kp: 'kp', akis: 'akis', proje: 'proje', fmea: 'fmea'
+      })[tur] || 'guncelleme';
+    }
     function ckSonIslemler(adet) {
       const store = window.__ckSatir || {};
+      const ham = window.__ckHam || {};
       const liste = [];
       Object.keys(store).forEach(function (uid) {
         const r = store[uid] || {};
+        const kisi = r.kisi || '(isimsiz)';
+        const d = ham[uid] || {};
+        const projeFirma = {};
+        (d.projects || []).forEach(function (p) {
+          if (p && p.name) projeFirma[p.name] = String((p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
+        });
+        /* 1) Kullanicinin yazdigi degisiklik kayitlari: "ne degisti" bilgisi */
+        const log = Array.isArray(d.degisiklikLog) ? d.degisiklikLog : [];
+        let logVar = false;
+        log.forEach(function (e) {
+          if (!e) return;
+          const z = ckZamanMs(e.zaman);
+          if (!z) return;
+          const projeAd = String(e.proje || '').trim();
+          const ad = ckTedAdi(projeFirma[projeAd] || '', projeAd, kisi);
+          const ozet = String(e.ozet || '').trim();
+          if (!ozet) return;
+          logVar = true;
+          /* Proje adi firma adiyla ayni ise "X için" tekrarini at (salt okunur kayit) */
+          const bas = projeAd && ad === projeAd ? ad + ' kaydı: ' : ad + ' için ';
+          liste.push({ zaman: z, ad: ad, kisi: kisi, tip: ckOlayTip(e.tur), metin: bas + ozet });
+        });
+        /* 2) Onay olaylari (onayZaman + onayDurumu) */
         (r.projler || []).forEach(function (p) {
-          const ham = p.ham || {};
+          const hamP = p.ham || {};
           const ad = ckTedAdi(p.firma, p.ad, r.kisi);
-          const onayZ = ckZamanMs(ham.onayZaman);
-          const guncZ = ckZamanMs(p.zaman || ham.updatedAt);
+          const onayZ = ckZamanMs(hamP.onayZaman);
           if (onayZ) {
-            const d = fmeaOnayDurumu(ham);
-            liste.push({ zaman: onayZ, ad: ad, kisi: r.kisi,
-              tip: d === 'onayli' ? 'onay' : (d === 'red' ? 'red' : 'onaya'),
-              metin: d === 'onayli' ? 'için FMEA onaylandı' : (d === 'red' ? 'için FMEA reddedildi' : 'için FMEA onaya gönderildi') });
-          }
-          if (guncZ && (!onayZ || Math.abs(guncZ - onayZ) >= 120000)) {
-            liste.push({ zaman: guncZ, ad: ad, kisi: r.kisi, tip: 'guncelleme', metin: 'için FMEA güncellendi' });
+            const dd = fmeaOnayDurumu(hamP);
+            const tip = dd === 'onayli' ? 'onay' : (dd === 'red' ? 'red' : 'onaya');
+            const metin = dd === 'onayli' ? 'için FMEA onaylandı' : (dd === 'red' ? 'için FMEA reddedildi' : 'için FMEA onaya gönderildi');
+            liste.push({ zaman: onayZ, ad: ad, kisi: kisi, tip: tip, metin: metin });
           }
         });
+        /* 3) Kayit yoksa eski davranis: updatedAt'ten genel "FMEA guncellendi" */
+        if (!logVar) {
+          (r.projler || []).forEach(function (p) {
+            const hamP = p.ham || {};
+            const ad = ckTedAdi(p.firma, p.ad, r.kisi);
+            const guncZ = ckZamanMs(p.zaman || hamP.updatedAt);
+            if (!guncZ) return;
+            const onayZ = ckZamanMs(hamP.onayZaman);
+            if (onayZ && Math.abs(guncZ - onayZ) < 120000) return;
+            liste.push({ zaman: guncZ, ad: ad, kisi: r.kisi, tip: 'guncelleme', metin: 'için FMEA güncellendi' });
+          });
+        }
       });
-      liste.sort(function (a, b) { return b.zaman - a.zaman; });
-      return adet ? liste.slice(0, adet) : liste;
+      /* Ayni kayit iki kez gorunmesin: ayni kullanici + ayni saniye + ayni metin */
+      const gorulen = {};
+      const temiz = liste.filter(function (o) {
+        const k = (o.kisi || '') + '|' + Math.round(o.zaman / 1000) + '|' + o.metin;
+        if (gorulen[k]) return false;
+        gorulen[k] = 1;
+        return true;
+      });
+      temiz.sort(function (a, b) { return b.zaman - a.zaman; });
+      return adet ? temiz.slice(0, adet) : temiz;
     }
     /* ===== EK BILESENLER: UYARI SERIDI + GECIKME RISKI + SON ISLEMLER =====
        Onay Zamani/onayDurumu ve updatedAt verisinden beslenir; uydurma kayit yok. */
@@ -1521,7 +1645,7 @@ let nodes = [], selected = null;
         '<span class="ck-uyari-yazi">' + esc(seritMetin) + (risk.length ? ' Aşağıdaki listeden detaylara bakabilirsiniz.' : '') + '</span></div>';
       /* 2) GECIKME RISKI LISTESI + 3) SON ISLEMLER */
       const riskKarti = '<div class="ck-ek-kart">' +
-        '<div class="ck-ek-baslik">GECİKME RİSKİ TAŞIYAN AKSİYONLAR' +
+        '<div class="ck-ek-baslik">GECİKEN VE YAKLAŞAN AKSİYONLAR' +
           (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') + '</div>' +
         (risk.length ? risk.slice(0, 6).map(ckRiskSatiri).join('') +
           (risk.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(risk.length - 6) + ' aksiyon daha</span></div>' : '')
@@ -1532,13 +1656,6 @@ let nodes = [], selected = null;
         (olaylar.length ? olaylar.map(ckOlaySatiri).join('')
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Kayıtlı işlem yok.</span></div>') + '</div>';
       kutu.innerHTML = serit + '<div class="ck-ek-izgara">' + riskKarti + olayKarti + '</div>';
-    }
-    function ckTarih(v) {
-      if (!v) return '—';
-      const d = new Date(v);
-      if (isNaN(d.getTime())) return '—';
-      const p = function (x) { return (x < 10 ? '0' : '') + x; };
-      return p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
     function ckGrup(baslik, icerik, aksan) {
       return '<div class="ck-grup a-' + (aksan || 'n') + '"><div class="ck-grup-h">' + baslik + '</div><div class="ck-grup-t">' + icerik + '</div></div>';
@@ -1608,9 +1725,13 @@ let nodes = [], selected = null;
       const p = [];
       if (r.onayli) p.push('<span class="onay-b onayli">' + r.onayli + ' Onaylı</span>');
       if (r.bekleyen) p.push('<span class="onay-b bekliyor">' + r.bekleyen + ' Bekleyen</span>');
-      if (r.aktif) p.push('<span class="onay-b aktif">' + r.aktif + ' Aktif</span>');
       if (r.red) p.push('<span class="onay-b red">' + r.red + ' Red</span>');
-      return p.length ? p.join(' ') : '<span class="ck-none">—</span>';
+      if (r.aktif) p.push('<span class="onay-b aktif">' + r.aktif + ' Aktif</span>');
+      const toplam = (r.onayli || 0) + (r.bekleyen || 0) + (r.red || 0) + (r.aktif || 0);
+      const baslik = 'Onaylı + Bekleyen + Red + Aktif = ' + ckSayiFmt(toplam) +
+        ' FMEA\nAktif = henüz onaya gönderilmemiş taslak FMEA';
+      if (!p.length) return '<span class="ck-none" title="' + baslik + '">-</span>';
+      return '<span title="' + baslik + '">' + p.join(' ') + '</span>';
     }
     // ===== KOKPIT KART POP-UP =====
     // Butun tiklanabilir kartlar ayni mantikla calisir: icerik sayfa altina degil,
@@ -1943,6 +2064,7 @@ let nodes = [], selected = null;
           .select('user_id,email,approved,is_admin,updated_at,data');
         if (error) throw error;
         window.__ckRawRows = data || [];       // denetim ekrani icin ham veri
+        window.__ckHam = {};                   // uid -> kullanici veri objesi (degisiklikLog burada)
         const store = {};
         // BENZERSIZ TEDARIKCI SAYIMI: proje adi her kullanicida "Tedarikci 1" oldugu icin
         // firma adi (fmeaMeta.firma) esas alinir; firma yoksa kullanici+proje adi benzersiz sayilir.
@@ -1954,6 +2076,7 @@ let nodes = [], selected = null;
           m.fmea = projler.length;
           const uid = r.user_id;
           const kisi = nameFromEmail(r.email) || '(isimsiz)';
+          window.__ckHam[uid] = d;
           // onay durumlarini say
           let onayli = 0, bekleyen = 0, red = 0;
           projler.forEach(function (p) {
@@ -1982,10 +2105,13 @@ let nodes = [], selected = null;
               durum: fmeaOnayDurumu(p), tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses',
               zaman: p && p.updatedAt, m: pm, ham: p });
             const td = fmeaOnayDurumu(p);
+            /* Durum sayaçlari AYRIK olmali: Onayli + Bekleyen + Red + Aktif = FMEA toplami.
+               "Aktif" = taslak (henuz onaya gonderilmemis). "devam" = onaylanmamis
+               (Bekleyen + Red + Aktif) oldugu icin rozet olarak gosterilmez. */
             if (td === 'onayli') t.onayli++;
-            else if (td === 'bekliyor') { t.bekleyen++; t.devam++; t.aktif++; }
-            else if (td === 'red') { t.red++; t.devam++; t.aktif++; }
-            else { t.devam++; t.aktif++; }
+            else if (td === 'bekliyor') { t.bekleyen++; t.devam++; }
+            else if (td === 'red') { t.red++; t.devam++; }
+            else { t.aktif++; t.devam++; }
           });
           store[uid] = {
             kisi: kisi,
@@ -2415,8 +2541,14 @@ let nodes = [], selected = null;
     try { authModUygula(); } catch (e) {}
     // ===== Supabase katmanı sonu =====
 
+    var CK_META_ADI = { firma: 'Firma adı', sektor: 'Sektör', tarih: 'FMEA tarihi', revizyon: 'Revizyon no', hazirlayan: 'Hazırlayan', onaylayan: 'Onaylayan' };
     function setMeta(k, v) {
+      const eski = fmeaMeta[k];
       fmeaMeta[k] = v;
+      if (String(eski == null ? '' : eski).trim() !== String(v == null ? '' : v).trim()) {
+        ckLogEkle('fmea', 'FMEA bilgileri güncellendi (' + (CK_META_ADI[k] || k) + ')',
+          'meta|' + (currentProject || '') + '|' + k);
+      }
       localStorage.setItem(metaKey, JSON.stringify(fmeaMeta));
       scheduleCloudSync();
     }
@@ -2532,6 +2664,7 @@ function save() {
       if (!confirm('"' + ((p.fmeaMeta && p.fmeaMeta.firma) || p.name) + '" tedarikçisi ve tüm verileri silinsin mi?')) return;
       projects = projects.filter(x => x.name !== name);
       localStorage.setItem(projectsKey, JSON.stringify(projects));
+      ckLogEkle('proje', 'FMEA silindi: ' + name, 'proje-sil|' + name);
       refreshProjectSel();
       save();
     }
@@ -2559,6 +2692,7 @@ function save() {
       upsertProject(name, [], {});
       nodes = []; fmeaMeta = {}; currentProject = name; selected = null;
       showMeta = true;
+      ckLogEkle('proje', 'Yeni FMEA oluşturuldu: ' + name, 'proje-yeni|' + name);
       save();
     }
 
@@ -2568,11 +2702,16 @@ function save() {
       let name = firma || currentProject;
       if (!name) name = (prompt('Firma Adı / Sektör Adı:') || '').trim();
       if (!name) return;
+      const eskiAd = currentProject;
+      const yenidenAdlandirildi = currentProject && currentProject !== name;
+      const yeniMi = !projects.some(p => p.name === name);
       if (currentProject && currentProject !== name) {
         projects = projects.filter(p => p.name !== currentProject);
       }
       currentProject = name;
       upsertProject(name, nodes, fmeaMeta);
+      if (yenidenAdlandirildi) ckLogEkle('proje', 'FMEA adı değiştirildi: ' + eskiAd + ' → ' + name, 'proje-ad|' + name);
+      else if (yeniMi) ckLogEkle('proje', 'Yeni FMEA kaydedildi: ' + name, 'proje-yeni|' + name);
       try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
       save();
       try { await downloadPortableHtml(); } catch (e) {}
@@ -3117,10 +3256,23 @@ form.innerHTML = showMeta ? `
       `;
     }
 
+    /* Yerel + bulut kaydi: ekrani yeniden CIZMEZ (yazarken imlec korunur) */
+    function ckYerelKaydet() {
+      try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+      scheduleCloudSync();
+    }
+    /* FMEA karti ust alanlari: baslik, hedef surec vb. */
+    var CK_KART_ALAN = { title: 'FMEA adı', newProcessTitle: 'Yeni süreç adı', targetMode: 'Hedef türü', targetId: 'Hedef', sideTargetMode: 'Yan hedef türü', sideTargetId: 'Yan hedef' };
     function update(k, v) {
       const p = nodes.find(n => n.id === selected);
       if (!p) return;
+      const eski = p[k];
       p[k] = v;
+      if (String(eski == null ? '' : eski).trim() !== String(v == null ? '' : v).trim()) {
+        ckLogEkle('fmea', 'FMEA güncellendi (' + (CK_KART_ALAN[k] || k) + ')',
+          'kart|' + (currentProject || '') + '|' + (selected || '') + '|' + k);
+        ckYerelKaydet();
+      }
       updateVisualsOnly();
     }
 
@@ -3141,13 +3293,20 @@ form.innerHTML = showMeta ? `
         gerProses: '',
         hatalar: []
       });
+      ckLogEkle('akis', 'Akışa yeni alt proses eklendi', 'akis-ekle|' + (currentProject || '') + '|' + (selected || ''));
       save();
     }
 
     function editSubProses(sIdx, k, v) {
       let p = nodes.find(n => n.id === selected);
       if (!p || !p.altProsesler[sIdx]) return;
+      const eski = p.altProsesler[sIdx][k];
       p.altProsesler[sIdx][k] = v;
+      if (String(eski == null ? '' : eski).trim() !== String(v == null ? '' : v).trim()) {
+        ckLogEkle('akis', 'Akış güncellendi (alt proses ' + (CK_KART_ALAN[k] || k || 'alan') + ')',
+          'akis|' + (currentProject || '') + '|' + (selected || '') + '|' + sIdx + '|' + k);
+        ckYerelKaydet();
+      }
       updateVisualsOnly();
     }
 
@@ -3155,6 +3314,7 @@ form.innerHTML = showMeta ? `
       let p = nodes.find(n => n.id === selected);
       if (!p) return;
       p.altProsesler.splice(sIdx, 1);
+      ckLogEkle('akis', 'Akıştan alt proses silindi', 'akis-sil|' + (currentProject || '') + '|' + (selected || '') + '|' + sIdx);
       save();
     }
 
@@ -3192,14 +3352,36 @@ function hataHTML(sIdx, h, i) {
       if (!p || !p.altProsesler[sIdx]) return;
       if (!p.altProsesler[sIdx].hatalar) p.altProsesler[sIdx].hatalar = [];
       p.altProsesler[sIdx].hatalar.push({ tur: '', etki: '', neden: '', s: '', o: '', d: '', sinif: '', onkontrol: '', tespitkontrol: '', faaliyet: '', sorumlu: '', hedefTarih: '', aksiyon: '', gerceklesenTarih: '', s2: '', o2: '', d2: '' });
+      ckLogEkle('fmea', 'FMEA tablosuna yeni hata satırı eklendi', 'hata-ekle|' + sIdx + '|' + (p.altProsesler[sIdx].hatalar.length - 1));
       save();
+    }
+
+    /* Satir alani degisikligi: admin akisinda "ne degisti" olarak gosterilir */
+    function ckHataAlanLog(sIdx, i, k, eski, yeni) {
+      const ad = CK_ALAN_ADI[k] || k;
+      const dolu = (x) => String(x == null ? '' : x).trim();
+      if (dolu(eski) === dolu(yeni)) return;                 // gercek degisiklik yok
+      const anahtar = 'hata|' + (currentProject || '') + '|' + sIdx + '|' + i + '|' + k;
+      if (k === 'hedefTarih') {
+        return ckLogEkle('hedef', 'Hedef tamamlama tarihi güncellendi: ' + (dolu(yeni) || '(boşaltıldı)'), anahtar);
+      }
+      if (k === 'gerceklesenTarih') {
+        return ckLogEkle('gerceklesen', dolu(eski) ? 'Gerçekleşen tarih güncellendi: ' + dolu(yeni) : 'Gerçekleşen tarih girildi: ' + dolu(yeni), anahtar);
+      }
+      if (k === 'aksiyon' || k === 'faaliyet') {
+        return ckLogEkle('aksiyon', (dolu(eski) ? 'Aksiyon güncellendi' : 'Aksiyon eklendi') + ': ' + (dolu(yeni) || '(boşaltıldı)'), anahtar);
+      }
+      if (k === 'sorumlu') return ckLogEkle('aksiyon', 'Sorumlu güncellendi: ' + (dolu(yeni) || '(boşaltıldı)'), anahtar);
+      return ckLogEkle('alan', 'FMEA alanı güncellendi (' + ad + ')', anahtar);
     }
 
 function editHata(sIdx, i, k, v) {
       const p = nodes.find(n => n.id === selected);
       if (!p || !p.altProsesler[sIdx]) return;
       if (!p.altProsesler[sIdx].hatalar[i]) return;
+      const eski = p.altProsesler[sIdx].hatalar[i][k];
       p.altProsesler[sIdx].hatalar[i][k] = v;
+      ckHataAlanLog(sIdx, i, k, eski, v);
       if (k === 's' || k === 'o' || k === 'd' || k === 's2' || k === 'o2' || k === 'd2') {
         updateVisualsOnly();
         updateHataRog(sIdx, i);
@@ -3214,6 +3396,7 @@ function editHata(sIdx, i, k, v) {
       let p = nodes.find(n => n.id === selected);
       if (!p || !p.altProsesler[sIdx]) return;
       p.altProsesler[sIdx].hatalar.splice(i, 1);
+      ckLogEkle('fmea', 'FMEA tablosundan hata satırı silindi', 'hata-sil|' + sIdx + '|' + i);
       save();
     }
 
@@ -3356,10 +3539,11 @@ return metin + '(otomatik öneri)';
       const n = nodes.find(x => x.id === el.dataset.n);
       if (!n) return;
       const lvl = el.dataset.lvl, sIdx = +el.dataset.s, hIdx = +el.dataset.h, k = el.dataset.k, v = el.value;
-      if (lvl === 'node') { n[k] = v; }
+      if (lvl === 'node') { ckAkisAlanLog('proses', k, n[k], v); n[k] = v; }
       else if (lvl === 'sub') {
         const sub = n.altProsesler[sIdx];
         if (!sub) return;
+        ckAkisAlanLog('akis', k, sub[k], v);
         sub[k] = v;
       } else {
         const sub = n.altProsesler[sIdx];
@@ -3371,7 +3555,9 @@ return metin + '(otomatik öneri)';
           h = { tur: '', etki: '', s: '', o: '', d: '', sinif: '', neden: '', onkontrol: '', tespitkontrol: '', faaliyet: '', sorumlu: '', hedefTarih: '', aksiyon: '', gerceklesenTarih: '', s2: '', o2: '', d2: '' };
           sub.hatalar[hIdx] = h;
         }
+        const eski = h[k];
         h[k] = v;
+        ckHataAlanLog(sIdx, hIdx, k, eski, v);
         if (k === 's' || k === 'o' || k === 'd' || k === 's2' || k === 'o2' || k === 'd2') {
           const r1 = document.getElementById('prpn-' + el.dataset.n + '-' + sIdx + '-' + hIdx);
           if (r1) { r1.textContent = String(fmeaCalcRpn(h.s, h.o, h.d)); r1.style.background = rpnColor(r1.textContent); }
@@ -3386,12 +3572,26 @@ return metin + '(otomatik öneri)';
       scheduleCloudSync();
     }
 
+    /* Akis (proses/alt proses basligi) alani degisikligi */
+    function ckAkisAlanLog(duzey, k, eski, yeni) {
+      const dolu = (x) => String(x == null ? '' : x).trim();
+      if (dolu(eski) === dolu(yeni)) return;
+      const ad = k === 'title' ? (duzey === 'proses' ? 'Proses adı' : 'Alt proses adı') : k;
+      ckLogEkle('akis', (duzey === 'proses' ? 'Proses' : 'Akış') + ' güncellendi (' + ad + ')',
+        'akis|' + (currentProject || '') + '|' + duzey + '|' + (nodes.findIndex(n => n.id === selected)) + '|' + k);
+    }
+
     function cpEditCell(el) {
       const code = el.dataset.code, k = el.dataset.k;
       if (!code) return;
       const store = (window.__cpEdits = window.__cpEdits || {});
       store[code] = store[code] || {};
+      const eski = store[code][k];
       store[code][k] = el.value;
+      if (String(eski == null ? '' : eski).trim() !== String(el.value || '').trim()) {
+        ckLogEkle('kp', 'Kontrol planı güncellendi (' + (k || 'sütun') + '): ' + String(code),
+          'kp|' + (currentProject || '') + '|' + code + '|' + k);
+      }
       fitCell(el);
       try { localStorage.setItem(kpKey(), JSON.stringify(store)); } catch (e) {}
       scheduleCloudSync();
