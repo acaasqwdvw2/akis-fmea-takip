@@ -91,9 +91,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .panel-head h2{flex:1;min-width:0}
 .form-overlay{position:fixed;top:0;right:0;bottom:0;left:auto;width:min(540px,94vw);background:#fff;z-index:600;display:flex;flex-direction:column;box-shadow:-8px 0 28px rgba(0,0,0,.18);transform:translateX(105%);visibility:hidden;transition:transform .22s ease,visibility .22s}
 .form-overlay.open{transform:translateX(0);visibility:visible}
-.form-overlay .fh{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:#3e8f8d;color:#fff;flex:0 0 auto}
-.form-overlay .form{flex:1;overflow:auto;padding:14px}
-.form-overlay .fh button{background:rgba(255,255,255,.2);color:#fff;border:0;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:700}
+    /* Baslik bantlarindaki renkli boya kaldirildi (duz beyaz zemin) */
+    .form-overlay .fh{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:#fff;color:var(--ck-ink);border-bottom:1px solid #d7e5e8;flex:0 0 auto}
+    .form-overlay .form{flex:1;overflow:auto;padding:14px}
+    .form-overlay .fh button{background:#eef3f4;color:#1f5f6b;border:1px solid #c9d8db;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:700}
     .fmea-overlay{position:fixed;inset:0;background:rgba(20,30,32,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:10px;visibility:hidden;opacity:0;transition:opacity .15s}
     .fmea-overlay.open{visibility:visible;opacity:1}
     .fmea-modal{background:#fff;border-radius:10px;max-width:98vw;width:100%;height:96vh;max-height:96vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)}
@@ -412,6 +413,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckBody[hidden]{display:none}
     .ck-tile.tiklanir{cursor:pointer}
     .ck-tile.tiklanir:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.13)}
+    /* ===== EK BILESENLER: uyari seridi + gec(k)ikme riski + son islemler ===== */
+    #ckEk{margin:0 0 14px}
+    .ck-uyari{background:#fbefd9;border:1px solid #f0d9a8;border-radius:12px;padding:14px 18px;
+      display:flex;align-items:center;gap:14px}
+    .ck-uyari.sakin{background:#eef6f2;border-color:#c3e0cd}
+    .ck-uyari[onclick]{cursor:pointer}
+    .ck-uyari[onclick]:hover{filter:brightness(.985)}
+    .ck-uyari-ico{width:36px;height:36px;border-radius:10px;background:#f3dfb0;display:flex;align-items:center;
+      justify-content:center;flex:0 0 auto}
+    .ck-uyari.sakin .ck-uyari-ico{background:#cfe7d7}
+    .ck-uyari-yazi{font-size:13px;font-weight:600;color:#6b4a00;line-height:1.45}
+    .ck-uyari.sakin .ck-uyari-yazi{color:#2c5c40}
+    .ck-ek-izgara{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;align-items:stretch;margin-top:16px}
+    .ck-ek-kart{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:12px;padding:16px 18px;
+      display:flex;flex-direction:column;gap:2px;min-width:0}
+    .ck-ek-baslik{font-size:11px;font-weight:800;letter-spacing:.6px;color:#6b7a8e;margin-bottom:6px;
+      display:flex;align-items:center;gap:8px}
+    .ck-ek-adet{background:#e3e8ef;color:#4a5a6e;border-radius:999px;padding:1px 8px;font-size:10.5px;letter-spacing:0}
+    .ck-ek-satir{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #eef1f5}
+    .ck-ek-satir:last-child{border-bottom:none}
+    .ck-ek-satir.son{border-bottom:none;padding-bottom:0}
+    .ck-ek-ana{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+    .ck-ek-bas{font-size:13px;font-weight:600;color:#16275f;line-height:1.35;overflow:hidden;
+      text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .ck-ek-alt{font-size:11.5px;color:#6b7a8e}
+    .ck-ek-zaman{font-size:11.5px;color:#9aa5b8;white-space:nowrap;flex:0 0 auto}
+    .ck-ek-nokta{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:#b9770e}
+    .ck-ek-nokta.onay{background:#1e8449} .ck-ek-nokta.red{background:#c0392b}
+    .ck-ek-nokta.onaya{background:#2e5aac} .ck-ek-nokta.guncelleme{background:#b9770e}
+    .ck-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;
+      background:#fbefd9;color:#b9770e;flex:0 0 auto}
+    .ck-pill.risk{background:#f7dad7;color:#c0392b}
+    @media (max-width:900px){.ck-ek-izgara{grid-template-columns:1fr;gap:12px}}
+    @media (max-width:700px){
+      .ck-uyari{padding:11px 12px;gap:10px;border-radius:10px}
+      .ck-uyari-ico{width:30px;height:30px;border-radius:8px}
+      .ck-uyari-yazi{font-size:12px}
+      .ck-ek-izgara{margin-top:12px}
+      .ck-ek-kart{padding:13px 13px;border-radius:10px}
+      .ck-ek-satir{padding:9px 0;gap:10px}
+      .ck-ek-bas{font-size:12.5px}
+      .ck-ek-alt,.ck-ek-zaman{font-size:11px}
+      .ck-pill{font-size:10.5px;padding:3px 8px}
+    }
+
     /* GECIKEN AKSIYON PANELI ("Aksiyon Gecikmis" karti acilir) */
     #ckPop.gec #ckPop-kutu{width:min(1100px,96vw)}
     .ck-gec-ozet{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:11.5px;color:#5b7076}
@@ -463,10 +509,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-tile.bekliyor{background:linear-gradient(180deg,#fffbeb,#fff);border-color:#fcd34d}
     .ck-tile.uyari{background:linear-gradient(180deg,#fff1f2,#fff);border-color:#fda4af}
     .ck-tile.aktif{background:linear-gradient(180deg,#ecfeff,#fff);border-color:#67e8f9}
-    /* Baslik */
-    .ck-head{background:linear-gradient(100deg,#0f766e 0%,#0d9488 42%,#2563eb 100%);border:0;border-left:0}
-    .ck-head h2,.ck-head .ck-sub{color:#fff}
-    .ck-head .ck-sub{opacity:.92}
+    /* Baslik: renkli boya (gradyan) kaldirildi, duz beyaz zemin */
+    .ck-head{background:#fff;border:0}
+    .ck-head h2{color:var(--ck-ink)}
+    .ck-head .ck-sub{color:var(--ck-muted)}
     /* Sayi rozetleri */
     .ck-b{background:#eef2f4}
     .ck-b.hot{background:linear-gradient(180deg,#fecaca,#fca5a5);color:#7f1d1d}
@@ -492,8 +538,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-btn:hover{background:linear-gradient(180deg,#ecfeff,#cffafe)}
     #ckExcelBtn{background:linear-gradient(180deg,#15803d,#166534) !important;border-color:#14532d}
     #ckExcelBtn:hover{filter:brightness(1.12)}
-    /* Pop-up basligi */
-    #ckPop-title{background:linear-gradient(100deg,#0f766e,#0d9488 45%,#6d28d9);color:#fff;border-radius:8px 8px 0 0}
+    /* Pop-up basligi: renkli boya (gradyan) kaldirildi, duz beyaz zemin */
+    #ckPop-title{background:#fff;color:var(--ck-ink);border-bottom:1px solid var(--ck-line);border-radius:8px 8px 0 0}
     body.ck-only{background:linear-gradient(180deg,#eef6f7 0%,#e8eef6 100%)}
 
     /* ===== YARI BOY KOKPIT: kart alani sol ve sagdan daraltildi ===== */
@@ -597,11 +643,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <div class="ck-sub" id="ckStamp">Tüm kullanıcıların FMEA performansı</div>
       </div>
       <div class="ck-head-r">
-        <button onclick="ckTabloGoster()">Kullanıcı Tablosu</button>
+        <button onclick="ckTabloGoster()">Tedarikçi Tablosu</button>
         <button class="primary" onclick="ckYenile()">Yenile</button>
       </div>
     </div>
     <div id="ckTiles"></div>
+    <div id="ckEk"></div>
     <div id="ckBody"></div>
   </div>
   <!-- KOKPIT KART POP-UP: tum kartlar icin ortak pencere -->
@@ -1294,12 +1341,12 @@ let nodes = [], selected = null;
         '<th>Önerilen Faaliyet</th><th>Sorumlu</th><th>Hedef Tarih</th><th>Gerçekleşen</th><th>KP Reaksiyon</th>' +
         '<th>Dolu alan örnekleri</th></tr></thead><tbody>' + govde + '</tbody></table>', 'denetim');
     }
-    /* ===== GECIKEN AKSIYON LISTESI =====
-       "Aksiyon Gecikmis" kartinin icerigi. Kural fmeaMetrikleri() ile AYNI:
-       aksiyonu var (Alınan Aksiyonlar veya Önerilen Faaliyet dolu), "Gerçekleşen
-       Tarihi" bos, "Hedef Tamamlama Tarihi" gecmis. Satiri tek tek (hata bazinda)
-       acar; kartin sayisi toplam satir sayisini verir. */
-    function ckGecikenAksiyonlar() {
+    /* ===== AKSIYON TARAMASI (ortak veri kaynagi) =====
+       Kural fmeaMetrikleri() ile AYNI: aksiyonu var (Alınan Aksiyonlar veya
+       Önerilen Faaliyet dolu), "Gerçekleşen Tarihi" bos, "Hedef Tamamlama
+       Tarihi" dolu. kalanGun < 0 => gecikmis, 0 => bugun, > 0 => kalan gun.
+       Hem "Aksiyon Gecikmis" karti hem "Gecikme Riski" listesi bundan beslenir. */
+    function ckAksiyonTaramasi() {
       const store = window.__ckSatir || {};
       const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
       const liste = [];
@@ -1318,7 +1365,8 @@ let nodes = [], selected = null;
                 if (ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi'])) return;  // tamamlanmis
                 const hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
                 const hd = ckTarihCoz(hdMetin);
-                if (!hd || hd.getTime() >= bugun.getTime()) return;         // hedef yok ya da gecmedi
+                if (!hd) return;                                            // hedef tarihi bos
+                const kalanGun = Math.round((hd.getTime() - bugun.getTime()) / 86400000);
                 liste.push({
                   uid: uid, kisi: kisi, tedAdi: tedAdi, projeAd: p.ad || '(isimsiz)',
                   proses: String((n && n.title) || '').trim(),
@@ -1328,16 +1376,20 @@ let nodes = [], selected = null;
                   neden: ckAlan(h, ['neden', 'sebep']),
                   aksiyon: ak, faaliyet: faal,
                   sorumlu: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
-                  hedef: hdMetin,
-                  gecGun: Math.max(1, Math.round((bugun.getTime() - hd.getTime()) / 86400000))
+                  hedef: hdMetin, kalanGun: kalanGun,
+                  gecGun: kalanGun < 0 ? -kalanGun : 0
                 });
               });
             });
           });
         });
       });
-      liste.sort(function (a, b) { return b.gecGun - a.gecGun || a.tedAdi.localeCompare(b.tedAdi, 'tr'); });
+      liste.sort(function (a, b) { return a.kalanGun - b.kalanGun || a.tedAdi.localeCompare(b.tedAdi, 'tr'); });
       return liste;
+    }
+    /* Sadece gecikmis olanlar ("Aksiyon Gecikmis" karti + paneli) */
+    function ckGecikenAksiyonlar() {
+      return ckAksiyonTaramasi().filter(function (x) { return x.kalanGun < 0; });
     }
     function ckGecikmisHtml() {
       const l = window.__ckGecikmis || [];
@@ -1373,6 +1425,113 @@ let nodes = [], selected = null;
       return ozet + '<table class="ck-gec-tablo"><thead><tr><th>#</th><th>Tedarikçi / Kullanıcı / FMEA</th>' +
         '<th>Proses / İşlem</th><th>Hata</th><th>Aksiyon</th><th>Sorumlu</th><th>Hedef Tarih</th>' +
         '<th>Gecikme</th></tr></thead><tbody>' + satirlar + '</tbody></table>';
+    }
+    /* Zaman damgasini sayiya cevirir: Date.now() (ms), ISO metin veya gecersiz */
+    function ckZamanMs(v) {
+      if (!v) return 0;
+      if (typeof v === 'number') return v;
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d.getTime();
+      const n = Number(v);
+      return isNaN(n) ? 0 : n;
+    }
+    /* "Gecen sure": 12 dk once / 3 saat once / Dun, 17:42 */
+    function ckGecenSure(v) {
+      const ms = ckZamanMs(v);
+      if (!ms) return '';
+      const d = new Date(ms);
+      const fark = Date.now() - ms;
+      const dk = Math.floor(fark / 60000);
+      if (dk < 1) return 'az önce';
+      if (dk < 60) return dk + ' dk önce';
+      const sa = Math.floor(dk / 60);
+      if (sa < 24) return sa + ' saat önce';
+      const gun = Math.floor(sa / 24);
+      if (gun === 1) return 'Dün, ' + ckTarih(ms).split(' ')[1];
+      if (gun < 7) return gun + ' gün önce';
+      return ckTarih(ms);
+    }
+    /* ===== SON ISLEMLER (aktivite akisi) =====
+       Gercek kayitlardan uretilir: proje "onayZaman" damgasi (gonderim/onay/red)
+       ve "updatedAt" (FMEA guncelleme). Gonderim aninda ikisi de yazildigi icin
+       ayni kare iki kez gosterilmez; metin kaydin gercek durumundan gelir. */
+    function ckSonIslemler(adet) {
+      const store = window.__ckSatir || {};
+      const liste = [];
+      Object.keys(store).forEach(function (uid) {
+        const r = store[uid] || {};
+        (r.projler || []).forEach(function (p) {
+          const ham = p.ham || {};
+          const ad = ckTedAdi(p.firma, p.ad, r.kisi);
+          const onayZ = ckZamanMs(ham.onayZaman);
+          const guncZ = ckZamanMs(p.zaman || ham.updatedAt);
+          if (onayZ) {
+            const d = fmeaOnayDurumu(ham);
+            liste.push({ zaman: onayZ, ad: ad, kisi: r.kisi,
+              tip: d === 'onayli' ? 'onay' : (d === 'red' ? 'red' : 'onaya'),
+              metin: d === 'onayli' ? 'için FMEA onaylandı' : (d === 'red' ? 'için FMEA reddedildi' : 'için FMEA onaya gönderildi') });
+          }
+          if (guncZ && (!onayZ || Math.abs(guncZ - onayZ) >= 120000)) {
+            liste.push({ zaman: guncZ, ad: ad, kisi: r.kisi, tip: 'guncelleme', metin: 'için FMEA güncellendi' });
+          }
+        });
+      });
+      liste.sort(function (a, b) { return b.zaman - a.zaman; });
+      return adet ? liste.slice(0, adet) : liste;
+    }
+    /* ===== EK BILESENLER: UYARI SERIDI + GECIKME RISKI + SON ISLEMLER =====
+       Onay Zamani/onayDurumu ve updatedAt verisinden beslenir; uydurma kayit yok. */
+    var CK_RISK_GUN = 7;   // bu kac gun icindeki hedefi "gecikme riski" sayilir
+    function ckRiskPill(x) {
+      if (x.kalanGun < 0) return '<span class="ck-pill risk">' + ckSayiFmt(x.gecGun) + ' gün gecikti</span>';
+      if (x.kalanGun === 0) return '<span class="ck-pill risk">Bugün son gün</span>';
+      if (x.kalanGun === 1) return '<span class="ck-pill risk">Yarın son gün</span>';
+      return '<span class="ck-pill">' + ckSayiFmt(x.kalanGun) + ' gün kaldı</span>';
+    }
+    function ckRiskSatiri(x) {
+      const ak = x.aksiyon || x.faaliyet;
+      const kim = [];
+      if (x.sorumlu) kim.push('Sorumlu: ' + x.sorumlu);
+      if (x.proses) kim.push('Proses: ' + x.proses);
+      kim.push('Tedarikçi: ' + x.tedAdi);
+      return '<div class="ck-ek-satir">' + ckRiskPill(x) +
+        '<div class="ck-ek-ana"><span class="ck-ek-bas">' + esc(ak) + '</span>' +
+        '<span class="ck-ek-alt">' + esc(kim.join(' · ')) + '</span></div></div>';
+    }
+    function ckOlaySatiri(o) {
+      return '<div class="ck-ek-satir"><span class="ck-ek-nokta ' + o.tip + '"></span>' +
+        '<span class="ck-ek-ana"><b>' + esc(o.ad) + '</b> ' + esc(o.metin) +
+        '<span class="ck-ek-alt">' + esc(o.kisi || '') + '</span></span>' +
+        '<span class="ck-ek-zaman">' + esc(ckGecenSure(o.zaman)) + '</span></div>';
+    }
+    function ckEkCiz() {
+      const kutu = document.getElementById('ckEk');
+      if (!kutu) return;
+      const risk = window.__ckRisk || [];
+      const bekleyen = (window.__ckRows || []).reduce(function (a, r) { return a + (r.bekleyen || 0); }, 0);
+      const gecmis = risk.filter(function (x) { return x.kalanGun < 0; }).length;
+      const uyari = (gecmis > 0 || bekleyen > 0);
+      /* 1) UYARI SERIDI */
+      const seritMetin = !risk.length && !bekleyen
+        ? 'Gecikme riski taşıyan aksiyon yok, onay bekleyen FMEA yok.'
+        : (gecmis > 0 ? ckSayiFmt(gecmis) + ' aksiyon gecikme riski taşıyor' : 'Yaklaşan hedef tarihi olan ' + ckSayiFmt(risk.length) + ' aksiyon var') +
+          (bekleyen > 0 ? ', ' + ckSayiFmt(bekleyen) + ' FMEA hâlâ onay bekliyor' : ', onay bekleyen FMEA yok') + '.';
+      const serit = '<div class="ck-uyari' + (uyari ? '' : ' sakin') + '"' + (risk.length ? ' onclick="ckTikla(\'gecikmis\',\'\')" title="Geciken aksiyonları aç"' : '') + '>' +
+        '<div class="ck-uyari-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>' +
+        '<span class="ck-uyari-yazi">' + esc(seritMetin) + (risk.length ? ' Aşağıdaki listeden detaylara bakabilirsiniz.' : '') + '</span></div>';
+      /* 2) GECIKME RISKI LISTESI + 3) SON ISLEMLER */
+      const riskKarti = '<div class="ck-ek-kart">' +
+        '<div class="ck-ek-baslik">GECİKME RİSKİ TAŞIYAN AKSİYONLAR' +
+          (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') + '</div>' +
+        (risk.length ? risk.slice(0, 6).map(ckRiskSatiri).join('') +
+          (risk.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(risk.length - 6) + ' aksiyon daha</span></div>' : '')
+          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Yaklaşan hedef tarihi bulunmuyor.</span></div>') + '</div>';
+      const olaylar = window.__ckOlaylar || [];
+      const olayKarti = '<div class="ck-ek-kart">' +
+        '<div class="ck-ek-baslik">SON İŞLEMLER' + (olaylar.length ? '<span class="ck-ek-adet">' + ckSayiFmt(olaylar.length) + '</span>' : '') + '</div>' +
+        (olaylar.length ? olaylar.map(ckOlaySatiri).join('')
+          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Kayıtlı işlem yok.</span></div>') + '</div>';
+      kutu.innerHTML = serit + '<div class="ck-ek-izgara">' + riskKarti + olayKarti + '</div>';
     }
     function ckTarih(v) {
       if (!v) return '—';
@@ -1460,7 +1619,7 @@ let nodes = [], selected = null;
       if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
       if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
       if (tip === 'onay') return 'Onay Bekleyenler';
-      return 'Kullanıcı Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
+      return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
     }
     function ckFiltreAdi() {
       return ckFiltre === 'onayli' ? 'Onaylı'
@@ -1473,9 +1632,13 @@ let nodes = [], selected = null;
       if (!tEd.length) return '<p class="ck-none">Kayıtlı tedarikçi yok.</p>';
       return '<div class="ck-ted-kartlar">' + tEd.map(function (t) {
         const tam = t.fmea > 0 && t.onayli === t.fmea;
+        const kisiler = Object.keys(t.kisiler || {});
+        const kisiYazi = kisiler.length > 1
+          ? ckSayiFmt(kisiler.length) + ' kullanıcı: ' + kisiler.join(', ')
+          : 'Kullanıcı: ' + (t.kisi || '-');
         return '<div class="ck-ted-k' + (tam ? ' tam' : '') + '">' +
           '<div class="ad" title="' + esc(t.ad) + '">' + esc(t.ad) + '</div>' +
-          '<div class="kisi" title="' + esc(t.kisi) + '">Kullanıcı: ' + esc(t.kisi) +
+          '<div class="kisi" title="' + esc(kisiYazi) + '">' + esc(kisiYazi) +
             (Object.keys(t.projeAdleri || {}).length ? ' · FMEA adları: ' + esc(Object.keys(t.projeAdleri).join(', ')) : '') + '</div>' +
           '<div class="say">' +
             '<div class="b"><b>' + ckSayiFmt(t.fmea) + '</b><i>Toplam FMEA</i></div>' +
@@ -1553,7 +1716,7 @@ let nodes = [], selected = null;
     async function ckExcelIndir() {
       if (typeof ExcelJS === 'undefined') { ckBildir('ExcelJS kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.', 'hata'); return; }
       const liste = ckExcelSecimListesi();
-      if (!liste.length) { ckBildir('Hiç FMEA seçilmedi. Kullanıcı satırını açıp FMEA\'ları işaretleyin.', 'uyari'); return; }
+      if (!liste.length) { ckBildir('Hiç FMEA seçilmedi. Tedarikçi satırını açıp FMEA\'ları işaretleyin.', 'uyari'); return; }
       // Dis durum: acik olan FMEA ekranini bozma
       const yedek = { nodes: nodes, fmeaMeta: fmeaMeta, fmeaType: fmeaType };
       let basarili = 0, hatali = [];
@@ -1592,8 +1755,8 @@ let nodes = [], selected = null;
       }
     }
     function ckTabloHtml() {
-      const rows = window.__ckRows || [];
-      if (!rows.length) return '<p class="ck-none">Kayıtlı kullanıcı yok.</p>';
+      const rows = window.__ckTedRows || [];
+      if (!rows.length) return '<p class="ck-none">Kayıtlı tedarikçi yok.</p>';
       const goster = ckFiltre ? rows.filter(function (r) { return (r[ckFiltre] || 0) > 0; }) : rows;
       if (!goster.length) return '<p class="ck-none" style="padding:10px 4px">Bu filtreye uyan FMEA yok.</p>';
       return '<div style="font-size:12px;color:#6b7d82;padding:0 2px 7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
@@ -1604,11 +1767,11 @@ let nodes = [], selected = null;
         '<button type="button" class="ck-btn" onclick="ckAksiyonDenetimi()">🔍 Aksiyon denetimi</button>' +
         '<span style="font-size:11px">Satırı açıp FMEA\'ları işaretle; her dosya tüm sayfaları içerir.</span>' +
         '</div>' +
-        '<table id="ckTable"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th>' +
+        '<table id="ckTable"><thead><tr><th>Tedarikçi</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th>' +
         '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th><th>Son Guncelleme</th></tr></thead><tbody>' +
         ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
-          const uid = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + uid + '" style="display:none"><td colspan="9"><div class="ck-in"></div></td></tr>';
+          const anahtar = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + anahtar + '" style="display:none"><td colspan="9"><div class="ck-in"></div></td></tr>';
         }).join('') + '</tbody></table>';
     }
     function ckOnayHtml() {
@@ -1644,7 +1807,7 @@ let nodes = [], selected = null;
         ckPopAc(bas, ckGecikmisHtml(), 'gecikmis');
         return;
       }
-      if (!window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
+      if (!window.__ckTedRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
       ckPopAc(bas, ckTabloHtml(), 'tablo');
     }
     function ckTikla(tip, deger) {
@@ -1658,11 +1821,23 @@ let nodes = [], selected = null;
       ckFiltre = (ckFiltre === f) ? null : f;
       ckPopIcerikUygula('tablo');
     }
+    /* Tedarikcinin FMEA'larindaki en son kayit zamani (ISO metinleri siralanir) */
+    function ckEnSonZaman(projler) {
+      const z = (projler || []).map(function (p) { return p && p.zaman; }).filter(Boolean).map(String).sort();
+      return z.length ? z[z.length - 1] : null;
+    }
+    /* ===== TEDARIKCI TABLOSU SATIRLARI =====
+       Satir = tedarikci (firma adi). Ayni firmanin birden fazla kullanicinin
+       FMEA'si varsa tek satırda birlestirilir; metrikler toplanir. */
     function ckKapat(rows) {
       return rows.map(function (r) {
-        return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.uid + '\')">' +
-        '<td>' + nameFromEmail(r.email) + (r.admin ? ' <span class="ck-b ok">admin</span>' : '') + (r.onay ? '' : ' <span class="ck-b mid">hesap onay bekliyor</span>') + '</td>' +
-        '<td>' + r.fmea + '</td>' +
+        const kisiler = Object.keys(r.kisiler || {});
+        const alt = kisiler.length > 1
+          ? '<div class="ck-sub">' + ckSayiFmt(kisiler.length) + ' kullanıcı: ' + esc(kisiler.join(', ')) + '</div>'
+          : (kisiler.length ? '<div class="ck-sub">Kullanıcı: ' + esc(kisiler[0]) + '</div>' : '');
+        return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.key + '\')">' +
+        '<td><b>' + esc(r.ad) + '</b>' + alt + '</td>' +
+        '<td>' + ckSayiFmt(r.fmea) + '</td>' +
         '<td>' + ckDurumHucre(r) + '</td>' +
         '<td>' + r.islem + '</td>' +
         '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
@@ -1671,26 +1846,29 @@ let nodes = [], selected = null;
         '<td>' + ckSayi(r.aksiyonGecikmis, r.aksiyonGecikmis ? 'hot' : '') + '</td>' +
         '<td style="font-size:11px;color:#6b7d82">' + ckTarih(r.guncelleme) + '</td></tr>'; }).join('');
     }
-    window.ckSatirAc = function (uid) {
-      const g = document.getElementById('ck-det-' + uid);
+    /* Satir acma: anahtar = tedarikci anahtari (ted0, ted1 ...) */
+    window.ckSatirAc = function (anahtar) {
+      const g = document.getElementById('ck-det-' + anahtar);
       if (!g) return;
       if (g.style.display !== 'none') { g.style.display = 'none'; return; }
-      const k = window.__ckSatir || {};
-      const r = k[uid];
-      if (!r) return;
+      const t = (window.__ckTedSatir || {})[anahtar];
+      if (!t) return;
+      const coklu = Object.keys(t.kisiler || {}).length > 1;
       const liste = ckFiltre === 'devam'
-        ? r.projler.filter(function (p) { return p.durum !== 'onayli'; })
-        : (ckFiltre ? r.projler.filter(function (p) { return p.durum === (ckFiltre === 'bekleyen' ? 'bekliyor' : ckFiltre); }) : r.projler);
-      if (!liste.length) { g.querySelector('.ck-in').innerHTML = '<span class="ck-none">Bu kullanıcıda seçili filtreye uyan FMEA yok.</span>'; }
+        ? t.projler.filter(function (p) { return p.durum !== 'onayli'; })
+        : (ckFiltre ? t.projler.filter(function (p) { return p.durum === (ckFiltre === 'bekleyen' ? 'bekliyor' : ckFiltre); }) : t.projler);
+      if (!liste.length) { g.querySelector('.ck-in').innerHTML = '<span class="ck-none">Bu tedarikçide seçili filtreye uyan FMEA yok.</span>'; }
       else {
         g.querySelector('.ck-in').innerHTML = liste.map(function (p) {
-          const anahtar = uid + '|' + (p._i);
+          const xl = p.uid + '|' + (p._i);
           return '<div class="ck-fmea"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
-            '<input type="checkbox" class="ck-xl" data-anahtar="' + anahtar + '"' + (ckExcelSecim[anahtar] ? ' checked' : '') + '>' +
-            '<span><b>' + esc(ckTedAdi(p.firma, p.ad, r.kisi)) + onayEtiket(p.durum) +
-              (r.admin ? ' <button class="ck-ad-btn" title="Tedarikçi adını düzenle" onclick="event.stopPropagation();ckTedAdiDegistir(\'' + esc(r.uid) + '\',' + p._i + ',\'' + esc(String(p.firma || '')) + '\')">✎</button>' : '') +
+            '<input type="checkbox" class="ck-xl" data-anahtar="' + xl + '"' + (ckExcelSecim[xl] ? ' checked' : '') + '>' +
+            '<span><b>' + esc(t.ad) + onayEtiket(p.durum) +
+              (coklu ? ' <span class="ck-b mid">' + esc(p.kisi) + '</span>' : '') +
+              (cloudIsAdmin ? ' <button class="ck-ad-btn" title="Tedarikçi adını düzenle" onclick="event.stopPropagation();ckTedAdiDegistir(\'' + esc(p.uid) + '\',' + p._i + ',\'' + esc(String(p.firma || '')) + '\')">✎</button>' : '') +
               '</b><div class="ck-sub">' + p.tip +
             ' · ' + esc(p.ad) +
+            (coklu ? ' · ' + esc(p.kisi) : '') +
             ' · son güncelleme: ' + ckTarih(p.zaman) + '</div></span></div><div style="white-space:nowrap">' +
             'FMEA hatası: ' + ckSayi(p.m.hata, p.m.hata ? 'hot' : '') +
             ' &nbsp;Alınan aksiyon: ' + ckSayi(p.m.akAlan, p.m.akAlan ? 'mid' : '') +
@@ -1721,7 +1899,7 @@ let nodes = [], selected = null;
       const ozetGrubu = ckGrup('Özet',
         '<div class="ck-tile tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
           '<div class="ck-ico">' + ckIkon('Tedarikçi') + '</div><div class="ck-num" data-hedef="' + (Number(tSayi) || 0) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
-        ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Kullanıcı tablosunu aç') +
+        ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Tedarikçi tablosunu aç') +
         ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
       , 'teal');
@@ -1752,6 +1930,8 @@ let nodes = [], selected = null;
       t.innerHTML = ozetGrubu + kapsamGrubu + aksiyonGrubu + durumGrubu;
       // Sayilar veri geldikten SONRA burada animasyona girer (hedef deger hazir)
       ckSayilariAnimasyonEt(t);
+      // Ek bilesenler: uyari seridi + gecikme riski + son islemler
+      ckEkCiz();
     }
     async function ckYenile() {
       if (!sbClient || !cloudUser || !cloudIsAdmin) return;
@@ -1782,20 +1962,30 @@ let nodes = [], selected = null;
           });
           const aktif = Math.max(0, projler.length - onayli - bekleyen - red);
           const devam = Math.max(0, projler.length - onayli);
-          projler.forEach(function (p) {
+          projler.forEach(function (p, i) {
             const firma = String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
             const projeAd = String((p && p.name) || '').trim();
             const gorunen = ckTedAdi(firma, projeAd, kisi);
             const anahtar = gorunen.toLowerCase();
-            if (!tmap[anahtar]) tmap[anahtar] = { ad: gorunen, kisi: kisi, projeAdleri: {}, fmea: 0, onayli: 0, devam: 0, bekleyen: 0, red: 0 };
+            if (!tmap[anahtar]) tmap[anahtar] = { ad: gorunen, kisi: kisi, kisiler: {}, projeAdleri: {},
+              fmea: 0, onayli: 0, devam: 0, bekleyen: 0, red: 0, aktif: 0,
+              proses: 0, islem: 0, hata: 0, aksiyonlu: 0, aksiyonTamam: 0, aksiyonGecikmis: 0, projler: [] };
             const t = tmap[anahtar];
+            t.kisiler[kisi] = 1;
             if (projeAd && !ckJenerikAd(projeAd)) t.projeAdleri[projeAd] = 1;
             t.fmea++;
+            /* Tedarikci tablosu icin proje metrikleri tek tek toplanir */
+            const pm = fmeaMetrikleri([p]);
+            t.proses += pm.proses; t.islem += pm.islem; t.hata += pm.hata;
+            t.aksiyonlu += pm.aksiyonlu; t.aksiyonTamam += pm.aksiyonTamam; t.aksiyonGecikmis += pm.aksiyonGecikmis;
+            t.projler.push({ uid: uid, _i: i, kisi: kisi, ad: projeAd || '(isimsiz)', firma: firma,
+              durum: fmeaOnayDurumu(p), tip: (p && p.type) === 'parca' ? 'Parça' : 'Proses',
+              zaman: p && p.updatedAt, m: pm, ham: p });
             const td = fmeaOnayDurumu(p);
             if (td === 'onayli') t.onayli++;
-            else if (td === 'bekliyor') { t.bekleyen++; t.devam++; }
-            else if (td === 'red') { t.red++; t.devam++; }
-            else t.devam++;
+            else if (td === 'bekliyor') { t.bekleyen++; t.devam++; t.aktif++; }
+            else if (td === 'red') { t.red++; t.devam++; t.aktif++; }
+            else { t.devam++; t.aktif++; }
           });
           store[uid] = {
             kisi: kisi,
@@ -1815,9 +2005,21 @@ let nodes = [], selected = null;
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
         window.__ckRows = rows;
-        window.__ckGecikmis = ckGecikenAksiyonlar();   // "Aksiyon Gecikmiş" kartinin listesi
+        window.__ckAksiyonlar = ckAksiyonTaramasi();      // hedef tarihli tum aksiyonlar
+        window.__ckGecikmis = window.__ckAksiyonlar.filter(function (x) { return x.kalanGun < 0; });
+        window.__ckRisk = window.__ckAksiyonlar.filter(function (x) { return x.kalanGun <= CK_RISK_GUN; });
+        window.__ckOlaylar = ckSonIslemler(10);            // "Son İşlemler" akisi
         window.__ckTedarikci = Object.keys(tmap).map(function (k) { return tmap[k]; })
           .sort(function (a, b2) { return b2.fmea - a.fmea || a.ad.localeCompare(b2.ad, 'tr'); });
+        /* TEDARIKCI TABLOSU: her tedarikci bir satir. Satir acma dugmesi icin
+           DOM guvenli anahtar (ted0, ted1 ...) uretilir. */
+        window.__ckTedSatir = {};
+        window.__ckTedRows = window.__ckTedarikci.map(function (t, i) {
+          t.key = 'ted' + i;
+          t.guncelleme = ckEnSonZaman(t.projler);
+          window.__ckTedSatir[t.key] = t;
+          return t;
+        });
         const st = document.getElementById('ckStamp');
         if (st) st.textContent = 'Son yükleme: ' + ckTarih(new Date().toISOString()) + ' · ' + rows.length + ' kullanıcı · ' +
           window.__ckTedarikci.length + ' tedarikçi · ' +
