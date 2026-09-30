@@ -412,6 +412,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckBody[hidden]{display:none}
     .ck-tile.tiklanir{cursor:pointer}
     .ck-tile.tiklanir:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.13)}
+    /* GECIKEN AKSIYON PANELI ("Aksiyon Gecikmis" karti acilir) */
+    #ckPop.gec #ckPop-kutu{width:min(1100px,96vw)}
+    .ck-gec-ozet{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:11.5px;color:#5b7076}
+    .ck-gec-tablo{width:100%;border-collapse:collapse;font-size:12px}
+    .ck-gec-tablo th{background:#fff3f1;color:#8a2b1e;font-size:10.5px;padding:7px 6px;text-align:left;
+      font-weight:800;border-bottom:2px solid #f0c4bb;position:sticky;top:0;z-index:2}
+    .ck-gec-tablo td{padding:7px 6px;border-bottom:1px solid #f4e6e3;color:#3a2a26;vertical-align:top}
+    .ck-gec-tablo tr:hover td{background:#fff8f6}
+    .ck-gec-tablo td.sayi{text-align:right;white-space:nowrap}
+    .ck-gec-tablo td.no{color:#a3b0b4;text-align:right;width:26px}
+    .ck-gec-gun{display:inline-block;min-width:36px;text-align:center;padding:1px 7px;border-radius:9px;
+      background:#ffd9d4;color:#b00020;font-weight:800}
+    .ck-gec-gun.orta{background:#ffeccc;color:#8a5200}
+    .ck-gec-gun.yeni{background:#fff0e6;color:#a8430f}
 
     /* ==================== RENK SISTEMI ==================== */
     :root{
@@ -519,6 +533,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .ck-head{padding:8px 10px;gap:6px;flex-wrap:wrap}
       .ck-head h2{font-size:15px}
       .ck-b{padding:0 5px;font-size:10px}
+      .ck-gec-tablo{font-size:11px;min-width:660px}
+      .ck-gec-tablo th,.ck-gec-tablo td{padding:6px 5px}
+      .ck-gec-ozet{font-size:11px;gap:6px}
     }
     /* Yonetici modu: FMEA olusturma ekrani tamamen gizlenir, sadece kokpit/onay kalir */
     body.ck-only .toolbar,body.ck-only .layout,body.ck-only #count{display:none !important}
@@ -1093,6 +1110,7 @@ let nodes = [], selected = null;
       if (t) t.textContent = baslik;
       c.innerHTML = html;
       p.classList.toggle('ted', tip === 'tedarikci');
+      p.classList.toggle('gec', tip === 'gecikmis');
       p.classList.add('aci');
       p.style.display = 'flex';
     }
@@ -1276,6 +1294,86 @@ let nodes = [], selected = null;
         '<th>Önerilen Faaliyet</th><th>Sorumlu</th><th>Hedef Tarih</th><th>Gerçekleşen</th><th>KP Reaksiyon</th>' +
         '<th>Dolu alan örnekleri</th></tr></thead><tbody>' + govde + '</tbody></table>', 'denetim');
     }
+    /* ===== GECIKEN AKSIYON LISTESI =====
+       "Aksiyon Gecikmis" kartinin icerigi. Kural fmeaMetrikleri() ile AYNI:
+       aksiyonu var (Alınan Aksiyonlar veya Önerilen Faaliyet dolu), "Gerçekleşen
+       Tarihi" bos, "Hedef Tamamlama Tarihi" gecmis. Satiri tek tek (hata bazinda)
+       acar; kartin sayisi toplam satir sayisini verir. */
+    function ckGecikenAksiyonlar() {
+      const store = window.__ckSatir || {};
+      const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
+      const liste = [];
+      Object.keys(store).forEach(function (uid) {
+        const r = store[uid] || {};
+        const kisi = r.kisi || '(isimsiz)';
+        (r.projler || []).forEach(function (p) {
+          const ham = p.ham || {};
+          const tedAdi = ckTedAdi(p.firma, p.ad, kisi);
+          (ham.nodes || []).forEach(function (n) {
+            (((n && n.altProsesler) || [])).forEach(function (s) {
+              (((s && s.hatalar) || [])).forEach(function (h) {
+                const ak = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
+                const faal = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
+                if (!ak && !faal) return;                                   // aksiyonu yok
+                if (ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi'])) return;  // tamamlanmis
+                const hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
+                const hd = ckTarihCoz(hdMetin);
+                if (!hd || hd.getTime() >= bugun.getTime()) return;         // hedef yok ya da gecmedi
+                liste.push({
+                  uid: uid, kisi: kisi, tedAdi: tedAdi, projeAd: p.ad || '(isimsiz)',
+                  proses: String((n && n.title) || '').trim(),
+                  islem: String((s && s.title) || '').trim(),
+                  tur: ckAlan(h, ['tur', 'hataTuru']),
+                  etki: ckAlan(h, ['etki', 'etkiler']),
+                  neden: ckAlan(h, ['neden', 'sebep']),
+                  aksiyon: ak, faaliyet: faal,
+                  sorumlu: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
+                  hedef: hdMetin,
+                  gecGun: Math.max(1, Math.round((bugun.getTime() - hd.getTime()) / 86400000))
+                });
+              });
+            });
+          });
+        });
+      });
+      liste.sort(function (a, b) { return b.gecGun - a.gecGun || a.tedAdi.localeCompare(b.tedAdi, 'tr'); });
+      return liste;
+    }
+    function ckGecikmisHtml() {
+      const l = window.__ckGecikmis || [];
+      if (!l.length) {
+        return '<p class="ck-none" style="padding:8px 2px">Geciken aksiyon yok. ' +
+          'Aksiyonu olan tüm hatalarda "Gerçekleşen Tarih" girilmiş veya "Hedef Tamamlama Tarihi" henüz geçmemiş.</p>';
+      }
+      const en = l[0];
+      const enAdet = l.filter(function (x) { return x.tedAdi === en.tedAdi; }).length;
+      const ozet = '<div class="ck-gec-ozet">' +
+        '<span class="ck-b hot">' + ckSayiFmt(l.length) + ' geciken aksiyon</span>' +
+        '<span>En gecikmiş tedarikçi: <b>' + esc(en.tedAdi) + '</b> · ' + ckTarih(en.hedef) +
+          ' hedefli, <b>' + ckSayiFmt(en.gecGun) + ' gün</b> gecikmede</span>' +
+        '<span class="ck-sub">Kural: aksiyonu var, "Gerçekleşen Tarih" boş, "Hedef Tamamlama Tarihi" geçmiş.</span>' +
+        '</div>';
+      const satirlar = l.map(function (x, i) {
+        const hata = [x.tur, x.etki, x.neden].filter(Boolean).join(' · ');
+        const ak = x.aksiyon || x.faaliyet;
+        const snf = x.gecGun > 30 ? '' : (x.gecGun > 7 ? ' orta' : ' yeni');
+        return '<tr>' +
+          '<td class="no">' + (i + 1) + '</td>' +
+          '<td><b>' + esc(x.tedAdi) + '</b><div class="ck-sub">' + esc(x.kisi) + ' · ' + esc(x.projeAd) + '</div></td>' +
+          '<td>' + (x.proses ? esc(x.proses) : '<span class="ck-none">—</span>') +
+            (x.islem ? '<div class="ck-sub">' + esc(x.islem) + '</div>' : '') + '</td>' +
+          '<td>' + (hata ? esc(hata) : '<span class="ck-none">—</span>') + '</td>' +
+          '<td>' + (ak ? esc(ak) : '<span class="ck-none">—</span>') +
+            (x.aksiyon && x.faaliyet ? '<div class="ck-sub">Önerilen: ' + esc(x.faaliyet) + '</div>' : '') + '</td>' +
+          '<td>' + (x.sorumlu ? esc(x.sorumlu) : '<span class="ck-none">—</span>') + '</td>' +
+          '<td class="sayi">' + esc(ckTarih(x.hedef)) + '</td>' +
+          '<td class="sayi"><span class="ck-gec-gun' + snf + '">' + ckSayiFmt(x.gecGun) + ' gün</span></td>' +
+        '</tr>';
+      }).join('');
+      return ozet + '<table class="ck-gec-tablo"><thead><tr><th>#</th><th>Tedarikçi / Kullanıcı / FMEA</th>' +
+        '<th>Proses / İşlem</th><th>Hata</th><th>Aksiyon</th><th>Sorumlu</th><th>Hedef Tarih</th>' +
+        '<th>Gecikme</th></tr></thead><tbody>' + satirlar + '</tbody></table>';
+    }
     function ckTarih(v) {
       if (!v) return '—';
       const d = new Date(v);
@@ -1360,6 +1458,7 @@ let nodes = [], selected = null;
     // ortada bir pencerede (pop-up) acilir.
     function ckPopBaslik(tip) {
       if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
+      if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
       if (tip === 'onay') return 'Onay Bekleyenler';
       return 'Kullanıcı Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
     }
@@ -1522,6 +1621,7 @@ let nodes = [], selected = null;
     }
     function ckPopIcerik(tip) {
       if (tip === 'tedarikci') return ckTedarikciHtml();
+      if (tip === 'gecikmis') return ckGecikmisHtml();
       if (tip === 'onay') return ckOnayHtml();
       return ckTabloHtml();
     }
@@ -1539,6 +1639,11 @@ let nodes = [], selected = null;
         ckPopAc(bas, ckTedarikciHtml(), 'tedarikci');
         return;
       }
+      if (tip === 'gecikmis') {
+        if (!window.__ckGecikmis) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
+        ckPopAc(bas, ckGecikmisHtml(), 'gecikmis');
+        return;
+      }
       if (!window.__ckRows) { ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>'); ckYenile(); return; }
       ckPopAc(bas, ckTabloHtml(), 'tablo');
     }
@@ -1547,6 +1652,7 @@ let nodes = [], selected = null;
       if (tip === 'onay') { ckPopIcerikUygula('onay'); return; }
       if (tip === 'filtre') { ckFiltreTikla(deger); return; }
       if (tip === 'tedarikci') { ckPopIcerikUygula('tedarikci'); return; }
+      if (tip === 'gecikmis') { ckPopIcerikUygula('gecikmis'); return; }
     }
     function ckFiltreTikla(f) {
       ckFiltre = (ckFiltre === f) ? null : f;
@@ -1636,7 +1742,7 @@ let nodes = [], selected = null;
       const aksiyonGrubu = ckGrup('Aksiyon',
         ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '', akTooltip) +
         ckKutu('Aksiyon Gerçekleşmiş', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '', 'Hedef Tamamlama Tarihi / Gerçekleşen Tarih alanlarına göre: aksiyon belirlenmiş olup "Gerçekleşen Tarih" girilmiş hata sayısı.') +
-        ckKutu('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'Aksiyonu var, "Gerçekleşen Tarih" boş ve "Hedef Tamamlama Tarihi" geçmiş olan hata sayısı.')
+        ckKutuT('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'gecikmis', '', 'Geciken aksiyonları göster (listeyi aç)')
       , 'amber');
       // --- DURUM: en altta, yonetici ne yapmali? ---
       const durumGrubu = ckGrup('Onay Durumu',
@@ -1709,6 +1815,7 @@ let nodes = [], selected = null;
         }).sort(function (a, b2) { return b2.fmea - a.fmea || b2.hata - a.hata; });
         window.__ckSatir = store;
         window.__ckRows = rows;
+        window.__ckGecikmis = ckGecikenAksiyonlar();   // "Aksiyon Gecikmiş" kartinin listesi
         window.__ckTedarikci = Object.keys(tmap).map(function (k) { return tmap[k]; })
           .sort(function (a, b2) { return b2.fmea - a.fmea || a.ad.localeCompare(b2.ad, 'tr'); });
         const st = document.getElementById('ckStamp');
