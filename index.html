@@ -101,6 +101,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .fmea-modal .mhead{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #dce4e6;flex:0 0 auto}
     .fmea-modal .mhead h3{margin:0;font-size:16px}
     .fmea-modal .mhead button{background:#b85c5c}
+    .pk-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid #dce4e6;background:#f4f7f8;flex:0 0 auto}
+    .pk-tabs button{background:#e3eaec;color:#2f3b40;padding:5px 12px;font-size:13px}
+    .pk-tabs button.on{background:#8a5a2e;color:#fff}
+    .pk-note{padding:8px 16px;background:#fff8e6;border-bottom:1px solid #f0e0b0;color:#6b5a20;font-size:12px;flex:0 0 auto}
+    .pk-grid{border-collapse:collapse;font-size:11px;min-width:100%}
+    .pk-grid th{position:sticky;top:0;background:#dfe7ea;color:#2f3b40;font-weight:700;padding:2px 5px;border:1px solid #b9c6cb;white-space:nowrap;z-index:2}
+    .pk-grid td{padding:2px 5px;border:1px solid #d6dee1;vertical-align:top;white-space:pre-wrap;word-break:break-word;max-width:260px}
+    .pk-grid tr:nth-child(even) td{background:#fafcfc}
+    .pk-grid td.pk-mrg{background:#eef3f5;font-weight:600}
+    .pk-grid td.pk-ctr{text-align:center}
+    .pk-sayfa{display:flex;gap:8px;align-items:center;padding:6px 16px;font-size:12px;color:#5a6a70;flex:0 0 auto}
+    .pk-sayfa button{background:#3a7ca5;padding:4px 10px;font-size:12px}
+    .pk-sayfa button[disabled]{opacity:.45}
+    .pk-slot{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+    .pk-slot>.fmea-x{flex:1 1 auto;min-height:0}
     .fmea-body{padding:14px 16px 20px;overflow:auto;flex:1 1 auto;display:flex;flex-direction:column}
     .fmea-title{font-family:'Times New Roman',serif;font-size:17px;font-weight:700;text-align:center;margin:2px 0 12px;flex:0 0 auto}
     .fmeta{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;flex:0 0 auto}
@@ -731,6 +746,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <button class="light" onclick="toggleFmeaMeta(true)">FMEA Başlık Bilgileri</button>
     <button class="excel-btn" style="background:#3a7ca5" onclick="showFmeaPreview()">FMEA Görüntüle</button>
     <button class="excel-btn" style="background:#5b8c5a" onclick="showControlPlanPreview()">Kontrol Planı Görüntüle</button>
+    <button class="excel-btn" style="background:#8a5a2e" onclick="openProsesKontrolFormu('tedarikci')">Tedarikçi Proses Kontrol Formu</button>
+    <button class="excel-btn" style="background:#6b4a8a" onclick="openProsesKontrolFormu('aselsan')">Aselsan Global Proses Kontrol Formu</button>
     <div class="sel-wrap" id="projectSelWrap">
       <button type="button" class="sel-btn" id="projectSelBtn" onclick="toggleProjectMenu(event)">-- Tedarikçi Seçin --</button>
       <div class="sel-menu" id="projectSelMenu"></div>
@@ -4676,6 +4693,310 @@ ov.innerHTML = `<div class="fmea-modal">
       if (ov) ov.classList.remove('open');
     }
 
+    /* --- Proses Kontrol Formu (Tedarikci / Aselsan Global) onizleme + indirme --- */
+    const PK_FILES = {
+      tedarikci: {
+        url: 'tedarikci-proses-kontrol-formu.xlsx',
+        ad: 'Tedarikçi Proses Kontrol Formu',
+        dosya: 'Tedarikçi Checklist.xlsx',
+        renk: '#8a5a2e'
+      },
+      aselsan: {
+        url: 'aselsan-proses-kontrol-formu.xlsm',
+        ad: 'Aselsan Global Proses Kontrol Formu',
+        dosya: 'Denetçi Checklist(Aselsan Global).xlsm',
+        renk: '#6b4a8a'
+      }
+    };
+    const PK_LIMIT = 45;
+    const PK_CACHE = {};
+    const pkDurum = { anahtar: null, wb: null, sekme: 0 };
+
+    function pkHucreMetni(h) {
+      if (!h) return '';
+      try {
+        if (h.formula !== undefined && h.formula !== null) {
+          let r = h.result;
+          if (r && typeof r === 'object') {
+            if (r.error) return r.error;
+            if (r.text !== undefined) return r.text;
+            if (Array.isArray(r.richText)) return r.richText.map(function (t) { return t.text; }).join('');
+            r = null;
+          }
+          return (r === undefined || r === null || r === '') ? '=' + h.formula : r;
+        }
+        let v = (h.value !== undefined) ? h.value : ((h.text !== undefined) ? h.text : h.result);
+        if (v === undefined || v === null || v === '') return '';
+        if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+        if (v instanceof Date) return v;
+        if (typeof v === 'object') {
+          if (v.error) return v.error;
+          if (Array.isArray(v.richText)) return v.richText.map(function (t) { return t.text; }).join('');
+          if (v.text !== undefined) return v.text;
+          if (v.result !== undefined && v.result !== null) return v.result;
+          if (v.hyperlink !== undefined) return String(v.hyperlink);
+          return '';
+        }
+        return v;
+      } catch (e) { return ''; }
+    }
+
+    function pkXlsTarih(v) {
+      if (!(v instanceof Date)) return String(v);
+      const p = function (n) { return String(n).padStart(2, '0'); };
+      return p(v.getDate()) + '.' + p(v.getMonth() + 1) + '.' + v.getFullYear();
+    }
+
+    function pkHucreMetniCoz(h) {
+      const v = pkHucreMetni(h);
+      return pkXlsTarih(v);
+    }
+
+    function pkHucreAdres(ad) {
+      const m = /^([A-Z]+)(\d+)$/.exec(String(ad || ''));
+      if (!m) return null;
+      let c = 0;
+      const h = m[1];
+      for (let i = 0; i < h.length; i++) c = c * 26 + (h.charCodeAt(i) - 64);
+      return { r: parseInt(m[2], 10), c: c };
+    }
+
+    function pkAralikAyikla(ref) {
+      if (!ref) return null;
+      let a = null, b = null;
+      if (typeof ref === 'string') {
+        const p = ref.split(':');
+        a = pkHucreAdres(p[0]);
+        b = p.length > 1 ? pkHucreAdres(p[1]) : a;
+      } else if (ref.model) {
+        a = { r: ref.model.top + 1, c: ref.model.left + 1 };
+        b = { r: ref.model.bottom + 1, c: ref.model.right + 1 };
+      }
+      if (!a || !b) return null;
+      return {
+        r1: Math.min(a.r, b.r), c1: Math.min(a.c, b.c),
+        r2: Math.max(a.r, b.r), c2: Math.max(a.c, b.c)
+      };
+    }
+
+    function pkHucreGizli(ws, colNo) {
+      const cd = ws.columns && ws.columns[colNo - 1];
+      if (cd && cd.hidden) return true;
+      for (let k in ws.columnMeta || {}) {
+        const m = ws.columnMeta[k];
+        if (!m || !m.hidden) continue;
+        const p = String(k).split(':');
+        const s = pkHucreAdres((p.length > 1 ? p[0] : p[0]) + '1');
+        const e = pkHucreAdres(p[p.length - 1] + '1');
+        if (!s || !e) continue;
+        if (colNo >= s.c && colNo <= e.c) return true;
+      }
+      return false;
+    }
+
+    function pkHucreDolgu(ws, colNo) {
+      const cd = ws.columns && ws.columns[colNo - 1];
+      return (cd && cd.width) ? (cd.width * 7.5).toFixed(0) + 'px' : '';
+    }
+
+    function pkIzgaraHtml(ws) {
+      const hucreler = {};
+      let maxR = 0, maxC = 0;
+      const rows = (ws.model && Array.isArray(ws.model.rows)) ? ws.model.rows : [];
+      rows.forEach(function (r) {
+        const cells = (r && Array.isArray(r.cells)) ? r.cells : r;
+        if (!cells || !cells.length) return;
+        for (let i = 0; i < cells.length; i++) {
+          const a = pkHucreAdres(cells[i] && cells[i].address);
+          if (!a) continue;
+          (hucreler[a.r] || (hucreler[a.r] = {}))[a.c] = cells[i];
+          if (a.r > maxR) maxR = a.r;
+          if (a.c > maxC) maxC = a.c;
+        }
+      });
+      if (!maxR || !maxC) return '<div class="pk-note">Bu sayfada okunabilir veri yok.</div>';
+
+      const kap = {}, bas = {};
+      let birlSayi = 0;
+      const birl = (ws.model && ws.model.merges) ? ws.model.merges : [];
+      for (let i = 0; i < birl.length; i++) {
+        const g = pkAralikAyikla(birl[i]);
+        if (!g || (g.r2 === g.r1 && g.c2 === g.c1)) continue;
+        const satir = hucreler[g.r1] || {};
+        bas[g.r1 + ':' + g.c1] = [g.r2 - g.r1 + 1, g.c2 - g.c1 + 1, pkHucreMetniCoz(satir[g.c1] || null)];
+        birlSayi++;
+        for (let r = g.r1; r <= g.r2; r++) for (let c = g.c1; c <= g.c2; c++) {
+          if (r === g.r1 && c === g.c1) continue;
+          kap[r + ':' + c] = 1;
+        }
+      }
+
+      const gorunur = [];
+      for (let c = 1; c <= maxC; c++) if (!pkHucreGizli(ws, c)) gorunur.push(c);
+      if (!gorunur.length) return '<div class="pk-note">Bu sayfada görünür sütun yok.</div>';
+
+      const basliklar = '<thead><tr><th style="min-width:34px"></th>' + gorunur.map(function (c) {
+        return '<th style="min-width:70px">' + c + '</th>';
+      }).join('') + '</tr></thead>';
+
+      const govde = [];
+      const lim = Math.min(maxR, PK_LIMIT);
+      for (let r = 1; r <= lim; r++) {
+        if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
+        const satir = hucreler[r] || {};
+        let s = '<tr><th style="position:sticky;left:0;background:#eef3f5">' + r + '</th>';
+        for (let gi = 0; gi < gorunur.length; gi++) {
+          const c = gorunur[gi];
+          if (kap[r + ':' + c]) continue;
+          const b = bas[r + ':' + c];
+          if (b) {
+            s += '<td class="pk-mrg"' + (b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
+                 (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + '>' + esc(b[2]) + '</td>';
+            continue;
+          }
+          const w = pkHucreDolgu(ws, c);
+          s += '<td' + (w ? ' style="min-width:' + w + '"' : '') + '>' + esc(pkHucreMetniCoz(satir[c] || null)) + '</td>';
+        }
+        s += '</tr>';
+        govde.push(s);
+      }
+
+      let not = '';
+      if (maxR > lim) not = '<div class="pk-note">Gösterilen ilk ' + lim + ' satır / ' + maxR +
+        ' satır. Formu düzenlemek için tam dosyayı indirin.</div>';
+
+      return '<div class="fmea-x"><div class="fmea-scroll"><table class="pk-grid">' + basliklar +
+        '<tbody>' + govde.join('') + '</tbody></table></div></div>' + not +
+        '<div class="pk-sayfa">Satır ' + lim + ' / ' + maxR +
+        ' &middot; ' + gorunur.length + ' görünür sütun' + (birlSayi ? ' &middot; ' + birlSayi + ' birleştirilmiş hücre' : '') + '</div>';
+    }
+
+    function pkSekmeler(key, wb) {
+      const gorunur = [];
+      wb.eachSheet(function (ws) {
+        if (ws.state === 'visible' || !ws.state) gorunur.push(ws);
+      });
+      return '<div class="pk-tabs">' + gorunur.map(function (ws, i) {
+        return '<button class="' + (i === pkDurum.sekme ? 'on' : '') + '" onclick="pkSekmeGoster(\'' +
+          key + '\',' + i + ')">' + esc(ws.name) + '</button>';
+      }).join('') + '</div>';
+    }
+
+    function pkSekmeGoster(key, i) {
+      if (!pkDurum.wb || pkDurum.anahtar !== key) return;
+      const gorunur = [];
+      pkDurum.wb.eachSheet(function (ws) {
+        if (ws.state === 'visible' || !ws.state) gorunur.push(ws);
+      });
+      if (!gorunur[i]) return;
+      pkDurum.sekme = i;
+      pkCiz(key);
+    }
+
+    function pkCiz(key) {
+      const cfg = PK_FILES[key];
+      const ov = document.getElementById('pkOverlay');
+      if (!cfg || !ov || !pkDurum.wb || pkDurum.anahtar !== key) return;
+      const gorunur = [];
+      pkDurum.wb.eachSheet(function (ws) {
+        if (ws.state === 'visible' || !ws.state) gorunur.push(ws);
+      });
+      const ws = gorunur[pkDurum.sekme];
+      if (!ws) return;
+      ov.querySelector('.pk-slot').innerHTML = pkIzgaraHtml(ws);
+      const bas = ov.querySelectorAll('.pk-tabs button');
+      for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? 'on' : '');
+      ov.querySelector('.pk-title').style.color = cfg.renk;
+      fitTopScroll(ov);
+    }
+
+    function pkEnsureOverlay() {
+      let ov = document.getElementById('pkOverlay');
+      if (ov) return ov;
+      ov = document.createElement('div');
+      ov.id = 'pkOverlay';
+      ov.className = 'fmea-overlay';
+      ov.onclick = function (e) { if (e.target === ov) ov.classList.remove('open'); };
+      ov.innerHTML = '<div class="fmea-modal">' +
+        '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
+        '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div>' +
+        '<div class="pk-body" style="display:flex;flex-direction:column;min-height:0"></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      return ov;
+    }
+
+    function pkHataHtml(e) {
+      return '<div class="pk-note" style="background:#fdeaea;border-color:#f0c0c0;color:#8a3a3a">' +
+        'Dosya yüklenemedi: ' + esc(e && e.message ? e.message : String(e)) +
+        '<br>Formu Excel indirmek için aşağıdaki butonu kullanın.</div>';
+    }
+
+    async function openProsesKontrolFormu(key) {
+      const cfg = PK_FILES[key];
+      if (!cfg) return;
+      const ov = pkEnsureOverlay();
+      ov.classList.add('open');
+      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Önizleme';
+      ov.querySelector('.pk-title').style.color = cfg.renk;
+      ov.querySelector('.pk-body').innerHTML =
+        '<div class="pk-note">Yükleniyor…</div>' +
+        '<div class="pk-sayfa"><button onclick="pkDownloadProsesKontrolFormu(\'' + key + '\')">⬇ Excel Dosyasını İndir</button>' +
+        '<span>' + esc(cfg.dosya) + '</span></div>' +
+        '<div class="pk-slot"></div>';
+      try {
+        if (typeof ExcelJS === 'undefined') throw new Error('ExcelJS kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.');
+        let wb = PK_CACHE[key];
+        if (!wb) {
+          const res = await fetch(cfg.url, { cache: 'force-cache' });
+          if (!res.ok) throw new Error(cfg.url + ' bulunamadı (HTTP ' + res.status + ')');
+          wb = new ExcelJS.Workbook();
+          await wb.xlsx.load(await res.arrayBuffer());
+          PK_CACHE[key] = wb;
+        }
+        pkDurum.anahtar = key;
+        pkDurum.wb = wb;
+        pkDurum.sekme = 0;
+        ov.querySelector('.pk-body').innerHTML = pkSekmeler(key, wb) +
+          '<div class="pk-sayfa"><button onclick="pkDownloadProsesKontrolFormu(\'' + key + '\')">⬇ Excel Dosyasını İndir</button>' +
+          '<span>' + esc(cfg.dosya) + '</span></div>' +
+          '<div class="pk-slot"></div>';
+        pkCiz(key);
+      } catch (e) {
+        pkDurum.wb = null;
+        ov.querySelector('.pk-body').innerHTML = pkHataHtml(e) +
+          '<div class="pk-sayfa"><button onclick="pkDownloadProsesKontrolFormu(\'' + key + '\')">⬇ Excel Dosyasını İndir</button>' +
+          '<span>' + esc(cfg.dosya) + '</span></div>' +
+          '<div class="pk-slot"></div>';
+      }
+    }
+
+    function closeProsesKontrolFormu() {
+      const ov = document.getElementById('pkOverlay');
+      if (ov) ov.classList.remove('open');
+    }
+
+    async function pkDownloadProsesKontrolFormu(key) {
+      const cfg = PK_FILES[key];
+      if (!cfg) return;
+      try {
+        const res = await fetch(cfg.url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = cfg.dosya;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      } catch (e) {
+        alert('Dosya indirilemedi: ' + (e && e.message ? e.message : String(e)) +
+          '\n\nUygulama bu dosyayı kendi klasöründen okuyor. Dosyanın yanında açtığınızda çalışır.');
+      }
+    }
+
     function syncTopScroll(el) {
       const x = el.closest('.fmea-x');
       if (!x) return;
@@ -4720,7 +5041,7 @@ ov.innerHTML = `<div class="fmea-modal">
     }
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeFmeaPreview(); closeControlPlanPreview(); }
+      if (e.key === 'Escape') { closeFmeaPreview(); closeControlPlanPreview(); closeProsesKontrolFormu(); }
     });
 
     function showControlPlanPreview() {
