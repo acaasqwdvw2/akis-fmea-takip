@@ -477,8 +477,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ONEMLI: bu animasyon transform'a DOKUNMAMALI. Dairelerin uzerinde
      transform="rotate(-90 170 75)" presentation attribute var; CSS transform
      bunu ezer (animation-fill-mode:both kalici scale(1) birakir) ve dilimler
-     12 yerine 3 saatten baslar, etiketler yanlis dilimden cikar. */
-  .ck-gf-gir{animation:ckGfGir .5s ease both;transform-origin:170px 75px;transform-box:view-box}
+     12 yerine 3 saatten baslar, etiketler yanlis dilimden cikar.
+     AYNI SEBEPLE .ck-gf-gir uzerinde transform-origin/transform-box OLMAYACAK:
+     SVG2'de transform attribute'i CSS transform sayilir, origin de verilirse
+     T(o)*rotate(-90,cx,cy)*T(-o) = T(2cx,2cy)*R olur ve daireler viewBox disina
+     tasar -> dilimler kaybolur. */
+  .ck-gf-gir{animation:ckGfGir .5s ease both}
   @keyframes ckGfGir{from{opacity:0}to{opacity:1}}
   @media (prefers-reduced-motion:reduce){.ck-gf-gir{animation:none}}
   .ck-gf-orta{font-size:23px;font-weight:800;fill:#16275f;text-anchor:middle}
