@@ -1881,38 +1881,54 @@ let nodes = [], selected = null;
       if (!d) return;
       const pay = d / toplam;
       const a1 = ac + pay * Math.PI * 2, am = (ac + a1) / 2;
-      const sag = Math.cos(am) >= 0;
+      const c = Math.cos(am);
+      const sag = c > 0.0001 ? 1 : (c < -0.0001 ? -1 : (Math.sin(am) > 0 ? 1 : -1));
       et.push({
         ad: s.ad, renk: s.renk, tip: s.tip, hedef: s.hedef, sag: sag,
         d: d, yuzde: Math.round(pay * 100),
         x1: g.cx + ic * Math.cos(am), y1: g.cy + ic * Math.sin(am),
         x2: g.cx + (ic + dik) * Math.cos(am), y2: g.cy + (ic + dik) * Math.sin(am),
-        x3: g.cx + (ic + dik + 5) * (sag ? 1 : -1),
+        x3: g.cx + (ic + dik + 5) * sag,
         y3: g.cy + (ic + dik) * Math.sin(am)
       });
       ac = a1;
     });
-    /* aynı yarıda üst üste binen etiketleri asgari aralıkla ayır */
+    /* ayni yarida ust uste binen etiketleri asgari aralikla ayir.
+       Blok yuksekligi = 2 satirlik yazi (ad + sayi). Once sirayla asagi it,
+       sonra tasma varsa blogu geri kaydir; boylece hem CAKISMA olmaz hem de
+       hicbir etiket cerceve disina cikmaz. */
     [1, -1].forEach(function (y) {
-      const t = et.filter(function (e) { return (e.sag ? 1 : -1) === y; })
+      const t = et.filter(function (e) { return e.sag === y; })
         .sort(function (a, b) { return a.y3 - b.y3; });
-      for (var i = 1; i < t.length; i++) {
-        if (t[i].y3 - t[i - 1].y3 < aralik) t[i].y3 = t[i - 1].y3 + aralik;
-      }
+      const n = t.length;
+      if (!n) return;
+      const blok = aralik;                       // iki etiket arasindaki min merkez farki
+      const enUst = 11 + blok / 2, enAlt = yuk - 11 - blok / 2;
+      t[0].y3 = Math.max(t[0].y3, enUst);
+      for (var i = 1; i < n; i++) t[i].y3 = Math.max(t[i].y3, t[i - 1].y3 + blok);
+      const fazla = t[n - 1].y3 - enAlt;
+      if (fazla > 0) for (var j = 0; j < n; j++) t[j].y3 -= fazla;
+      if (t[0].y3 < enUst) for (var k = 0; k < n; k++) t[k].y3 += (enUst - t[0].y3);
     });
+    /* x3 sabit kalsin: etiketler hala ayni iki sutunda (sag/sol) durur.
+       Sadece yatay sigdirma: metin genisligi cerceveyi asarsa kenarina yapistir. */
     et.forEach(function (e) {
-      /* en ust / en alt etiketler cerceveyi tasirmasin */
-      if (e.y3 < 9) e.y3 = 9;
-      if (e.y3 > yuk - 7) e.y3 = yuk - 7;
+      const w = e.ad.length * 5.6;
+      if (e.sag > 0) e.x3 = Math.min(e.x3, CK_GF_W - 2 - w);
+      else e.x3 = Math.max(e.x3, 2 + w);
     });
     return et.map(function (e) {
       const tik = e.tip ? ' onclick="ckTikla(\'' + e.tip + '\',\'' + (e.hedef || '') + '\')"' : '';
       const kap = e.tip ? ' tiklanir' : '';
-      return '<polyline class="ck-gf-etiket-cizgi" points="' + e.x1.toFixed(1) + ',' + e.y1.toFixed(1) + ' ' +
-        e.x2.toFixed(1) + ',' + e.y2.toFixed(1) + ' ' + e.x3.toFixed(1) + ',' + e.y3.toFixed(1) + '" stroke="' + e.renk + '"/>' +
+      /* Cizgi: dilimden disari -> dikey cikislarda ara nokta -> yatay olarak etikete.
+         Ara nokta olmadan 6 saatteki bir dilimde 75px'lik egik kiris cikiyordu. */
+      const nok = [e.x1.toFixed(1) + ',' + e.y1.toFixed(1), e.x2.toFixed(1) + ',' + e.y2.toFixed(1)];
+      if (Math.abs(e.y2 - e.y3) > 3) nok.push(e.x2.toFixed(1) + ',' + e.y3.toFixed(1));
+      nok.push(e.x3.toFixed(1) + ',' + e.y3.toFixed(1));
+      return '<polyline class="ck-gf-etiket-cizgi" points="' + nok.join(' ') + '" stroke="' + e.renk + '"/>' +
         '<g class="ck-gf-et' + kap + '"' + tik + '>' +
-        '<text class="ck-gf-et-ad" x="' + e.x3.toFixed(1) + '" y="' + (e.y3 - 2.5).toFixed(1) + '" fill="' + e.renk + '" text-anchor="' + (e.sag ? 'start' : 'end') + '">' + esc(e.ad) + '</text>' +
-        '<text class="ck-gf-et-sayi" x="' + e.x3.toFixed(1) + '" y="' + (e.y3 + 7).toFixed(1) + '" text-anchor="' + (e.sag ? 'start' : 'end') + '">' +
+        '<text class="ck-gf-et-ad" x="' + e.x3.toFixed(1) + '" y="' + (e.y3 - 2.5).toFixed(1) + '" fill="' + e.renk + '" text-anchor="' + (e.sag > 0 ? 'start' : 'end') + '">' + esc(e.ad) + '</text>' +
+        '<text class="ck-gf-et-sayi" x="' + e.x3.toFixed(1) + '" y="' + (e.y3 + 7).toFixed(1) + '" text-anchor="' + (e.sag > 0 ? 'start' : 'end') + '">' +
         ckSayiFmt(e.d) + ' (%' + e.yuzde + ')</text></g>';
     }).join('');
   }
@@ -1946,7 +1962,7 @@ let nodes = [], selected = null;
   function ckGrafikDonut(seri, toplam, merkezAlt) {
     return '<svg class="ck-gf-tuval" viewBox="0 0 ' + CK_GF_W + ' ' + CK_GF_H + '" role="img" aria-label="' + esc(merkezAlt) + ' dağılımı">' +
       ckHalka(seri, toplam, 16, 1.6) +
-      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 16, yuk: CK_GF_H }) +
+      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 22, yuk: CK_GF_H }) +
       '<text class="ck-gf-orta" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 73 : 78) + '">' + ckSayiFmt(toplam) + '</text>' +
       '<text class="ck-gf-orta-y" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 87 : 93) + '">' + esc(merkezAlt.toUpperCase()) + '</text>' +
       '</svg>';
@@ -1955,7 +1971,7 @@ let nodes = [], selected = null;
   function ckGrafikPasta(seri, toplam) {
     return '<svg class="ck-gf-tuval" viewBox="0 0 ' + CK_GF_W + ' ' + CK_GF_H + '" role="img" aria-label="Aksiyon dağılımı">' +
       ckHalka(seri, toplam, 16, 1.6) +
-      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 16, yuk: CK_GF_H }) +
+      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 22, yuk: CK_GF_H }) +
       '<text class="ck-gf-orta" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 73 : 78) + '">' + ckSayiFmt(toplam) + '</text>' +
       '<text class="ck-gf-orta-y" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 87 : 93) + '">AKSİYON</text>' +
       '</svg>';
