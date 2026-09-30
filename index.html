@@ -333,7 +333,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   </div>
   <div id="adminModal" style="display:none"></div>
   <style>
-    #ckTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin:12px 0 16px}
+    /* #ckTiles sutun kurali TEK yerde tanimlidir (asagida 2x2). Buradaki eski
+       auto-fit kurali kaldirildi; ayni anda iki kural olunca sonraki yazan kazanir
+       ve gruplar tek satira yasiyordu. */
     .ck-tile{background:#f2f7f8;border:1px solid #d7e5e8;border-radius:8px;padding:9px 10px;text-align:center;
       overflow:hidden}
     .ck-tile.uyari{background:#fff4f2;border-color:#f0c8bf}
@@ -387,7 +389,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .onay-kisi b{color:#1f5f6b}
     .onay-bilgi{font-size:11px;color:#6b7d82;margin-top:2px}
     /* kokpit gruplari */
-    #ckTiles{margin:12px 0 14px;display:flex;flex-direction:column;gap:10px}
+    /* 2x2 duzen: ust satir Ozet | Aksiyon, alt satir Kapsam | Onay Durumu.
+       Eskiden flex-column ile alt alta yigiliyordu. */
+    #ckTiles{margin:12px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .ck-grup{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:9px 11px 11px;
       box-shadow:0 1px 3px rgba(0,0,0,.05)}
     .ck-grup-h{font-size:10px;font-weight:800;letter-spacing:.8px;color:#7a8d92;
@@ -453,7 +457,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;
       background:#fbefd9;color:#b9770e;flex:0 0 auto}
     .ck-pill.risk{background:#f7dad7;color:#c0392b}
-    @media (max-width:900px){.ck-ek-izgara,.ck-ek-izgara.cifrt,.ck-ek-izgara.tek{grid-template-columns:1fr;gap:12px}}
+    @media (max-width:900px){.ck-ek-izgara,.ck-ek-izgara.cifrt,.ck-ek-izgara.tek{grid-template-columns:1fr;gap:12px}
+      /* 2x2 duzen dar ekranda tek kolona duser */
+      #ckTiles{grid-template-columns:1fr;gap:10px}}
   .ck-ek-izgara.tek{grid-template-columns:1fr;margin-top:12px}
   .ck-ek-onay{border-color:#d9e2f5;background:#f6f8fd}
   .ck-ek-ted-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:4px}
@@ -588,7 +594,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     /* ===== YARI BOY KOKPIT: kart alani sol ve sagdan daraltildi ===== */
     #ckPage{max-width:1010px;padding:12px 0 22px 12px;margin:0}
-    #ckTiles{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:7px;margin:10px auto 12px;max-width:50%}
+    #ckTiles{gap:7px;margin:10px auto 12px}
     .ck-grup{padding:8px 9px 10px;border-radius:8px}
     .ck-grup-h{font-size:10px;letter-spacing:.6px;margin-bottom:6px;padding-left:8px}
     .ck-grup-t{grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:7px}
@@ -611,8 +617,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        sutun sayisi ekrana gore azaltilir; kart icerigi degismez. */
     @media (max-width:700px){
       #ckPage{max-width:100%;padding:10px 10px 18px}
-      #ckTiles{max-width:100%;margin:8px auto 12px;gap:6px;
-        grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+      #ckTiles{max-width:100%;margin:8px auto 12px;gap:6px}
       .ck-grup{padding:7px 7px 9px;border-radius:8px}
       .ck-grup-h{font-size:9.5px;margin-bottom:5px;padding-left:7px}
       .ck-grup-t{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px}
@@ -1626,44 +1631,7 @@ let nodes = [], selected = null;
       }
       return '';
     }
-    /* ===== AKSIYON DENETIMI: veride gercekte hangi alanlar dolu? ===== */
-    function ckAksiyonDenetimi() {
-      const raw = window.__ckRawRows || [];
-      let govde = '';
-      raw.forEach(function (r) {
-        const d = (r && r.data) || {};
-        const canli = ckCanliProjeler(d);
-        const m = fmeaMetrikleri(canli, d.kpEdits);
-        m.fmea = canli.length;                      // fmeaMetrikleri proje saymaz
-        if (!m.hata && !m.cpReaksiyon) return;
-        /* ornek satirlar: ilk 3 hata satirinin dolu alanlari */
-        const ornek = [];
-        (((canli || []).flatMap(function (p) { return (p && p.nodes) || []; }))
-          .flatMap(function (n) { return (n && n.altProsesler) || []; })
-          .flatMap(function (s) { return (s && s.hatalar) || []; }))
-          .forEach(function (h) {
-            if (ornek.length >= 3) return;
-            const dolu = Object.keys(h || {}).filter(function (k) {
-              return !['tur', 'etki', 'neden', 's', 'o', 'd', 'sinif', 'onkontrol', 'tespitkontrol'].includes(k)
-                && String(h[k] || '').trim() !== '';
-            });
-            if (dolu.length) ornek.push(dolu.map(function (k) { return k + ': ' + String(h[k]); }).join(' · ').slice(0, 220));
-          });
-        govde += '<tr><td>' + esc(nameFromEmail(r.email) || r.user_id) + '</td><td>' + m.fmea + '</td>' +
-          '<td>' + m.hata + '</td><td>' + m.akAlan + '</td><td>' + m.faalAlan + '</td><td>' + m.sorumluDolu + '</td>' +
-          '<td>' + m.hedefDolu + '</td><td>' + m.gercekDolu + '</td><td>' + m.cpReaksiyon + '</td>' +
-          '<td style="font-size:11px;color:#5b7076">' + (ornek.length ? esc(ornek.join('<br>')) : '<i>dolu alan yok</i>') + '</td></tr>';
-      });
-      if (!govde) govde = '<tr><td colspan="10" class="ck-none" style="padding:10px">Hata satırı bulunan kullanıcı yok.</td></tr>';
-      ckPopAc('Aksiyon Denetimi',
-        '<p style="font-size:12px;margin:0 0 10px;color:#0f2b33">FMEA satırlarındaki aksiyon alanlarının doluluk sayıları. ' +
-        '<b>Aksiyon Belirlenmiş</b> = "Alınan Aksiyonlar" veya "Önerilen Faaliyet" dolu olan satırlar. ' +
-        '<b>KP Reaksiyon</b> = Kontrol Planı "Reaksiyon Planı" alanı dolu olan kayıtlar.</p>' +
-        '<table class="ck-table2"><thead><tr><th>Kullanıcı</th><th>FMEA</th><th>Hata</th><th>Alınan Aksiyon</th>' +
-        '<th>Önerilen Faaliyet</th><th>Sorumlu</th><th>Hedef Tarih</th><th>Gerçekleşen</th><th>KP Reaksiyon</th>' +
-        '<th>Dolu alan örnekleri</th></tr></thead><tbody>' + govde + '</tbody></table>', 'denetim');
-    }
-    /* ===== AKSIYON TARAMASI (ortak veri kaynagi) =====
+      /* ===== AKSIYON TARAMASI (ortak veri kaynagi) =====
        Kural fmeaMetrikleri() ile AYNI: aksiyonu var (Alınan Aksiyonlar veya
        Önerilen Faaliyet dolu), "Gerçekleşen Tarihi" bos, "Hedef Tamamlama
        Tarihi" dolu. kalanGun < 0 => gecikmis, 0 => bugun, > 0 => kalan gun.
@@ -1726,7 +1694,9 @@ let nodes = [], selected = null;
         '<span class="ck-b hot">' + ckSayiFmt(l.length) + ' geciken aksiyon</span>' +
         '</div>';
       const satirlar = l.map(function (x, i) {
-        const hata = [x.tur, x.etki, x.neden].filter(Boolean).join(' · ');
+        /* Kullanici istedi: Hata sutununda SADECE "Potansiyel Hata Turu"
+           yaziyor; Etki ve Neden metinleri kaldirildi. */
+        const hata = x.tur || '';
         const ak = x.aksiyon || x.faaliyet;
         const snf = x.gecGun > 30 ? '' : (x.gecGun > 7 ? ' orta' : ' yeni');
         return '<tr>' +
@@ -1992,8 +1962,11 @@ let nodes = [], selected = null;
      Toplam hata = Tamamlanan + Gecikmiş + Devam Eden + Aksiyonsuz */
   function ckGrafikKartiAksiyon() {
     const R = window.__ckRows || [];
+    /* Satir metrikleri DUZ tasinir (r.hata, r.aksiyonTamam ...). Eski kod
+       r.m diyordu; o alan satirlarda yok -> tum sayilar 0 -> grafik BOS
+       gorunuyordu. Test/sahte satirlarda m icinde olabilir: ikisini de oku. */
     const t = R.reduce(function (a, r) {
-      const m = r.m || {};
+      const m = r.m || r;
       a.hata += m.hata || 0;
       a.tamam += m.aksiyonTamam || 0;
       a.gecikmis += m.aksiyonGecikmis || 0;
@@ -2080,8 +2053,11 @@ let nodes = [], selected = null;
         }).join('') +
           (bekleyenler.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(bekleyenler.length - 6) + ' FMEA daha</span></div>' : '')
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Onay bekleyen FMEA yok.</span></div>') + '</div>';
-      kutu.innerHTML = serit + '<div class="ck-ek-izgara">' + riskKarti + onayKarti + '</div>' +
-        '<div class="ck-ek-izgara cifrt">' + ckGrafikKartiFmea() + ckGrafikKartiAksiyon() + '</div>' +
+      /* Kullanici istedi: uyari seridi (gecikti / yaklasiyor / onay bekliyor)
+         once, yani FMEA DURUMU ve AKSYON DURUMU grafiklerinin USTUNE konur. */
+      kutu.innerHTML = '<div class="ck-ek-izgara cifrt">' + ckGrafikKartiFmea() + ckGrafikKartiAksiyon() + '</div>' +
+        serit +
+        '<div class="ck-ek-izgara">' + riskKarti + onayKarti + '</div>' +
         '<div class="ck-ek-izgara tek">' + olayKarti + '</div>';
     }
     function ckGrup(baslik, icerik, aksan) {
@@ -2312,14 +2288,13 @@ let nodes = [], selected = null;
         '<button type="button" class="ck-btn" onclick="ckExcelHepsini(1)">Tümünü seç</button>' +
         '<button type="button" class="ck-btn" onclick="ckExcelHepsini(0)">Seçimi kaldır</button>' +
         '<button type="button" class="ck-btn" id="ckExcelBtn" onclick="ckExcelIndir()" style="background:#1d6f42;color:#fff;font-weight:700">⬇ Seçilen FMEA\'ları Excel indir (<span id="ckExcelSay">0</span>)</button>' +
-        '<button type="button" class="ck-btn" onclick="ckAksiyonDenetimi()">🔍 Aksiyon denetimi</button>' +
         '<span style="font-size:11px">Satırı açıp FMEA\'ları işaretle; her dosya tüm sayfaları içerir.</span>' +
         '</div>' +
-        '<table id="ckTable"><thead><tr><th>Tedarikçi</th><th>FMEA</th><th>Onay Durumu</th><th>Proses</th>' +
-        '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th><th>Son Guncelleme</th></tr></thead><tbody>' +
+        '<table id="ckTable"><thead><tr><th>Tedarikçi</th><th>Onay Durumu</th><th>Proses</th>' +
+        '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th></tr></thead><tbody>' +
         ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
           const anahtar = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + anahtar + '" style="display:none"><td colspan="9"><div class="ck-in"></div></td></tr>';
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + anahtar + '" style="display:none"><td colspan="7"><div class="ck-in"></div></td></tr>';
         }).join('') + '</tbody></table>';
     }
     function ckOnayHtml() {
@@ -2385,14 +2360,16 @@ let nodes = [], selected = null;
           : (kisiler.length ? '<div class="ck-sub">Kullanıcı: ' + esc(kisiler[0]) + '</div>' : '');
         return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.key + '\')">' +
         '<td><b>' + esc(r.ad) + '</b>' + alt + '</td>' +
-        '<td>' + ckSayiFmt(r.fmea) + '</td>' +
+        /* Kullanici istedi: "FMEA" ve "Son Guncelleme" sutunlari KALDIRILDI.
+           Kalan 7 sutun: Tedarikci | Onay Durumu | Proses | Hata |
+           Aksiyon Belirlenmis | Aksiyon Gerceklesti | Aksiyon Gecikmis */
         '<td>' + ckDurumHucre(r) + '</td>' +
         '<td>' + r.islem + '</td>' +
         '<td>' + ckSayi(r.hata, r.hata ? 'hot' : '') + '</td>' +
         '<td>' + ckSayi(r.aksiyonlu, r.aksiyonlu ? 'mid' : '') + '</td>' +
         '<td>' + ckSayi(r.aksiyonTamam, r.aksiyonTamam ? 'ok' : '') + '</td>' +
         '<td>' + ckSayi(r.aksiyonGecikmis, r.aksiyonGecikmis ? 'hot' : '') + '</td>' +
-        '<td style="font-size:11px;color:#6b7d82">' + ckTarih(r.guncelleme) + '</td></tr>'; }).join('');
+        '</tr>'; }).join('');
     }
     /* Satir acma: anahtar = tedarikci anahtari (ted0, ted1 ...) */
     window.ckSatirAc = function (anahtar) {
@@ -2476,7 +2453,9 @@ let nodes = [], selected = null;
         ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay bekleyenleri göster') +
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       , 'purple');
-      t.innerHTML = ozetGrubu + kapsamGrubu + aksiyonGrubu + durumGrubu;
+      /* SIRA ONEMLI: grid 2 kolon oldugu icin Ozet|Aksiyon ustte,
+         Kapsam|Onay Durumu altta yan yana durur. */
+      t.innerHTML = ozetGrubu + aksiyonGrubu + kapsamGrubu + durumGrubu;
       // Sayilar veri geldikten SONRA burada animasyona girer (hedef deger hazir)
       ckSayilariAnimasyonEt(t);
       // Ek bilesenler: uyari seridi + gecikme riski + son islemler
@@ -2645,6 +2624,70 @@ let nodes = [], selected = null;
     // (1) Onaya gonderilmis FMEA'lar  (2) hesap onay bekleyenler
     var onayFmeaBekleyen = [];
 
+    /* ===== SAYFA ICI ONAY KUTUSU =====
+       Tarayicinin native confirm()'i kiosk/gomme kutu ortaminda sessizce
+       false dondurebiliyor; kullanici butona tiklayip "hicbir sey olmadi"
+       saniyordu. Bu yuzden onay kendi kutumuza sorulur ve her sonuc
+       (basarili/iptal/hata) ekranda gorunur. */
+    function ckOnayKutu(baslik, mesaj, tip) {
+      return new Promise(function (coz) {
+        const eski = document.getElementById('ckOnayKutu');
+        if (eski && eski.parentNode) eski.parentNode.removeChild(eski);
+        const kap = document.createElement('div');
+        kap.id = 'ckOnayKutu';
+        kap.style.cssText = 'position:fixed;inset:0;left:0;right:0;top:0;bottom:0;background:rgba(16,30,38,.55);' +
+          'display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px';
+        const kutu = document.createElement('div');
+        kutu.style.cssText = 'background:#fff;border-radius:10px;max-width:430px;width:100%;padding:18px 18px 16px;' +
+          'box-shadow:0 12px 34px rgba(0,0,0,.32)';
+        const b = document.createElement('div');
+        b.textContent = baslik;
+        b.style.cssText = 'font-size:15px;font-weight:800;color:#1f5f6b;margin-bottom:8px';
+        const p = document.createElement('div');
+        p.textContent = mesaj;
+        p.style.cssText = 'font-size:13.5px;line-height:1.5;color:#243b44;margin-bottom:16px;word-break:break-word';
+        const sat = document.createElement('div');
+        sat.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+        const iptal = document.createElement('button');
+        iptal.textContent = 'Vazgeç';
+        iptal.style.cssText = 'background:#e9eef1;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:13px';
+        const evet = document.createElement('button');
+        evet.textContent = tip === 'red' ? 'Reddet' : 'Onayla';
+        evet.style.cssText = 'background:' + (tip === 'red' ? '#c45a5a' : '#5b8c5a') + ';color:#fff;border:0;' +
+          'border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:13px';
+        function kapat(sonuc) {
+          if (kap.parentNode) kap.parentNode.removeChild(kap);
+          coz(sonuc);
+        }
+        iptal.onclick = function () { kapat(false); };
+        evet.onclick = function () { kapat(true); };
+        kap.onclick = function (e) { if (e.target === kap) kapat(false); };
+        sat.appendChild(iptal); sat.appendChild(evet);
+        kutu.appendChild(b); kutu.appendChild(p); kutu.appendChild(sat);
+        kap.appendChild(kutu);
+        document.body.appendChild(kap);
+        try { evet.focus(); } catch (e) {}
+      });
+    }
+
+    /* Onay/reddet sonucunu kalici gosterir (toast 9 sn sonra kayboluyor ve
+       kullanicinin onay listesinde takip edemedigi icin). */
+    function ckOnayDurum(mesaj, tip) {
+      let k = document.getElementById('onayFmeaDurum');
+      if (!k) {
+        k = document.createElement('div');
+        k.id = 'onayFmeaDurum';
+        k.style.cssText = 'margin:0 0 10px;padding:9px 12px;border-radius:8px;font-size:12.5px;line-height:1.45;' +
+          'border:1px solid #d7e5e8;background:#f4f8fa;color:#243b44;word-break:break-word';
+        const liste = document.getElementById('onayFmeaList');
+        if (liste && liste.parentNode) liste.parentNode.insertBefore(k, liste);
+      }
+      k.textContent = mesaj;
+      k.style.background = tip === 'hata' ? '#fdecea' : (tip === 'oldu' ? '#eaf6ec' : '#f4f8fa');
+      k.style.borderColor = tip === 'hata' ? '#f0b6b0' : (tip === 'oldu' ? '#b6ddc0' : '#d7e5e8');
+      k.style.color = tip === 'hata' ? '#8a2b23' : (tip === 'oldu' ? '#1e6b34' : '#243b44');
+    }
+
     async function loadOnayBekleyenFmea() {
       if (!sbClient || !cloudIsAdmin) return;
       try {
@@ -2704,11 +2747,11 @@ let nodes = [], selected = null;
         sag.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
         const okB = document.createElement('button');
         okB.textContent = 'Onayla';
-        okB.onclick = function () { adminFmeaOnayla(it.uid, it.ad); };
+        okB.onclick = function () { adminFmeaOnayla(it.uid, it.ad, it.i); };
         okB.style.cssText = 'background:#5b8c5a;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
         const noB = document.createElement('button');
         noB.textContent = 'Reddet';
-        noB.onclick = function () { adminFmeaReddet(it.uid, it.ad); };
+        noB.onclick = function () { adminFmeaReddet(it.uid, it.ad, it.i); };
         noB.style.cssText = 'background:#c45a5a;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
         sag.appendChild(okB); sag.appendChild(noB);
         satir.appendChild(sol); satir.appendChild(sag);
@@ -2720,8 +2763,18 @@ let nodes = [], selected = null;
 
     // Admin, kullanicinin projesindeki onay durumunu gunceller (RLS: admin her satiri yazabilir)
     async function fmeaOnayGuncelle(uid, pname, durum, pIndex) {
-      if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return false; }
-      if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return false; }
+      /* Hata mesaji hem toast'a hem onay listesindeki kalici banda yazilir;
+         kullanici ekrana bakmiyorsa bile sonuc gorunur kalir. */
+      function hataVer(ned) {
+        const m = (ned && ned.message) || String(ned);
+        const kod = (ned && ned.code) ? ' [' + ned.code + ']' : '';
+        console.error('fmeaOnayGuncelle:', ned);
+        ckBildir('Onay yazılamadı' + kod + ': ' + m, 'hata');
+        ckOnayDurum('Onay yazılamadı' + kod + ': ' + m, 'hata');
+        return false;
+      }
+      if (!sbClient) return hataVer({ message: 'Veritabanı bağlantısı yok.' });
+      if (!cloudIsAdmin) return hataVer({ message: 'Bu işlem için yönetici yetkisi gerekli (yönetici olarak giriş yapın).' });
       try {
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('data').eq('user_id', uid).maybeSingle();
@@ -2731,7 +2784,7 @@ let nodes = [], selected = null;
            yazimi da ayni birlestirmeyi kullanmazsa "FMEA bulunamadi" olurdu
            (kullanici verisi bulut yaziminda eski kalmis proje kaydi). */
         const projler = ckCanliProjeler(d);
-        if (!projler.length) { ckBildir('Kullanıcı verisi bulunamadı.', 'hata'); return false; }
+        if (!projler.length) return hataVer({ message: 'Kullanıcı verisi bulunamadı (' + uid + ').' });
         let hedef = null;
         /* 1) proje adı, 2) listedeki sıra numarası, 3) firma adı (yedek) */
         projler.forEach(function (p) { if (!hedef && p && p.name === pname) hedef = p; });
@@ -2742,9 +2795,8 @@ let nodes = [], selected = null;
           });
         }
         if (!hedef) {
-          ckBildir('FMEA bulunamadı: ' + pname + ' (listedeki ad: ' +
-            projler.map(function (p) { return p && p.name; }).join(', ') + ')', 'hata');
-          return false;
+          return hataVer({ message: 'FMEA bulunamadı: ' + pname + ' (listedeki adlar: ' +
+            projler.map(function (p) { return p && p.name; }).join(', ') + ')' });
         }
         hedef.onayDurumu = durum;
         hedef.onayZaman = Date.now();
@@ -2763,27 +2815,30 @@ let nodes = [], selected = null;
         const up = await sbClient.from('fmea_user_data')
           .upsert(Object.assign({ user_id: uid }, yama), { onConflict: 'user_id' });
         if (up.error) {
-          ckBildir('Onay yazılamadı: ' + (up.error.message || up.error) +
-            '. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'hata');
-          return false;
+          return hataVer({ message: up.error.message || String(up.error) +
+            ' — veritabanı yetki kuralı (RLS) yazımı engelliyor olabilir', code: up.error.code });
         }
         return true;
       } catch (e) {
-        console.error('fmeaOnayGuncelle:', e);
-        ckBildir('İşlem hatası: ' + (e.message || e), 'hata');
-        return false;
+        return hataVer(e);
       }
     }
 
     async function adminFmeaOnayla(uid, pname, pIndex) {
-      if (!confirm('"' + pname + '" FMEA\'sı onaylansın mı?')) return;
+      const evet = await ckOnayKutu('FMEA Onayı',
+        '"' + pname + '" FMEA\'sı onaylansın mı? Kullanıcının FMEA\'sı "Tamamlanan" olarak işaretlenir.', 'onayli');
+      if (!evet) { ckOnayDurum('Onaylama iptal edildi.', 'bilgi'); return; }
+      ckOnayDurum('Onaylanıyor: ' + pname + ' ...', 'bilgi');
       const ok = await fmeaOnayGuncelle(uid, pname, 'onayli', pIndex);
-      if (ok) { ckBildir('FMEA onaylandı.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
+      if (ok) { ckOnayDurum('"' + pname + '" onaylandı. Kullanıcı sayfası yenilenince "Tamamlanan" olarak görünecek.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
     }
     async function adminFmeaReddet(uid, pname, pIndex) {
-      if (!confirm('"' + pname + '" FMEA\'sı reddedilsin mi?')) return;
+      const evet = await ckOnayKutu('FMEA Reddi',
+        '"' + pname + '" FMEA\'sı reddedilsin mi? Kullanıcı düzeltip tekrar onaya gönderebilir.', 'red');
+      if (!evet) { ckOnayDurum('Reddetme iptal edildi.', 'bilgi'); return; }
+      ckOnayDurum('Reddediliyor: ' + pname + ' ...', 'bilgi');
       const ok = await fmeaOnayGuncelle(uid, pname, 'red', pIndex);
-      if (ok) { ckBildir('FMEA reddedildi.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
+      if (ok) { ckOnayDurum('"' + pname + '" reddedildi. Kullanıcı düzeltip tekrar gönderebilir.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
     }
 
     // Onay bekleyen hesaplar: is_admin=false AND approved=false
