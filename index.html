@@ -431,6 +431,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ck-ek-baslik{font-size:11px;font-weight:800;letter-spacing:.6px;color:#6b7a8e;margin-bottom:6px;
       display:flex;align-items:center;gap:8px}
     .ck-ek-adet{background:#e3e8ef;color:#4a5a6e;border-radius:999px;padding:1px 8px;font-size:10.5px;letter-spacing:0}
+    .ck-ek-alt-bas{font-weight:700;letter-spacing:0;font-size:10.5px;color:#b9770e;background:#fbefd9;border-radius:999px;padding:1px 8px}
+    .ck-ek-alt-bas.gecmis{color:#c0392b;background:#f7dad7}
     .ck-ek-satir{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #eef1f5}
     .ck-ek-satir:last-child{border-bottom:none}
     .ck-ek-satir.son{border-bottom:none;padding-bottom:0}
@@ -1634,22 +1636,27 @@ let nodes = [], selected = null;
       const risk = window.__ckRisk || [];
       const bekleyen = (window.__ckRows || []).reduce(function (a, r) { return a + (r.bekleyen || 0); }, 0);
       const gecmis = risk.filter(function (x) { return x.kalanGun < 0; }).length;
+      const yaklasan = risk.length - gecmis;
       const uyari = (gecmis > 0 || bekleyen > 0);
-      /* 1) UYARI SERIDI */
-      const seritMetin = !risk.length && !bekleyen
-        ? 'Gecikme riski taşıyan aksiyon yok, onay bekleyen FMEA yok.'
-        : (gecmis > 0 ? ckSayiFmt(gecmis) + ' aksiyon gecikme riski taşıyor' : 'Yaklaşan hedef tarihi olan ' + ckSayiFmt(risk.length) + ' aksiyon var') +
-          (bekleyen > 0 ? ', ' + ckSayiFmt(bekleyen) + ' FMEA hâlâ onay bekliyor' : ', onay bekleyen FMEA yok') + '.';
+      /* 1) UYARI SERIDI: gecmis ve yaklasan AYRI sayilir, toplanmaz */
+      const parcalar = [];
+      if (gecmis > 0) parcalar.push(ckSayiFmt(gecmis) + ' aksiyon gecikti');
+      if (yaklasan > 0) parcalar.push(ckSayiFmt(yaklasan) + ' aksiyonun hedef tarihi yaklaşıyor');
+      if (!parcalar.length) parcalar.push('Gecikmiş veya yaklaşan aksiyon yok');
+      const seritMetin = parcalar.join(' · ') +
+        (bekleyen > 0 ? '. ' + ckSayiFmt(bekleyen) + ' FMEA hâlâ onay bekliyor' : '. Onay bekleyen FMEA yok.');
       const serit = '<div class="ck-uyari' + (uyari ? '' : ' sakin') + '"' + (risk.length ? ' onclick="ckTikla(\'gecikmis\',\'\')" title="Geciken aksiyonları aç"' : '') + '>' +
         '<div class="ck-uyari-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>' +
         '<span class="ck-uyari-yazi">' + esc(seritMetin) + (risk.length ? ' Aşağıdaki listeden detaylara bakabilirsiniz.' : '') + '</span></div>';
-      /* 2) GECIKME RISKI LISTESI + 3) SON ISLEMLER */
+      /* 2) GECIKEN + YAKLASAN AKSIYONLAR LISTESI + 3) SON ISLEMLER */
       const riskKarti = '<div class="ck-ek-kart">' +
         '<div class="ck-ek-baslik">GECİKEN VE YAKLAŞAN AKSİYONLAR' +
-          (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') + '</div>' +
+          (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') +
+          (gecmis > 0 && yaklasan > 0 ? '<span class="ck-ek-alt-bas gecmis">' + ckSayiFmt(gecmis) + ' gecikti</span>' : '') +
+          (gecmis > 0 && yaklasan > 0 ? '<span class="ck-ek-alt-bas">' + ckSayiFmt(yaklasan) + ' yaklaşıyor</span>' : '') + '</div>' +
         (risk.length ? risk.slice(0, 6).map(ckRiskSatiri).join('') +
           (risk.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(risk.length - 6) + ' aksiyon daha</span></div>' : '')
-          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Yaklaşan hedef tarihi bulunmuyor.</span></div>') + '</div>';
+          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Gecikmiş veya yaklaşan hedef tarihi bulunmuyor.</span></div>') + '</div>';
       const olaylar = window.__ckOlaylar || [];
       const olayKarti = '<div class="ck-ek-kart">' +
         '<div class="ck-ek-baslik">SON İŞLEMLER' + (olaylar.length ? '<span class="ck-ek-adet">' + ckSayiFmt(olaylar.length) + '</span>' : '') + '</div>' +
