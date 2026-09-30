@@ -474,15 +474,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .ck-gf-ic{display:block;flex:1;min-width:0}
   .ck-gf-tuval{width:100%;max-width:520px;height:auto;display:block;margin:0 auto}
   .ck-gf-tuval circle,.ck-gf-tuval path{transition:opacity .15s ease}
-  .ck-gf-gir{animation:ckGfGir .5s ease both;transform-origin:60px 60px}
+  .ck-gf-gir{animation:ckGfGir .5s ease both;transform-origin:170px 75px}
   @keyframes ckGfGir{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
   @media (prefers-reduced-motion:reduce){.ck-gf-gir{animation:none}}
   .ck-gf-orta{font-size:23px;font-weight:800;fill:#16275f;text-anchor:middle}
   .ck-gf-orta-y{font-size:9px;font-weight:700;letter-spacing:.6px;fill:#8a97a8;text-anchor:middle}
   /* Grafik USTU etiketler: dilim orta acisindan cizgiyle tasinir, yan lejant YOK */
   .ck-gf-etiket-cizgi{fill:none;opacity:.7}
-  .ck-gf-et-ad{font-size:8.5px;font-weight:800}
-  .ck-gf-et-sayi{font-size:8px;font-weight:700;fill:#16275f}
+  .ck-gf-et-ad{font-size:11px;font-weight:800}
+  .ck-gf-et-sayi{font-size:10px;font-weight:700;fill:#16275f}
   .ck-gf-et{transition:opacity .12s ease}
   .ck-gf-et.tiklanir{cursor:pointer}
   .ck-gf-et.tiklanir:hover{opacity:.72}
@@ -1856,15 +1856,13 @@ let nodes = [], selected = null;
     /* ===== DURUM GRAFİKLERİ: DONUT (FMEA durumu) + PASTA (aksiyon) =====
      Harici grafik kutuphanesi yok; her iki grafik de saf SVG ile cizilir.
      Dilimler birbirini MUTLAKA dışlamaz, toplamı daima "toplam"a eşittir. */
-  var CK_GF_R = 46;                       // donut yaricapı (viewBox 120x120)
+  /* Tek merkez: viewBox, dilim geometrisi, etiketler ve animasyon origini
+     HEPSİ bu sabitleri kullanır. Onceki kodda dilimler 60px merkezde,
+     etiketler 130px merkezde idi; cizgiler bu yuzden dilimden kopuyordu. */
+  var CK_GF_CX = 170, CK_GF_CY = 75;      // grafik merkezi (viewBox 340x150)
+  var CK_GF_R = 46;                       // donut/pasta yaricapı
   var CK_GF_C = 2 * Math.PI * CK_GF_R;    // cevre uzunlugu
-  /* Pasta dilimi yolu: merkezden iki noktaya yay (12 saatten başlar) */
-  function ckPastaYol(r, a0, a1) {
-    const x0 = (60 + r * Math.cos(a0)).toFixed(2), y0 = (60 + r * Math.sin(a0)).toFixed(2);
-    const x1 = (60 + r * Math.cos(a1)).toFixed(2), y1 = (60 + r * Math.sin(a1)).toFixed(2);
-    const buyuk = (a1 - a0) > Math.PI ? 1 : 0;
-    return 'M 60 60 L ' + x0 + ' ' + y0 + ' A ' + r + ' ' + r + ' 0 ' + buyuk + ' 1 ' + x1 + ' ' + y1 + ' Z';
-  }
+  var CK_GF_W = 340, CK_GF_H = 150;       // viewBox olculeri
   /* Ortak: toplam + yuzde hesabi (negatif deger olabilir, 0'a kirpilir) */
   function ckGfToplam(seri) {
     return (seri || []).reduce(function (a, s) { return a + Math.max(0, Number(s.d) || 0); }, 0);
@@ -1918,56 +1916,48 @@ let nodes = [], selected = null;
         ckSayiFmt(e.d) + ' (%' + e.yuzde + ')</text></g>';
     }).join('');
   }
-  /* DONUT: stroke-dasharray ile halka dilimleri. dilim = {ad, d, renk, tip, hedef} */
-  function ckGrafikDonut(seri, toplam, merkezAlt) {
+  /* ORTAK HALKA cizimi: stroke-dasharray ile dilimler.
+     FMEA durumu ve Aksiyon dagilimi IKISI DE bu fonksiyonu kullanir; boylece
+     iki grafik ayni halka gorunumunde olur (dolu pasta degil, cember).
+     dilim = {ad, d, renk, tip, hedef} */
+  function ckHalka(seri, toplam, kalinlik, bos) {
     const parca = [];
-    if (toplam <= 0) {
-      parca.push('<circle cx="60" cy="60" r="' + CK_GF_R + '" fill="none" stroke="#e3e8ef" stroke-width="16"/>');
-    } else {
-      let ofs = 0;
-      seri.forEach(function (s, i) {
-        const d = Math.max(0, Number(s.d) || 0);
-        if (!d) return;
-        const pay = d / toplam;
-        const len = Math.max(0.5, (pay * CK_GF_C) - 1.6);   // 1.6px = dilim arasi bosluk
-        parca.push('<circle class="ck-gf-gir" cx="60" cy="60" r="' + CK_GF_R + '" fill="none" stroke="' +
-          s.renk + '" stroke-width="16" stroke-linecap="butt" style="animation-delay:' + (i * 90) + 'ms" ' +
-          (s.tip ? 'class="ck-gf-gir tiklanir" onclick="ckTikla(\'' + s.tip + '\',\'' + (s.hedef || '') + '\')" ' : 'class="ck-gf-gir" ') +
-          'stroke-dasharray="' + len.toFixed(2) + ' ' + (CK_GF_C - len).toFixed(2) + '" ' +
-          'stroke-dashoffset="' + (-ofs).toFixed(2) + '" transform="rotate(-90 60 60)"><title>' +
-          esc(s.ad + ': ' + ckSayiFmt(d) + ' (%' + Math.round(pay * 100) + ')') + '</title></circle>');
-        ofs += pay * CK_GF_C;
-      });
+    if (!(toplam > 0)) {
+      parca.push('<circle cx="' + CK_GF_CX + '" cy="' + CK_GF_CY + '" r="' + CK_GF_R + '" fill="none" stroke="#e3e8ef" stroke-width="' + kalinlik + '"/>');
+      return parca.join('');
     }
-    return '<svg class="ck-gf-tuval" viewBox="0 0 260 120" role="img" aria-label="' + esc(merkezAlt) + ' dağılımı">' +
-      parca.join('') +
-      ckGfUstEtiket(seri, toplam, { cx: 130, cy: 60, r: CK_GF_R, halka: 8, dik: 16, aralik: 16, yuk: 120 }) +
-      '<text class="ck-gf-orta" x="130" y="' + (toplam > 0 ? 58 : 63) + '">' + ckSayiFmt(toplam) + '</text>' +
-      '<text class="ck-gf-orta-y" x="130" y="' + (toplam > 0 ? 72 : 78) + '">' + esc(merkezAlt.toUpperCase()) + '</text>' +
+    let ofs = 0;
+    (seri || []).forEach(function (s, i) {
+      const d = Math.max(0, Number(s.d) || 0);
+      if (!d) return;
+      const pay = d / toplam;
+      const len = Math.max(0.5, (pay * CK_GF_C) - bos);
+      parca.push('<circle class="ck-gf-gir' + (s.tip ? ' tiklanir' : '') + '" cx="' + CK_GF_CX + '" cy="' + CK_GF_CY + '" r="' + CK_GF_R + '" fill="none" stroke="' +
+        s.renk + '" stroke-width="' + kalinlik + '" stroke-linecap="butt" style="animation-delay:' + (i * 90) + 'ms"' +
+        (s.tip ? ' onclick="ckTikla(\'' + s.tip + '\',\'' + (s.hedef || '') + '\')"' : '') +
+        ' stroke-dasharray="' + len.toFixed(2) + ' ' + (CK_GF_C - len).toFixed(2) + '" ' +
+        'stroke-dashoffset="' + (-ofs).toFixed(2) + '" transform="rotate(-90 ' + CK_GF_CX + ' ' + CK_GF_CY + ')"><title>' +
+        esc(s.ad + ': ' + ckSayiFmt(d) + ' (%' + Math.round(pay * 100) + ')') + '</title></circle>');
+      ofs += pay * CK_GF_C;
+    });
+    return parca.join('');
+  }
+  /* DONUT: FMEA durumu (Tamamlanan / Devam Eden / Onay Bekleyen / Reddedilen) */
+  function ckGrafikDonut(seri, toplam, merkezAlt) {
+    return '<svg class="ck-gf-tuval" viewBox="0 0 ' + CK_GF_W + ' ' + CK_GF_H + '" role="img" aria-label="' + esc(merkezAlt) + ' dağılımı">' +
+      ckHalka(seri, toplam, 16, 1.6) +
+      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 16, yuk: CK_GF_H }) +
+      '<text class="ck-gf-orta" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 73 : 78) + '">' + ckSayiFmt(toplam) + '</text>' +
+      '<text class="ck-gf-orta-y" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 87 : 93) + '">' + esc(merkezAlt.toUpperCase()) + '</text>' +
       '</svg>';
   }
-  /* PASTA: gercek yay dilimleri. */
+  /* AKSIYON: dolu pasta DEGIL, ayni cember/halka gorunumunde. */
   function ckGrafikPasta(seri, toplam) {
-    const parca = [];
-    if (toplam <= 0) {
-      parca.push('<circle cx="60" cy="60" r="46" fill="#eef1f5"/>');
-    } else {
-      let ac = -Math.PI / 2;
-      seri.forEach(function (s, i) {
-        const d = Math.max(0, Number(s.d) || 0);
-        if (!d) return;
-        const pay = d / toplam;
-        const a1 = ac + pay * Math.PI * 2;
-        /* tek dilim tam daire verir: yay cizimi patlar, ozel durum */
-        parca.push(pay >= 0.9999
-          ? '<circle class="ck-gf-gir" cx="60" cy="60" r="46" fill="' + s.renk + '" style="animation-delay:' + (i * 90) + 'ms"><title>' + esc(s.ad + ': ' + ckSayiFmt(d)) + '</title></circle>'
-          : '<path class="ck-gf-gir" d="' + ckPastaYol(46, ac, a1) + '" fill="' + s.renk + '" style="animation-delay:' + (i * 90) + 'ms"><title>' + esc(s.ad + ': ' + ckSayiFmt(d) + ' (%' + Math.round(pay * 100) + ')') + '</title></path>');
-        ac = a1;
-      });
-    }
-    return '<svg class="ck-gf-tuval" viewBox="0 0 260 120" role="img" aria-label="Aksiyon dağılımı">' +
-      parca.join('') +
-      ckGfUstEtiket(seri, toplam, { cx: 130, cy: 60, r: 46, halka: 0, dik: 14, aralik: 16, yuk: 120 }) +
+    return '<svg class="ck-gf-tuval" viewBox="0 0 ' + CK_GF_W + ' ' + CK_GF_H + '" role="img" aria-label="Aksiyon dağılımı">' +
+      ckHalka(seri, toplam, 16, 1.6) +
+      ckGfUstEtiket(seri, toplam, { cx: CK_GF_CX, cy: CK_GF_CY, r: CK_GF_R, halka: 8, dik: 16, aralik: 16, yuk: CK_GF_H }) +
+      '<text class="ck-gf-orta" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 73 : 78) + '">' + ckSayiFmt(toplam) + '</text>' +
+      '<text class="ck-gf-orta-y" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 87 : 93) + '">AKSİYON</text>' +
       '</svg>';
   }
   /* Yan lejant kaldirildi: adet + yuzde artik grafik USTUNDE (ckGfUstEtiket).
