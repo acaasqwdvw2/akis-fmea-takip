@@ -1976,19 +1976,21 @@ let nodes = [], selected = null;
     }, { hata: 0, tamam: 0, gecikmis: 0, aksiyonlu: 0, aksiyonsuz: 0 });
     /* "Devam Eden" = aksiyonu var, ne gerçekleşmiş ne gecikmiş */
     const devam = Math.max(0, t.aksiyonlu - t.tamam - t.gecikmis);
-    const toplam = t.hata || (t.tamam + t.gecikmis + devam + t.aksiyonsuz);
+    /* Pasta yalniz AKSIYONU OLAN satirlari gosterir; taban "Aksiyon Belirlenmis"
+       (t.aksiyonlu). Aksiyonsuz satirlar bir durum DEGIL, bu yuzden "Aksiyon Yok"
+       dilimi ve toplam hata sayisi pastaya dahil edilmez. */
+    const toplam = t.aksiyonlu || (t.tamam + t.gecikmis + devam);
     const seri = [
       { ad: 'Tamamlanan', d: t.tamam, renk: '#1e8449', tip: 'tablo', hedef: '' },
       { ad: 'Gecikmiş', d: t.gecikmis, renk: '#c0392b', tip: 'gecikmis', hedef: '' },
-      { ad: 'Devam Eden', d: devam, renk: '#2e5aac', tip: 'tablo', hedef: '' },
-      { ad: 'Aksiyon Yok', d: t.aksiyonsuz, renk: '#c9d2dd', tip: 'tablo', hedef: '' }
+      { ad: 'Devam Eden', d: devam, renk: '#2e5aac', tip: 'tablo', hedef: '' }
     ];
     return '<div class="ck-ek-kart ck-gf-kart"><div class="ck-ek-baslik">AKSİYON DURUMU' +
       '<span class="ck-ek-adet">' + ckSayiFmt(toplam) + '</span></div>' +
       (toplam > 0
         ? '<div class="ck-gf-ic">' + ckGrafikPasta(seri, toplam) + ckGfLejant(seri, toplam) + '</div>'
-        : '<div class="ck-gf-bos">Gösterilecek hata satırı yok.</div>') +
-      '<div class="ck-gf-not">Toplam ' + ckSayiFmt(toplam) + ' hata satırı · Devam Eden = aksiyonu var, hedef tarihi geçmedi.</div></div>';
+        : '<div class="ck-gf-bos">Aksiyonu olan hata satırı yok.</div>') +
+      '<div class="ck-gf-not">Toplam ' + ckSayiFmt(toplam) + ' aksiyonlu hata satırı · Devam Eden = aksiyonu var, hedef tarihi geçmedi.</div></div>';
   }
   function ckEkCiz() {
       const kutu = document.getElementById('ckEk');
