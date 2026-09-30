@@ -2482,9 +2482,13 @@ let nodes = [], selected = null;
         ' | Gerçekleşen Tarih: ' + ckSayiFmt(S.gercekDolu) +
         ' | Kontrol Planı Reaksiyon: ' + ckSayiFmt(S.cpReaksiyon) +
         '\nToplam hata: ' + ckSayiFmt(S.hata);
+      /* Aksiyon Devam Ediyor = aksiyonu var, ne gerçekleşmiş ne gecikmiş.
+         Pasta grafigindeki "Devam Eden" dilimiyle aynı sayıdır. */
+      const aksiyonDevam = Math.max(0, S.aksiyonlu - S.aksiyonTamam - S.aksiyonGecikmis);
       const aksiyonGrubu = ckGrup('Aksiyon',
         ckKutu('Aksiyon Belirlenmiş', S.aksiyonlu, S.aksiyonlu ? 'uyari' : '', akTooltip) +
         ckKutu('Aksiyon Gerçekleşmiş', S.aksiyonTamam, S.aksiyonTamam ? 'iyi' : '', 'Hedef Tamamlama Tarihi / Gerçekleşen Tarih alanlarına göre: aksiyon belirlenmiş olup "Gerçekleşen Tarih" girilmiş hata sayısı.') +
+        ckKutu('Aksiyon Devam Ediyor', aksiyonDevam, aksiyonDevam ? 'bekliyor' : '', 'Aksiyonu belirlenmiş ama henüz gerçekleşmemiş ve hedef tarihi de geçmemiş hata sayısı.') +
         ckKutuT('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'gecikmis', '', 'Geciken aksiyonları göster (listeyi aç)')
       , 'amber');
       // --- DURUM: en altta, yonetici ne yapmali? ---
