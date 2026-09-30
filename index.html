@@ -788,8 +788,10 @@ let nodes = [], selected = null;
     var sbClient = null;
     var cloudUser = null;
     var cloudTimer = null;
-    var cloudDirty = false;
-    var cloudMsgBusy = false;
+  var cloudDirty = false;
+  var cloudSyncAktif = false;
+  var cloudSyncBekle = false;
+  var cloudMsgBusy = false;
     var cloudApproved = false;
     var cloudIsAdmin = false;
     // Hesap reddi isareti: bulutta data.hesapReddi icinde tasir (ayri sutun gerekmez)
@@ -1011,12 +1013,12 @@ let nodes = [], selected = null;
       };
     }
 
-    function scheduleCloudSync() {
-      if (!sbClient || !cloudUser) return;
-      cloudDirty = true;
-      if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
-      cloudTimer = setTimeout(syncCloudNow, 1500);
-    }
+  function scheduleCloudSync(ms) {
+  if (!sbClient || !cloudUser) return;
+  cloudDirty = true;
+  if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
+  cloudTimer = setTimeout(syncCloudNow, ms || 1500);
+  }
 
     /* ===== SENKRON KANONU (KRITIK) =====
        Sorun: kullanici ayni FMEA projesinde calisirken duzenlemeleri ust duzey
@@ -1143,8 +1145,13 @@ let nodes = [], selected = null;
       cloudTimer = false;
       if (!sbClient || !cloudUser) return false;
       if (!cloudDirty) { ckSyncDeneme = 0; ckSyncBantKapat(); return true; }
-      cloudDirty = false;
+      /* ES ZAMANLI YAZMA KILIDI: 1.5 sn debounce, 60 sn periyot ve retry
+         ayni anda tetiklenip birbirinin yazmasini (last-write-wrong-order)
+         engeller. Bekleyen tur, mevcut tur bitince yeniden calisir. */
+      if (cloudSyncAktif) { cloudSyncBekle = true; return false; }
+      cloudSyncAktif = true;
       try {
+        cloudDirty = false;
         // YEREL BOSSA BULUTU EZME: baska bir cihazda veri varken buradaki bos durum
         // buluttaki tedarikci/proje listesini siliyordu.
         const bosYerel = (!nodes || nodes.length === 0) && (!projects || projects.length === 0);
@@ -1174,6 +1181,15 @@ let nodes = [], selected = null;
         console.error('BULUT KAYDI HATASI:', e && e.message);
         ckSyncTekrarDene(e && e.message);
         return false;
+      } finally {
+        cloudSyncAktif = false;
+        /* Yazim sirasinda yeni bir degisiklik olursa (cloudDirty tekrar true)
+           hemen ardindan bir tur daha atilir; veri hicbir zaman yazilmamis
+           kalmaz. */
+        if (cloudSyncBekle || cloudDirty) {
+          cloudSyncBekle = false;
+          scheduleCloudSync(300);
+        }
       }
     }
 
@@ -1410,18 +1426,21 @@ let nodes = [], selected = null;
       }
     });
     function ckTabloGoster() { ckPopIcerikUygula('tablo'); }
-    function switchAdminView(v) {
-      if (!cloudIsAdmin) return;
-      adminView = (v === 'onay') ? 'onay' : 'cockpit';
-      const ck = document.getElementById('ckPage');
-      const ap = document.getElementById('adminPage');
-      if (ck) ck.style.display = (adminView === 'cockpit') ? 'block' : 'none';
-      if (ap) ap.style.display = (adminView === 'onay') ? 'block' : 'none';
-      try {
-        window.scrollTo(0, 0);
-        if (adminView === 'cockpit') { ckYenile(); } else { loadPendingUsers(); }
-      } catch (e) {}
-    }
+      function switchAdminView(v) {
+        if (!cloudIsAdmin) return;
+        adminView = (v === 'onay') ? 'onay' : 'cockpit';
+        const ck = document.getElementById('ckPage');
+        const ap = document.getElementById('adminPage');
+        if (ck) ck.style.display = (adminView === 'cockpit') ? 'block' : 'none';
+        if (ap) ap.style.display = (adminView === 'onay') ? 'block' : 'none';
+        try {
+          window.scrollTo(0, 0);
+          /* 60 saniyelik otomatik yenileme yalnizca kokpit acikken calisir.
+             Onay ekranina gecince kapatilir, bosuna istek atilmaz. */
+          if (adminView === 'cockpit') { ckOtoYenileAc(); ckYenile(); }
+          else { ckOtoYenileKapat(); loadPendingUsers(); }
+        } catch (e) {}
+      }
     function openAdminModal() {
       switchAdminView('onay');
     }
@@ -1536,14 +1555,30 @@ let nodes = [], selected = null;
       const satir = (window.__ckRawRows || []).find(function (r) { return r.user_id === uid; });
       if (!satir) { ckBildir('Kullanıcı kaydı bulunamadı.', 'hata'); return; }
       const d = fixTrDeep(satir.data) || {};
-      const proj = (d.projects || [])[projeNo];
+      /* Liste tarafi ckCanliProjeler ile cizildigi icin ayni birlestirme
+         kullanilmazsa indeks kaymasi yanlis projeyi yeniden adlandirirdi.
+         Ayni sekilde "currentProject" her zaman aktif proje adini gostermeli. */
+      const projler = ckCanliProjeler(d);
+      const proj = projler[projeNo];
       if (!proj) { ckBildir('FMEA bulunamadı.', 'hata'); return; }
-  if (!proj.fmeaMeta) proj.fmeaMeta = {};
-  proj.fmeaMeta.firma = yeni;
-  proj.name = yeni;
-  /* currentProject da yeni adi gostermeli; aksi halde ust duzey "nodes" eski
-     adi tasir ve kokpikte ayni FMEA ikinci bir satir olarak belirir. */
-  if (String(d.currentProject || '').trim() === String(eskiAd || '').trim()) d.currentProject = yeni;
+      const eskiProjeAdi = String(proj.name || '').trim();
+      if (!proj.fmeaMeta) proj.fmeaMeta = {};
+      proj.fmeaMeta.firma = yeni;
+      proj.name = yeni;
+      /* currentProject ust duzey "nodes"in ait oldugu projeyi isaret eder.
+         Eski kayitlarda bu ya eski proje adi ya da jenerik ad ("Tedarikci 1",
+         "(isimsiz)") olabilir; ikisinde de yeni ada esitlenmeli, aksi halde
+         canli veri ayni FMEA'yi ikinci satir olarak gosterir. */
+      const cp = String(d.currentProject || '').trim();
+      if (cp && (cp === eskiProjeAdi || ckJenerikAd(cp))) d.currentProject = yeni;
+      else if (!cp && projler.length === 1) d.currentProject = yeni;
+      d.projects = projler;
+      /* ust duzey canli veriyi de yeni meta ile birlestir */
+      const canli = (projler || []).find(function (p) { return p && p.name === d.currentProject; });
+      if (canli) {
+        if (Array.isArray(d.nodes) && d.nodes.length) canli.nodes = d.nodes;
+        if (d.fmeaMeta) canli.fmeaMeta = d.fmeaMeta;
+      }
       const { error } = await sbClient.from('fmea_user_data')
         .upsert({ user_id: uid, data: d, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
       if (error) { ckBildir('Kaydedilemedi: ' + (error.message || error), 'hata'); return; }
@@ -1729,11 +1764,14 @@ let nodes = [], selected = null;
       Object.keys(store).forEach(function (uid) {
         const r = store[uid] || {};
         const kisi = r.kisi || '(isimsiz)';
-        const d = ham[uid] || {};
-        const projeFirma = {};
-        (d.projects || []).forEach(function (p) {
-          if (p && p.name) projeFirma[p.name] = String((p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
-        });
+      const d = ham[uid] || {};
+      /* Proje -> tedarikci eslesmesi de CANLI proje ile birlestirilmis
+         kayittan kurulur; eski bulut kaydinda proje fmeaMeta'si bos kalsaydi
+         loglar yanlis tedarikciye yaziliyordu. */
+      const projeFirma = {};
+      ckCanliProjeler(d).forEach(function (p) {
+        if (p && p.name) projeFirma[p.name] = String((p.fmeaMeta && p.fmeaMeta.firma) || '').trim();
+      });
         /* 1) Kullanicinin yazdigi degisiklik kayitlari: "ne degisti" bilgisi */
         const log = Array.isArray(d.degisiklikLog) ? d.degisiklikLog : [];
         let logVar = false;
@@ -1844,11 +1882,11 @@ let nodes = [], selected = null;
         '<div class="ck-uyari-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>' +
         '<span class="ck-uyari-yazi">' + esc(seritMetin) + (risk.length ? ' Aşağıdaki listeden detaylara bakabilirsiniz.' : '') + '</span></div>';
       /* 2) GECIKEN + YAKLASAN AKSIYONLAR LISTESI + 3) SON ISLEMLER */
+      /* Kullanici istedi: baslikta "1 geckti / 1 yakinasiyor" dagilim etiketleri
+         KALDIRILDI. Ayrim yalnizca uyari seridinde metin olarak kalir. */
       const riskKarti = '<div class="ck-ek-kart">' +
         '<div class="ck-ek-baslik">GECİKEN VE YAKLAŞAN AKSİYONLAR' +
-          (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') +
-          (gecmis > 0 && yaklasan > 0 ? '<span class="ck-ek-alt-bas gecmis">' + ckSayiFmt(gecmis) + ' gecikti</span>' : '') +
-          (gecmis > 0 && yaklasan > 0 ? '<span class="ck-ek-alt-bas">' + ckSayiFmt(yaklasan) + ' yaklaşıyor</span>' : '') + '</div>' +
+          (risk.length ? '<span class="ck-ek-adet">' + ckSayiFmt(risk.length) + '</span>' : '') + '</div>' +
         (risk.length ? risk.slice(0, 6).map(ckRiskSatiri).join('') +
           (risk.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(risk.length - 6) + ' aksiyon daha</span></div>' : '')
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Gecikmiş veya yaklaşan hedef tarihi bulunmuyor.</span></div>') + '</div>';
@@ -2439,7 +2477,12 @@ let nodes = [], selected = null;
       const ap = document.getElementById('adminPage');
       if (ck) ck.style.display = (kokpitOnly && adminView === 'cockpit') ? 'block' : 'none';
       if (ap) ap.style.display = (kokpitOnly && adminView === 'onay') ? 'block' : 'none';
-      if (kokpitOnly) { try { if (adminView === 'onay') loadPendingUsers(); else ckYenile(); } catch (e) {} }
+      if (kokpitOnly) {
+        try {
+          if (adminView === 'onay') { ckOtoYenileKapat(); loadPendingUsers(); }
+          else { ckOtoYenileAc(); ckYenile(); }
+        } catch (e) {}
+      } else { try { ckOtoYenileKapat(); } catch (e) {} }
       return kokpitOnly;
     }
 
@@ -2453,23 +2496,23 @@ let nodes = [], selected = null;
         const { data, error } = await sbClient.from('fmea_user_data')
           .select('user_id,email,data,updated_at');
         if (error) throw error;
-        const liste = [];
-        (data || []).forEach(function (r) {
-      const d = fixTrDeep(r.data) || {};
-      const projler = ckCanliProjeler(d);
-      projler.forEach(function (p) {
-        if (fmeaOnayDurumu(p) !== 'bekliyor') return;
-            const m = fmeaMetrikleri([p], d.kpEdits);
-            m.fmea = 1;
-            liste.push({
-              uid: r.user_id, kisi: nameFromEmail(r.email) || '(isimsiz)',
-              ad: (p && p.name) || '(isimsiz)', firma: (p && p.fmeaMeta && p.fmeaMeta.firma) || '',
-              tip: (p && p.type) === 'parca' ? 'Parça Bazlı' : 'Proses Bazlı',
-              zaman: (p && p.onayZaman) || r.updated_at,
-              m: m
-            });
+      const liste = [];
+      (data || []).forEach(function (r) {
+        const d = fixTrDeep(r.data) || {};
+        const projler = ckCanliProjeler(d);
+        projler.forEach(function (p, pi) {
+          if (fmeaOnayDurumu(p) !== 'bekliyor') return;
+          const m = fmeaMetrikleri([p], d.kpEdits);
+          m.fmea = 1;
+          liste.push({
+            uid: r.user_id, i: pi, kisi: nameFromEmail(r.email) || '(isimsiz)',
+            ad: (p && p.name) || '(isimsiz)', firma: (p && p.fmeaMeta && p.fmeaMeta.firma) || '',
+            tip: (p && p.type) === 'parca' ? 'Parça Bazlı' : 'Proses Bazlı',
+            zaman: (p && p.onayZaman) || r.updated_at,
+            m: m
           });
         });
+      });
         liste.sort(function (a, b2) { return (b2.zaman || 0) - (a.zaman || 0); });
         onayFmeaBekleyen = liste;
       } catch (e) { onayFmeaBekleyen = []; }
@@ -2521,7 +2564,7 @@ let nodes = [], selected = null;
     }
 
     // Admin, kullanicinin projesindeki onay durumunu gunceller (RLS: admin her satiri yazabilir)
-    async function fmeaOnayGuncelle(uid, pname, durum) {
+    async function fmeaOnayGuncelle(uid, pname, durum, pIndex) {
       if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return false; }
       if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return false; }
       try {
@@ -2529,31 +2572,63 @@ let nodes = [], selected = null;
           .select('data').eq('user_id', uid).maybeSingle();
         if (error) throw error;
         const d = (data && data.data) || {};
-        if (!d.projects || !d.projects.length) { ckBildir('Kullanıcı verisi bulunamadı.', 'hata'); return false; }
-        let bulundu = false;
-        d.projects.forEach(function (p) {
-          if (p && p.name === pname) { p.onayDurumu = durum; p.onayZaman = Date.now(); bulundu = true; }
-        });
-        if (!bulundu) { ckBildir('FMEA bulunamadı: ' + pname, 'hata'); return false; }
-      const u = await sbClient.from('fmea_user_data')
-        .update({ data: d, updated_at: new Date().toISOString() })
-        .eq('user_id', uid)
-        .select('user_id');
-      if (u.error) throw u.error;
-      if (!u.data || !u.data.length) { ckBildir('Güncellenemedi: 0 satır etkilendi. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'uyari'); return false; }
-      return true;
-      } catch (e) { console.error('fmeaOnayGuncelle:', e); ckBildir('İşlem hatası: ' + (e.message || e), 'hata'); return false; }
+        /* CANLI BIRLESIM: liste tarafi da ckCanliProjeler ile calisiyor; onay
+           yazimi da ayni birlestirmeyi kullanmazsa "FMEA bulunamadi" olurdu
+           (kullanici verisi bulut yaziminda eski kalmis proje kaydi). */
+        const projler = ckCanliProjeler(d);
+        if (!projler.length) { ckBildir('Kullanıcı verisi bulunamadı.', 'hata'); return false; }
+        let hedef = null;
+        /* 1) proje adı, 2) listedeki sıra numarası, 3) firma adı (yedek) */
+        projler.forEach(function (p) { if (!hedef && p && p.name === pname) hedef = p; });
+        if (!hedef && typeof pIndex === 'number' && projler[pIndex]) hedef = projler[pIndex];
+        if (!hedef) {
+          projler.forEach(function (p) {
+            if (!hedef && p && p.fmeaMeta && String(p.fmeaMeta.firma || '').trim() === String(pname).trim()) hedef = p;
+          });
+        }
+        if (!hedef) {
+          ckBildir('FMEA bulunamadı: ' + pname + ' (listedeki ad: ' +
+            projler.map(function (p) { return p && p.name; }).join(', ') + ')', 'hata');
+          return false;
+        }
+        hedef.onayDurumu = durum;
+        hedef.onayZaman = Date.now();
+        if (durum === 'onayli') hedef.onayNot = '';
+        /* Birlestirilmis liste geri yazilir: kullanicinin canli FMEA verisi
+           (ust duzey nodes) projeye isleydigi icin veri kaybi olmaz. */
+        d.projects = projler;
+        const yama = { data: d, updated_at: new Date().toISOString() };
+        /* Once UPDATE: RLS'te UPDATE kurali yoksa 0 satir doner.
+           Bu durumda ayni satir icin INSERT/upsert yolu denenir. */
+        const u = await sbClient.from('fmea_user_data')
+          .update(yama).eq('user_id', uid).select('user_id');
+        if (u.error) throw u.error;
+        if (u.data && u.data.length) return true;
+        console.warn('fmeaOnayGuncelle: UPDATE 0 satir etkilendi, ups deneniyor');
+        const up = await sbClient.from('fmea_user_data')
+          .upsert(Object.assign({ user_id: uid }, yama), { onConflict: 'user_id' });
+        if (up.error) {
+          ckBildir('Onay yazılamadı: ' + (up.error.message || up.error) +
+            '. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'hata');
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error('fmeaOnayGuncelle:', e);
+        ckBildir('İşlem hatası: ' + (e.message || e), 'hata');
+        return false;
+      }
     }
 
-    async function adminFmeaOnayla(uid, pname) {
+    async function adminFmeaOnayla(uid, pname, pIndex) {
       if (!confirm('"' + pname + '" FMEA\'sı onaylansın mı?')) return;
-      const ok = await fmeaOnayGuncelle(uid, pname, 'onayli');
-      if (ok) { ckBildir('FMEA onaylandı.', 'oldu'); loadOnayBekleyenFmea(); }
+      const ok = await fmeaOnayGuncelle(uid, pname, 'onayli', pIndex);
+      if (ok) { ckBildir('FMEA onaylandı.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
     }
-    async function adminFmeaReddet(uid, pname) {
+    async function adminFmeaReddet(uid, pname, pIndex) {
       if (!confirm('"' + pname + '" FMEA\'sı reddedilsin mi?')) return;
-      const ok = await fmeaOnayGuncelle(uid, pname, 'red');
-      if (ok) { ckBildir('FMEA reddedildi.', 'oldu'); loadOnayBekleyenFmea(); }
+      const ok = await fmeaOnayGuncelle(uid, pname, 'red', pIndex);
+      if (ok) { ckBildir('FMEA reddedildi.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
     }
 
     // Onay bekleyen hesaplar: is_admin=false AND approved=false
