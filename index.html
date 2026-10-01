@@ -4766,15 +4766,20 @@ ov.innerHTML = `<div class="fmea-modal">
     }
 
     /* --- Proses Kontrol Formu (Tedarikci / Aselsan Global) onizleme + indirme --- */
+    /* DIKKAT: xlsx/xlsm sablonlari degistiginde PK_SABLON_VER artirilir.
+       Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
+       basina bir kez indirilip onbellege alinir) surum degismedikce eski
+       sablon ekrana gelmeye devam eder. */
+    const PK_SABLON_VER = '2026-10-01-a';
     const PK_FILES = {
       tedarikci: {
-        url: 'tedarikci-proses-kontrol-formu.xlsx',
+        url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
         ad: 'Tedarikçi Proses Kontrol Formu',
         dosya: 'Tedarikçi Checklist.xlsx',
         renk: '#8a5a2e'
       },
       aselsan: {
-        url: 'aselsan-proses-kontrol-formu.xlsm',
+        url: 'aselsan-proses-kontrol-formu.xlsm?v=' + PK_SABLON_VER,
         ad: 'Aselsan Global Proses Kontrol Formu',
         dosya: 'Denetçi Checklist(Aselsan Global).xlsm',
         renk: '#6b4a8a'
@@ -5070,6 +5075,9 @@ ov.innerHTML = `<div class="fmea-modal">
         for (let i = 0; i < gorunur.length; i++) {
           const c = gorunur[i];
           if (bas[r + ':' + c]) { doluSutun[c] = 1; continue; }
+          /* Otomatik deger hucreleri Excel'de bostur; kirpma onlari da gorunur
+             tutsun yoksa "Denetim Ayı"/"Denetçi" degeri ekranda kaybolur. */
+          if (otoHarita[r + ':' + c]) { doluSutun[c] = 1; continue; }
           if (satir[c] && pkHucreMetniCoz(satir[c])) doluSutun[c] = 1;
         }
       }
@@ -5128,10 +5136,16 @@ ov.innerHTML = `<div class="fmea-modal">
             }
           } else {
             /* Baslik satiri: Excel'deki FALSE/TRUE yerine tik, etiketlerin
-               devamina FMEA degeri yazilir. */
+               devamina FMEA degeri yazilir. Kullanici istegi: butun baslik
+               satirlari baslik rengiyle boyanir (Takip No, Kaynak Dokuman,
+               Proses Adimlari, *Kontrol, Miktar/Lot/Seri No, No, Adi,
+               Karakteristigi, Kriteri/Spesifikasyon, Yontemi, Ekipman No,
+               **Gerceklestirilen Kontrol Aciklamasi, 1..15, Def No,
+               Denetci Aciklamasi, Denetim Ayi). Otomatik deger hucreleri
+               (yesil) onun uzerine biner. */
             const gorunen = pkHucreGorunenMetin(r, c, ozet, otoHarita);
             const otoMu = Object.prototype.hasOwnProperty.call(otoHarita, r + ':' + c);
-            s += '<td' + (otoMu ? ' class="pk-oto"' : '') +
+            s += '<td' + (otoMu ? ' class="pk-oto"' : ' class="pkh"') +
                  (w ? ' style="min-width:' + w + '"' : '') + '>' + gorunen + '</td>';
           }
         }
@@ -5264,18 +5278,24 @@ ov.innerHTML = `<div class="fmea-modal">
       }
       function pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto) {
       const h = {};
-      let prosesSatir = 0, parcaSatir = 0, parcaNoSat = 0, parcaNoCol = 0, firmaSat = 0, firmaCol = 0;
-      for (let r = ilk; r <= sonBaslik; r++) {
-        const satir = hucreler[r] || {};
-        for (const k in satir) {
-          const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
-          const cc = parseInt(k, 10);
-          if (t === 'Proses Kontrolü') prosesSatir = r;
-          else if (t === 'Parça Kontrolü') parcaSatir = r;
-          else if (t.indexOf('Parça Stok No') === 0) { parcaNoSat = r; parcaNoCol = cc; }
-          else if (t.indexOf('Firma Adı') === 0) { firmaSat = r; firmaCol = cc; }
+        let prosesSatir = 0, parcaSatir = 0, parcaNoSat = 0, parcaNoCol = 0, firmaSat = 0, firmaCol = 0;
+        let denetimSatir = 0, denetimCol = 0, denetciSatir = 0, denetciCol = 0;
+        for (let r = ilk; r <= sonBaslik; r++) {
+          const satir = hucreler[r] || {};
+          for (const k in satir) {
+            const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
+            const cc = parseInt(k, 10);
+            if (t === 'Proses Kontrolü') prosesSatir = r;
+            else if (t === 'Parça Kontrolü') parcaSatir = r;
+            else if (t.indexOf('Parça Stok No') === 0) { parcaNoSat = r; parcaNoCol = cc; }
+            else if (t.indexOf('Firma Adı') === 0) { firmaSat = r; firmaCol = cc; }
+            /* AC13 "Denetim Ayı" / AC14 "Denetçi": etiket solda kalir, deger
+               sagdaki hucreye yazilir. "Denetçi Açıklaması" (AC15/AC19) ve
+               "Denetçi Adı" eslesmez cunku karsilastirma tam metindir. */
+            else if (t === 'Denetim Ayı') { denetimSatir = r; denetimCol = cc; }
+            else if (t === 'Denetçi') { denetciSatir = r; denetciCol = cc; }
+          }
         }
-      }
       /* Tik sutunu: FALSE/TRUE yazan hucre (Excel'de D13/D14) */
       let tikCol = 0;
       [prosesSatir, parcaSatir].forEach(function (r) {
@@ -5305,6 +5325,12 @@ ov.innerHTML = `<div class="fmea-modal">
           }
           if (firmaSat && firmaCol) {
             pkOtoYaz(h, hucreler, firmaSat, firmaCol, oto.firma || '—');
+          }
+          if (denetimSatir && denetimCol) {
+            pkOtoYaz(h, hucreler, denetimSatir, denetimCol, oto.denetimAyi || '—');
+          }
+          if (denetciSatir && denetciCol) {
+            pkOtoYaz(h, hucreler, denetciSatir, denetciCol, oto.denetci || '—');
           }
           return h;
     }
