@@ -5047,8 +5047,11 @@ ov.innerHTML = `<div class="fmea-modal">
          otoHarita once yapilir ve hedef sutunlar zorla gorunur birakilir. */
       const oto = pkOtomatikDegerler();
       const otoHarita = pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto);
+      /* Elle girilen ust bilgi hucreleri (Denetim Ayı / Denetçi degeri). */
+      const elleUst = pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik);
       const otoSutun = {};
       for (const k in otoHarita) otoSutun[k.split(':')[1]] = 1;
+      for (const k in elleUst) otoSutun[k.split(':')[1]] = 1;   /* elle sutun da gorunur kalmali */
       const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
       const sabit = [];
       for (let i = 0; i < gorunur.length; i++) {
@@ -5076,8 +5079,10 @@ ov.innerHTML = `<div class="fmea-modal">
           const c = gorunur[i];
           if (bas[r + ':' + c]) { doluSutun[c] = 1; continue; }
           /* Otomatik deger hucreleri Excel'de bostur; kirpma onlari da gorunur
-             tutsun yoksa "Denetim Ayı"/"Denetçi" degeri ekranda kaybolur. */
+             tutsun yoksa "Denetim Ayı"/"Denetçi" degeri ekranda kaybolur.
+             Elle girilen ust bilgi hucreleri de ayni sekilde tutulur. */
           if (otoHarita[r + ':' + c]) { doluSutun[c] = 1; continue; }
+          if (elleUst[r + ':' + c]) { doluSutun[c] = 1; continue; }
           if (satir[c] && pkHucreMetniCoz(satir[c])) doluSutun[c] = 1;
         }
       }
@@ -5134,6 +5139,16 @@ ov.innerHTML = `<div class="fmea-modal">
                    '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozet) + '"' +
                    ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
             }
+          } else if (elleUst[r + ':' + c]) {
+            /* "Denetim Ayı" / "Denetçi" degeri otomatik gelmez; baslik bandinda
+               olmasina ragmen veri hucresi gibi elle duzenlenir ve pkEdits'e
+               yazilir. Etiket hucresi (solda) baslik renginde kalir. */
+            const pk = sheetKey + r + '!' + c;
+            const ozetV = pkHucreMetniCoz(satir[c] || null);
+            s += '<td class="pkd"' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
+              '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozetV) +
+              '" oninput="pkEditCell(this);fitCell(this)" placeholder="Elle giriniz">' +
+              esc(pkHucreDeger(depo, pk, ozetV)) + '</textarea></td>';
           } else {
             /* Baslik satiri: Excel'deki FALSE/TRUE yerine tik, etiketlerin
                devamina FMEA degeri yazilir. Kullanici istegi: butun baslik
@@ -5272,14 +5287,34 @@ ov.innerHTML = `<div class="fmea-modal">
           if (s > 250) break;
           if (kap[r + ':' + s]) continue;               /* birlestirme icinde */
           const t = String((satir[s] && pkHucreMetniCoz(satir[s])) || '').trim();
-          if (!t || BOLUM_ISARETI[t]) return s;         /* bos veya bolum notu */
+            if (!t || BOLUM_ISARETI[t]) return s;         /* bos veya bolum notu */
+          }
+          return -1;
         }
-        return -1;
-      }
+
+        /* Ust bilgi alanlarindan OTOMATIK DOLMAYAN, kullanici tarafindan elle
+           girilen hucreler. "Denetim Ayı" ve "Denetçi" etiketleri FMEA'dan
+           gelmez; degerleri kullanicinin kendisi yazar. Etiket solda kalir,
+           deger etiketin hemen sagindaki hucreye elle girilir ve pkEdits
+           icinde saklanir. "Denetçi Açıklaması"/"Denetçi Adı" eslesmez cunku
+           karsilastirma tam metindir. */
+        const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi'];
+        function pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik) {
+          const m = {};
+          for (let r = ilk; r <= sonBaslik; r++) {
+            const satir = hucreler[r] || {};
+            for (const k in satir) {
+              const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
+              if (PK_ELLE_ETIKETLER.indexOf(t) < 0) continue;
+              const hc = pkOtoHedefSutun(bas, kap, hucreler, r, parseInt(k, 10));
+              if (hc >= 0) m[r + ':' + hc] = 1;
+            }
+          }
+          return m;
+        }
       function pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto) {
       const h = {};
         let prosesSatir = 0, parcaSatir = 0, parcaNoSat = 0, parcaNoCol = 0, firmaSat = 0, firmaCol = 0;
-        let denetimSatir = 0, denetimCol = 0, denetciSatir = 0, denetciCol = 0;
         for (let r = ilk; r <= sonBaslik; r++) {
           const satir = hucreler[r] || {};
           for (const k in satir) {
@@ -5289,11 +5324,6 @@ ov.innerHTML = `<div class="fmea-modal">
             else if (t === 'Parça Kontrolü') parcaSatir = r;
             else if (t.indexOf('Parça Stok No') === 0) { parcaNoSat = r; parcaNoCol = cc; }
             else if (t.indexOf('Firma Adı') === 0) { firmaSat = r; firmaCol = cc; }
-            /* AC13 "Denetim Ayı" / AC14 "Denetçi": etiket solda kalir, deger
-               sagdaki hucreye yazilir. "Denetçi Açıklaması" (AC15/AC19) ve
-               "Denetçi Adı" eslesmez cunku karsilastirma tam metindir. */
-            else if (t === 'Denetim Ayı') { denetimSatir = r; denetimCol = cc; }
-            else if (t === 'Denetçi') { denetciSatir = r; denetciCol = cc; }
           }
         }
       /* Tik sutunu: FALSE/TRUE yazan hucre (Excel'de D13/D14) */
@@ -5326,12 +5356,8 @@ ov.innerHTML = `<div class="fmea-modal">
           if (firmaSat && firmaCol) {
             pkOtoYaz(h, hucreler, firmaSat, firmaCol, oto.firma || '—');
           }
-          if (denetimSatir && denetimCol) {
-            pkOtoYaz(h, hucreler, denetimSatir, denetimCol, oto.denetimAyi || '—');
-          }
-          if (denetciSatir && denetciCol) {
-            pkOtoYaz(h, hucreler, denetciSatir, denetciCol, oto.denetci || '—');
-          }
+          /* Denetim Ayı / Denetçi buraya YAZILMAZ: otomatik degil, kullanici
+             elle girer (bkz. pkManuelUstBilgi). */
           return h;
     }
 
