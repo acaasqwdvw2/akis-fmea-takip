@@ -123,6 +123,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* Miktar / Lot No / Seri No satirlari: yarim yukseklik (kullani istegi) */
     .fmea-table tr.pk-yarim>td{padding-top:0;padding-bottom:0;line-height:1.15}
     .fmea-table tr.pk-yarim>td.pkh{font-size:10px}
+    .fmea-table tr.pk-yarim>td.pk-oto{font-size:10px}
+    .fmea-table tr.pk-yarim>td.pk-oto .pk-oto-d{font-size:10px}
     .fmea-table tr.pk-yarim>td.pkd textarea{padding:1px 4px;font-size:10px;line-height:1.15}
     .fmea-table tr.pk-yarim>td.pkd select{padding:0 1px;font-size:10px}
     /* Kontrol Sec ekrani */
@@ -4879,9 +4881,19 @@ ov.innerHTML = `<div class="fmea-modal">
       return false;
     }
 
+    /* Kullanici istegi: sutun genislik carpanlari.
+       1) **Gerceklestirilen Kontrol Aciklamasi (J:L) 2 kat genisletilir.
+       2) 1..15 numarali kontrol sutunlari (M:AA) ucuz 3'te 1'e indirilir. */
+    function pkSutunCarpani(colNo) {
+      if (colNo >= 10 && colNo <= 12) return 2;    /* J:L  **Gerceklestirilen Kontrol Aciklamasi */
+      if (colNo >= 13 && colNo <= 27) return 1 / 3; /* M:AA  1..15 kontrol sutunlari */
+      return 1;
+    }
     function pkHucreDolgu(ws, colNo) {
       const cd = ws.columns && ws.columns[colNo - 1];
-      return (cd && cd.width) ? (cd.width * 7.5).toFixed(0) + 'px' : '';
+      if (!cd || !cd.width) return '';
+      const px = cd.width * 7.5 * pkSutunCarpani(colNo);
+      return Math.max(30, Math.round(px)) + 'px';
     }
 
     /* Excel baslik metinleri kaynak dosyaya gore degisebilir (kilitli bolge
@@ -5112,9 +5124,20 @@ ov.innerHTML = `<div class="fmea-modal">
       let veriSatir = 0;
       const elleAtla = {};
       /* Genisletilerek birlestirilen ust bilgi alanlarinin bulundugu satirlar:
-         Miktar, Lot No, Seri No. Bu satirlar ekranda yariya indirilir. */
+         Miktar, Lot No, Seri No. Bu satirlar ekranda yariya indirilir.
+         "Proses Kontrolü" ve "Parça Kontrolü" etiket satirlari da yariya
+         indirilir (kullani istegi). */
       const elleSatir = {};
       for (const k in elleUst) elleSatir[Number(k.split(':')[0])] = 1;
+      /* r13 "Proses Kontrolü", r14 "Parça Kontrolü" etiketlerinin bulundugu
+         satirlar: etiket metni bas harfiyle eslesir. */
+      for (let r = ilk; r <= sonBaslik; r++) {
+        const satirHu = hucreler[r] || {};
+        for (const k in satirHu) {
+          const t = String(pkHucreMetniCoz(satirHu[k]) || '').trim();
+          if (t === 'Proses Kontrolü' || t === 'Parça Kontrolü') elleSatir[r] = 1;
+        }
+      }
       for (let r = ilk; r <= lim; r++) {
         if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
         const satir = hucreler[r] || {};
@@ -5136,9 +5159,20 @@ ov.innerHTML = `<div class="fmea-modal">
                (F13:G13 "Parça Stok No / ...", B13:C13 "Proses Kontrolü"). */
             const ana = r + ':' + c;
             const otoMu = !veri && Object.prototype.hasOwnProperty.call(otoHarita, ana);
+            /* Birlestirilmis hucrelerin toplam genisligi de carpanlanir:
+               orn. J19:L19 "**Gerceklestirilen Kontrol Aciklamasi" 2 kat. */
+            let bW = '';
+            if (b[1] > 1) {
+              let toplam = 0, varMi = false;
+              for (let i = 0; i < b[1]; i++) {
+                const p = pkHucreDolgu(ws, c + i);
+                if (p) { toplam += parseInt(p, 10); varMi = true; }
+              }
+              if (varMi) bW = ' style="min-width:' + Math.max(30, toplam) + 'px"';
+            }
             s += '<td' + (otoMu ? ' class="pk-oto"' : baslikSinifi) +
                  (b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
-                 (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + '>' +
+                 (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + bW + '>' +
                  (otoMu ? otoHarita[ana] : esc(b[2])) + '</td>';
             continue;
           }
