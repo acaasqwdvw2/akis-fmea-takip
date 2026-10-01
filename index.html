@@ -124,6 +124,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
       border-radius:4px;cursor:pointer;font-weight:700}
     .pk-sec-btn:hover{background:#245640}
+    .pk-temiz-btn{margin-right:6px;padding:6px 12px;border:1px solid #b3453c;background:#fff;color:#a5352c;
+      border-radius:4px;cursor:pointer;font-weight:700}
+    .pk-temiz-btn:hover{background:#fdeceb}
     .pk-sec.kutu{border-radius:6px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.35)}
     .pk-sec-info{padding:6px 10px;font-size:11px;color:#3d5a63;background:#eef6f7;border-bottom:1px solid #d3e3e6}
     .pk-sec-scroll{overflow:auto;flex:1 1 auto;min-height:0}
@@ -5036,12 +5039,20 @@ ov.innerHTML = `<div class="fmea-modal">
 
       /* Sol bos kenar sutunu (A) cizilmez; kullaniciya ait olmayan yardimci
          sutunlar (yalnizca TRUE/FALSE, Genel, EMS gibi degerler tasiyanlar)
-         da gizlenir. */
+         da gizlenir. DIKKAT: ust bilgi degeri yazilan sutun (etiketin sagindaki
+         hucre) Excel'de bostur ve bu yuzden "yardimci" filtresine takilir.
+         O sutun gizlenince deger ekranda gorunmez; bu yuzden hesaplanan
+         otoHarita once yapilir ve hedef sutunlar zorla gorunur birakilir. */
+      const oto = pkOtomatikDegerler();
+      const otoHarita = pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto);
+      const otoSutun = {};
+      for (const k in otoHarita) otoSutun[k.split(':')[1]] = 1;
       const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
       const sabit = [];
       for (let i = 0; i < gorunur.length; i++) {
         const c = gorunur[i];
         if (c === 1) continue;                       /* sol bos kenar sutunu */
+        if (otoSutun[c]) { sabit.push(c); continue; } /* otomatik deger sutunu */
         let farkli = '';
         for (let r = ilk; r <= sonBaslik && !farkli; r++) {
           const hu = hucreler[r] && hucreler[r][c];
@@ -5052,6 +5063,7 @@ ov.innerHTML = `<div class="fmea-modal">
       }
       gorunur.length = 0;
       Array.prototype.push.apply(gorunur, sabit);
+      Array.prototype.sort.call(gorunur, function (a, b) { return a - b; });
 
       /* Veri satiri sonrasi tamamen bos sutunlari kirp: tablo icerik bitince biter,
          Excel'in genis bos alani cizilmez. */
@@ -5068,8 +5080,6 @@ ov.innerHTML = `<div class="fmea-modal">
       for (let i = 0; i < gorunur.length; i++) if (doluSutun[gorunur[i]]) sonSutun = i;
       const gorunurK = gorunur.slice(0, sonSutun + 1);
 
-      const oto = pkOtomatikDegerler();
-      const otoHarita = pkOtoHarita(hucreler, ilk, sonBaslik, oto);
       const govde = [];
       const depo = pkEditsYukle();
       const sheetKey = pkDurum.anahtar + '!' + ws.name + '!';
@@ -5234,7 +5244,25 @@ ov.innerHTML = `<div class="fmea-modal">
          F13 "Parça Stok No / Parça Adı/Proses Adı" -> FMEA'dan doldurulur
          F14 "Firma Adı / Sektör Adı"                  -> FMEA'dan doldurulur
        Donen anahtar: '<satir>:<sutun>' -> gosterilecek metin */
-    function pkOtoHarita(hucreler, ilk, sonBaslik, oto) {
+      /* Ust bilgi degeri etiketin SAGINDAKI hucreye yazilir; etiket hucresi
+         oldugu gibi kalir. Excel'de F13:G13 tek birlestirilmis hucredir, degeri
+         alacak yer etiket blogunun hemen sagindaki BOS hucredir (H13:L13).
+         Birlestirme icindeki hucreler ve dolu hucreler atlanir; bos yer
+         yoksa deger etiketin ALTINA ikinci satir olarak yazilir. */
+      function pkOtoHedefSutun(bas, kap, hucreler, r, c) {
+        const satir = hucreler[r] || {};
+        let s = c;
+        const b = bas[r + ':' + c];
+        if (b && b[1] >= 2) s = c + b[1] - 1;
+        for (let i = 0; i < 12; i++) {
+          s++;
+          if (s > 250) break;
+          if (kap[r + ':' + s]) continue;
+          if (!satir[s] || !String(pkHucreMetniCoz(satir[s]) || '').trim()) return s;
+        }
+        return -1;
+      }
+      function pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto) {
       const h = {};
       let prosesSatir = 0, parcaSatir = 0, parcaNoSat = 0, parcaNoCol = 0, firmaSat = 0, firmaCol = 0;
       for (let r = ilk; r <= sonBaslik; r++) {
@@ -5262,18 +5290,23 @@ ov.innerHTML = `<div class="fmea-modal">
         if (prosesSatir) h[prosesSatir + ':' + tikCol] = oto.parcaModu ? '' : '✓';
         if (parcaSatir) h[parcaSatir + ':' + tikCol] = oto.parcaModu ? '✓' : '';
       }
-      /* Etiketlerin devamına FMEA degeri yazilir */
-      if (parcaNoSat && parcaNoCol) {
-        const deger = oto.parcaModu ? (oto.parcaStok || '—') : (oto.prosesAdi || '—');
-        h[parcaNoSat + ':' + parcaNoCol] =
-          '<b>Parça Stok No / Parça Adı/Proses Adı:</b> <span class="pk-oto-d">' + esc(deger) + '</span>';
-      }
-      if (firmaSat && firmaCol) {
-        const deger = oto.firma || '—';
-        h[firmaSat + ':' + firmaCol] =
-          '<b>Firma Adı / Sektör Adı:</b> <span class="pk-oto-d">' + esc(deger) + '</span>';
-      }
-      return h;
+          /* Degerler etiketin yanindaki hucreye yazilir; etiket hucresi bozulmaz.
+             Etiket blogunun saginda bos hucre yoksa deger etiketin ALTINA ikinci
+             satir olarak yazilir. Boylece "etiket: deger" birlestirmesi hicbir
+             durumda olusmaz. */
+          function pkOtoYaz(h, hucreler, r, c, deger) {
+            const hc = pkOtoHedefSutun(bas, kap, hucreler, r, c);
+            if (hc >= 0) { h[r + ':' + hc] = '<span class="pk-oto-d">' + esc(deger) + '</span>'; return; }
+            const et = String(pkHucreMetniCoz((hucreler[r] || {})[c]) || '').trim();
+            h[r + ':' + c] = esc(et) + '<br><span class="pk-oto-d">' + esc(deger) + '</span>';
+          }
+          if (parcaNoSat && parcaNoCol) {
+            pkOtoYaz(h, hucreler, parcaNoSat, parcaNoCol, oto.parcaModu ? (oto.parcaStok || '—') : (oto.prosesAdi || '—'));
+          }
+          if (firmaSat && firmaCol) {
+            pkOtoYaz(h, hucreler, firmaSat, firmaCol, oto.firma || '—');
+          }
+          return h;
     }
 
     /* Excel'de zaten yer alan ust bilgi alanlari icin gorunum haritasi:
@@ -5377,12 +5410,17 @@ ov.innerHTML = `<div class="fmea-modal">
           if (String(deger) === '') delete depo[pk];
           else depo[pk] = String(deger);
         };
-        const kaynakMetni = kpNo ? kpNo + (r.sinif ? ' · ' + r.sinif : '') : (r.sinif || '');
+        /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
+           Kaynak Doküman'a yalnizca "Kontrol Plani No." gelir; Siniflandirma
+           bu sutunda degil, Karakteristigi'nin altinda ikinci satir olarak
+           yazilir (Excel'de ayri sutun yok). */
+        const kaynakMetni = kpNo || '';
+        const karakteristik = r.sinif ? (r.karak ? r.karak + '\n' + r.sinif : r.sinif) : r.karak;
         yaz('takip', sira + 1);
         yaz('kaynak', kaynakMetni);
         yaz('no', r.code);
         yaz('adi', r.adi);
-        yaz('karak', r.karak);
+        yaz('karak', karakteristik);
         yaz('spes', r.spes);
         yaz('yontem', r.olcum);
         yaz('kontrol', r.kontrol);
@@ -5507,20 +5545,30 @@ ov.innerHTML = `<div class="fmea-modal">
       if (say) say.textContent = Object.keys(depo).length ? Object.keys(depo).length + ' düzenleme kayıtlı' : 'Henüz düzenleme yok';
       return n;
     }
-    async function pkEditsTemizle() {
-      const depo = pkEditsYukle();
-      const n = Object.keys(depo).length;
-      if (!n) { ckBildir('Kayıtlı düzenleme yok.', 'oldu'); return; }
-      /* Proje standardi: native confirm() yerine sayfa ici kutu (kiosk uyumlu). */
-      const evet = await ckOnayKutu('Düzenlemeleri temizle',
-        n + ' düzenleme silinecek. Hücreler şablondaki değerlere dönecek.', 'uyari');
-      if (!evet) return;
-      pkEditsYaz({});
-      const ov = document.getElementById('pkOverlay');
-      if (ov && pkDurum.anahtar) pkCiz(pkDurum.anahtar);
-      ckBildir('Düzenlemeler temizlendi.', 'oldu');
-      if (window.scheduleCloudSync) scheduleCloudSync(600);
-    }
+      async function pkEditsTemizle() {
+        const depo = pkEditsYukle();
+        const n = Object.keys(depo).length;
+        const key = pkDurum.anahtar;
+        const sekme = pkDurum.sekme;
+        /* Proje standardi: native confirm() yerine sayfa ici kutu (kiosk uyumlu). */
+        const evet = await ckOnayKutu('Tabloyu temizle',
+          n ? n + ' düzenleme silinecek. Tablo şablondaki boş haline dönecek.'
+            : 'Tablodaki tüm veriler silinecek; şablonun boş hali yüklenecek.', 'uyari');
+        if (!evet) return;
+        pkEditsYaz({});
+        /* Satir sayacini sifirla: tablo bastan bos cizilsin. */
+        try { localStorage.removeItem(pkSatirAnahtari()); } catch (e) {}
+        /* Indirme sirasinda gelen veriler bellekteki calisma kitabina yazilir;
+           o kitabi atip dosyadan temiz sablonu yeniden yukleriz. Aksi halde
+           eski degerler ekranda kalirdi. */
+        if (key) { delete PK_CACHE[key]; pkDurum.wb = null; }
+        if (window.scheduleCloudSync) scheduleCloudSync(600);
+        if (key) {
+          await openProsesKontrolFormu(key);
+          if (sekme) pkSekmeGoster(key, sekme);
+        }
+        ckBildir('Tablo temizlendi.', 'oldu');
+      }
 
     function pkSekmeler(key, wb) {
       const gorunur = [];
@@ -5573,6 +5621,7 @@ ov.innerHTML = `<div class="fmea-modal">
         '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
         '<div><button class="pk-sec-btn" onclick="pkKontrolSec(pkDurum.anahtar)">Kontrol Seç</button> ' +
         '<button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
+        '<button class="pk-temiz-btn" onclick="pkEditsTemizle()">Tabloyu Temizle</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
