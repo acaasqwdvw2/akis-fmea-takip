@@ -5175,9 +5175,15 @@ ov.innerHTML = `<div class="fmea-modal">
               if (varMi) bW = Math.max(30, toplam) + 'px';
             }
             const stB = bW ? ' style="min-width:' + bW + '"' : '';
+            /* colspan BASLIKLA AYNI olmak ZORUNDA: baslik satiri birlestirilmis
+               hucreleri colspan ile cizer. Veri satirinda colspan verilmezse
+               o satir daha az grid sutunu uretir, tarayici son hucreleri sola
+               kaydirir ve "Dof No / Denetci Aciklamasi" basliklarinin alti
+               bos (cercievesiz, veri girilemez) kalir. */
+            const csB = b[1] > 1 ? ' colspan="' + b[1] + '"' : '';
             if (kutu && c >= kutu.c1 && c <= kutu.c2) {
               const opts = [''].concat(kutu.sec);
-              s += '<td class="pkd pkd-sec"' + stB + '><select data-pk="' + esc(pkB) +
+              s += '<td class="pkd pkd-sec"' + csB + stB + '><select data-pk="' + esc(pkB) +
                    '" data-orig="' + esc(ozetB) + '" onchange="pkSecimDegisti(this)">' +
                    opts.map(function (o) {
                      return '<option value="' + esc(o) + '"' +
@@ -5185,7 +5191,7 @@ ov.innerHTML = `<div class="fmea-modal">
                             (o ? esc(o) : '—') + '</option>';
                    }).join('') + '</select></td>';
             } else {
-              s += '<td class="pkd"' + stB + '>' +
+              s += '<td class="pkd"' + csB + stB + '>' +
                    '<textarea rows="1" data-pk="' + esc(pkB) + '" data-orig="' + esc(ozetB) +
                    '" oninput="pkEditCell(this);fitCell(this)">' + esc(dvB) + '</textarea></td>';
             }
@@ -5614,7 +5620,9 @@ ov.innerHTML = `<div class="fmea-modal">
              Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
              sutunundan veri TASINMAZ (kullanici istegi).
              Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
-             araliksiz/1'den baslamasa bile numara korunur. */
+             araliksiz/1'den baslamasa bile numara korunur.
+             YÖNTEM, EKIPMAN NO ve GERÇEKLEŞTİRİLEN KONTROL AÇIKLAMASI
+             formda ELLE girilir: bu üç alana aktarim yapilmaz. */
           const kaynakMetni = kpNo || '';
           yaz('takip', r.no || (sira + 1));
           yaz('kaynak', kaynakMetni);
@@ -5622,8 +5630,6 @@ ov.innerHTML = `<div class="fmea-modal">
           yaz('adi', r.adi);
           yaz('karak', r.karak || '');
           yaz('spes', r.spes);
-          yaz('yontem', r.olcum);
-          yaz('kontrol', r.kontrol);
         });
         yazilan++;
       });
