@@ -109,6 +109,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-slot>.fmea-x{flex:1 1 auto;min-height:0}
     .fmea-table td.pkm{background:#dde9f5;font-weight:700;font-size:13px}
     .fmea-table td.pkh{background:#eef2f3;font-weight:700}
+    .fmea-table td.pkd{background:#ffffff;padding:0}
+    .fmea-table td.pkd textarea{width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;padding:3px 4px;font:inherit;font-size:11px;text-align:center;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.25}
+    .fmea-table td.pkd textarea:focus{outline:1px solid #7fa3ad;outline-offset:-1px;background:#fffef2}
     .fmea-modal .mhead .pk-dl{background:#2e7d32}
     .pk-mini{font-size:11px;color:#5a6a70;padding:4px 2px;flex:0 0 auto}
     .fmea-body{padding:14px 16px 20px;overflow:auto;flex:1 1 auto;display:flex;flex-direction:column}
@@ -1052,6 +1055,11 @@ let nodes = [], selected = null;
         currentProject: currentProject,
         projects: projeListesi,
         kpEdits: kp,
+        pkEdits: (function () {
+          /* Proses Kontrol Formu hucre duzenlemeleri: Excel sablonu degismez,
+             girilen veri kullaniciya ozel burada saklanir (kpEdits ile ayni kalip). */
+          try { return JSON.parse(localStorage.getItem(pkEditsKey()) || '{}'); } catch (e) { return {}; }
+        })(),
         // degisiklik kaydi: admin "Son Islemler" akisinda "ne degisti" olarak gosterilir
         degisiklikLog: ckLog.slice(0, CK_LOG_LIMIT),
         // Yonetici reddi isareti: payload sabit anahtarlarla kuruldugu icin
@@ -1297,6 +1305,9 @@ let nodes = [], selected = null;
         }
         if (d.kpEdits) {
           try { localStorage.setItem(kpKey(), JSON.stringify(d.kpEdits)); } catch (e) {}
+        }
+        if (d.pkEdits) {
+          try { localStorage.setItem(pkEditsKey(), JSON.stringify(d.pkEdits)); } catch (e) {}
         }
         // degisiklik kaydi buluttan geri alinir (yeni cihazda akis bos gorunmesin)
         if (d.degisiklikLog) ckLogYukle(d);
@@ -4844,25 +4855,65 @@ ov.innerHTML = `<div class="fmea-modal">
       let son = maxR;
       while (son > ilk && !doluMu(son)) son--;
 
-      const govde = [];
+      /* Baslik/veri ayrimi. Formlarda:
+         - baslik satirlari ya cok genis birlestirme tasiyor (c>=4) ya da
+           cok sayida etiket hucresi var (>=5 dolu hucre)
+           (or. r19: No|Adı|Karakteristiği|... = 22 etiket)
+         - veri satirlari ise dar birlestirmeli (J:L kontrol sonucu kutusu) ve
+           1-2 dolu hucrelidir
+         En alt baslik satiri bulunur, sonrasi veridir (FMEA Kontrol Plani mantigi). */
       const lim = Math.min(son, ilk - 1 + PK_LIMIT);
+      const doluSay = function (r) {
+        const satir = hucreler[r] || {};
+        let n = 0;
+        for (let i = 0; i < gorunur.length; i++) {
+          const c = gorunur[i];
+          if (satir[c] && pkHucreMetniCoz(satir[c])) n++;
+        }
+        return n;
+      };
+      let sonBaslik = ilk - 1;
+      for (let r = ilk; r <= lim; r++) {
+        let genis = false;
+        for (let i = 0; i < gorunur.length; i++) {
+          const b = bas[r + ':' + gorunur[i]];
+          if (b && b[1] >= 4) { genis = true; break; }
+        }
+        if (genis || doluSay(r) >= 5) sonBaslik = r;
+      }
+      /* Veri blogu genis birlestirme iceriyorsa (nadir) basligi o kadar uzat. */
+
+      const govde = [];
+      const depo = pkEditsYukle();
+      const sheetKey = pkDurum.anahtar + '!' + ws.name + '!';
+      let veriSatir = 0;
       for (let r = ilk; r <= lim; r++) {
         if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
         const satir = hucreler[r] || {};
+        const veri = r > sonBaslik;
+        if (veri) veriSatir++;
         let s = '<tr>';
         for (let gi = 0; gi < gorunur.length; gi++) {
           const c = gorunur[gi];
           if (kap[r + ':' + c]) continue;
           const b = bas[r + ':' + c];
           if (b) {
-            const baslikSinifi = b[1] > 2 ? ' class="pkm"' : '';
+            const baslikSinifi = !veri && b[1] > 2 ? ' class="pkm"' : (!veri ? ' class="pkh"' : '');
             s += '<td' + baslikSinifi + (b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
                  (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + '>' + esc(b[2]) + '</td>';
             continue;
           }
           const w = pkHucreDolgu(ws, c);
-          s += '<td' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
-               esc(pkHucreMetniCoz(satir[c] || null)) + '</td>';
+          const ozet = pkHucreMetniCoz(satir[c] || null);
+          if (veri) {
+            const pk = sheetKey + r + '!' + c;
+            const dv = pkHucreDeger(depo, pk, ozet);
+            s += '<td class="pkd"' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
+                 '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozet) + '"' +
+                 ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
+          } else {
+            s += '<td' + (w ? ' style="min-width:' + w + '"' : '') + '>' + esc(ozet) + '</td>';
+          }
         }
         s += '</tr>';
         govde.push(s);
@@ -4873,11 +4924,14 @@ ov.innerHTML = `<div class="fmea-modal">
         pkMeta('Satır', (lim - ilk + 1) + ' / ' + (son - ilk + 1)) +
         pkMeta('Görünür Sütun', gorunur.length) +
         pkMeta('Birleştirilmiş', birlSayi) +
-        '</div>';
+        pkMeta('Yazılabilir Satır', veriSatir) +
+        '</div>' +
+        '<div class="pk-mini">Beyaz satırlar yazılabilir · kayıtlar kullanıcıya özeldir · <span id="pkEditsSay">Henüz düzenleme yok</span> · ' +
+        '<button onclick="pkEditsTemizle()" style="background:none;color:#8a3a3a;padding:0;font-size:11px;text-decoration:underline">Düzenlemeleri temizle</button></div>';
 
       const not = (son > lim)
         ? '<div class="pk-note">Gösterilen ilk ' + (lim - ilk + 1) + ' satır / ' + (son - ilk + 1) +
-          ' satır. Düzenlemek için tam dosyayı indirin.</div>' : '';
+          ' satır.</div>' : '';
 
       return meta +
         '<div class="fmea-x"><div class="fmea-sctop"><div class="fmea-sctrack"></div></div>' +
@@ -4887,6 +4941,63 @@ ov.innerHTML = `<div class="fmea-modal">
 
     function pkMeta(etiket, deger) {
       return '<div class="mi"><div class="ml">' + esc(etiket) + '</div><div class="mv">' + esc(deger) + '</div></div>';
+    }
+
+    /* --- duzenlenebilir hucre deposu (FMEA / kpEdits mantigi) ---
+       Anahtar: <dosya>!<sayfa>!<satir>!<sutun>. Deger: kullanici metni.
+       Once localStorage, sonra bulut (fmea_user_data.data.pkEdits). */
+    function pkEditsKey() {
+      return 'pkEdits::' + ((typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon');
+    }
+    function pkEditsYukle() {
+      try {
+        const d = JSON.parse(localStorage.getItem(pkEditsKey()) || '{}');
+        return (d && typeof d === 'object') ? d : {};
+      } catch (e) { return {}; }
+    }
+    function pkEditsYaz(deger) {
+      try { localStorage.setItem(pkEditsKey(), JSON.stringify(deger || {})); } catch (e) {}
+    }
+    function pkEditCell(el) {
+      const k = el.dataset.pk;
+      if (!k) return;
+      const depo = pkEditsYukle();
+      const v = String(el.value || '');
+      if (String(el.dataset.orig || '').trim() === v.trim()) delete depo[k];
+      else depo[k] = v;
+      pkEditsYaz(depo);
+      el.classList.toggle('pkd-dolu', v.trim() !== '');
+      if (window.scheduleCloudSync) scheduleCloudSync(1200);
+    }
+    function pkHucreDeger(depo, anahtar, varsayilan) {
+      return Object.prototype.hasOwnProperty.call(depo, anahtar) ? depo[anahtar] : varsayilan;
+    }
+    function pkHucreYukle() {
+      const depo = pkEditsYukle();
+      let n = 0;
+      document.querySelectorAll('#pkOverlay .pkd textarea[data-pk]').forEach(function (t) {
+        const v = pkHucreDeger(depo, t.dataset.pk, t.dataset.orig || '');
+        if (v !== (t.dataset.orig || '')) { t.value = v; n++; }
+        t.classList.toggle('pkd-dolu', String(t.value || '').trim() !== '');
+        fitCell(t);
+      });
+      const say = document.getElementById('pkEditsSay');
+      if (say) say.textContent = Object.keys(depo).length ? Object.keys(depo).length + ' düzenleme kayıtlı' : 'Henüz düzenleme yok';
+      return n;
+    }
+    async function pkEditsTemizle() {
+      const depo = pkEditsYukle();
+      const n = Object.keys(depo).length;
+      if (!n) { ckBildir('Kayıtlı düzenleme yok.', 'oldu'); return; }
+      /* Proje standardi: native confirm() yerine sayfa ici kutu (kiosk uyumlu). */
+      const evet = await ckOnayKutu('Düzenlemeleri temizle',
+        n + ' düzenleme silinecek. Hücreler şablondaki değerlere dönecek.', 'uyari');
+      if (!evet) return;
+      pkEditsYaz({});
+      const ov = document.getElementById('pkOverlay');
+      if (ov && pkDurum.anahtar) pkCiz(pkDurum.anahtar);
+      ckBildir('Düzenlemeler temizlendi.', 'oldu');
+      if (window.scheduleCloudSync) scheduleCloudSync(600);
     }
 
     function pkSekmeler(key, wb) {
@@ -4921,10 +5032,11 @@ ov.innerHTML = `<div class="fmea-modal">
       });
       const ws = gorunur[pkDurum.sekme];
       if (!ws) return;
-      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Önizleme';
+      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Doldurulabilir Form';
       ov.querySelector('.pk-slot').innerHTML = pkSekmeler(key, pkDurum.wb) + pkIzgaraHtml(ws);
       const bas = ov.querySelectorAll('.pk-tabs button');
       for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? 'on' : '');
+      pkHucreYukle();
       fitTopScroll(ov);
     }
 
@@ -4936,8 +5048,9 @@ ov.innerHTML = `<div class="fmea-modal">
       ov.className = 'fmea-overlay';
       ov.onclick = function (e) { if (e.target === ov) ov.classList.remove('open'); };
       ov.innerHTML = '<div class="fmea-modal">' +
-        '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu — Önizleme</h3>' +
-        '<div><button class="pk-dl" onclick="pkDownloadProsesKontrolFormu(pkDurum.anahtar)">⬇ Excel İndir</button> ' +
+        '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
+        '<div><button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Doldurulmuş Excel</button> ' +
+        '<button onclick="pkDownloadProsesKontrolFormu(pkDurum.anahtar)">⬇ Şablon</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
@@ -4957,7 +5070,7 @@ ov.innerHTML = `<div class="fmea-modal">
       const ov = pkEnsureOverlay();
       pkDurum.anahtar = key;
       ov.classList.add('open');
-      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Önizleme';
+      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Doldurulabilir Form';
       ov.querySelector('.pk-slot').innerHTML = '<div class="pk-note">Yükleniyor…</div>';
       try {
         if (typeof ExcelJS === 'undefined') throw new Error('ExcelJS kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.');
@@ -5001,6 +5114,48 @@ ov.innerHTML = `<div class="fmea-modal">
       } catch (e) {
         alert('Dosya indirilemedi: ' + (e && e.message ? e.message : String(e)) +
           '\n\nUygulama bu dosyayı kendi klasöründen okuyor. Dosyanın yanında açtığınızda çalışır.');
+      }
+    }
+
+    async function pkDownloadDolu(key) {
+      /* Kaydedilmis duzenlemeleri sablonun uzerine yazip indirir.
+         ExcelJS .xlsm yazarken VBA'yi koruyamaz; bu yuzden makrolu dosyada
+         yalnizca uyari verilir ve orijinal sablon indirilir. */
+      const cfg = PK_FILES[key];
+      if (!cfg || !pkDurum.wb) return;
+      const depo = pkEditsYukle();
+      const anahtarlar = Object.keys(depo);
+      if (!anahtarlar.length) { ckBildir('Önce formu doldurun.', 'hata'); return; }
+      if (/\.xlsm$/i.test(cfg.dosya)) {
+        ckBildir('Makrolu dosyada yazma desteklenmiyor; girilen veriler tarayıcınızda saklı.', 'hata');
+        return;
+      }
+      try {
+        const wb = pkDurum.wb;
+        let yazilan = 0;
+        anahtarlar.forEach(function (k) {
+          const parca = k.split('!');
+          if (parca.length < 4 || parca[0] !== key) return;
+          const ws = wb.getWorksheet(parca[1]);
+          if (!ws) return;
+          const r = parseInt(parca[2], 10), c = parseInt(parca[3], 10);
+          if (!r || !c) return;
+          ws.getCell(r, c).value = depo[k];
+          yazilan++;
+        });
+        if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
+        const buf = await wb.xlsx.writeBuffer();
+        const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = cfg.dosya.replace(/\.xlsx$/i, '') + ' (doldurulmus).xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        ckBildir(yazilan + ' hücre yazıldı, dosya indiriliyor.', 'oldu');
+      } catch (e) {
+        ckBildir('Yazılamadı: ' + (e && e.message ? e.message : String(e)), 'hata');
       }
     }
 
