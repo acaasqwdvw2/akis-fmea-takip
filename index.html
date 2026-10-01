@@ -5413,10 +5413,12 @@ ov.innerHTML = `<div class="fmea-modal">
         /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
            Kaynak Doküman'a yalnizca "Kontrol Plani No." gelir; Siniflandirma
            bu sutunda degil, Karakteristigi'nin altinda ikinci satir olarak
-           yazilir (Excel'de ayri sutun yok). */
+           yazilir (Excel'de ayri sutun yok).
+           Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
+           araliksiz/1'den baslamasa bile numara korunur. */
         const kaynakMetni = kpNo || '';
         const karakteristik = r.sinif ? (r.karak ? r.karak + '\n' + r.sinif : r.sinif) : r.karak;
-        yaz('takip', sira + 1);
+        yaz('takip', r.no || (sira + 1));
         yaz('kaynak', kaynakMetni);
         yaz('no', r.code);
         yaz('adi', r.adi);
