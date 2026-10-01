@@ -112,6 +112,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .fmea-table td.pkd{background:#ffffff;padding:0}
     .fmea-table td.pkd textarea{width:100%;min-width:0;box-sizing:border-box;border:0;background:transparent;padding:3px 4px;font:inherit;font-size:11px;text-align:center;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.25}
     .fmea-table td.pkd textarea:focus{outline:1px solid #7fa3ad;outline-offset:-1px;background:#fffef2}
+    /* Excel veri dogrulama listesi olan hucre: acilir kutu (X / N/A) */
+    .fmea-table td.pkd-sec{padding:0}
+    .fmea-table td.pkd-sec select{width:100%;min-width:0;box-sizing:border-box;border:0;background:#ffffff;font:inherit;font-size:11px;padding:2px 1px;color:#0b3b46;cursor:pointer;text-align:center;appearance:auto;-webkit-appearance:menulist}
+    .fmea-table td.pkd-sec select:focus{outline:2px solid #ffb300;outline-offset:-2px;background:#fffef2}
+    .fmea-table td.pkd-sec select.dolu{background:#eaf4f6;font-weight:700}
+    /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
+    .fmeta-oto{margin-top:4px}
+    .mi-oto .ml{color:#2e6b3f}
+    .mi-oto-et{color:#2e9e4f;cursor:help}
+    .mi-oto .mv{background:#f2fbf4;color:#17402a;font-weight:700}
     .fmea-modal .mhead .pk-dl{background:#2e7d32}
     .pk-mini{font-size:11px;color:#5a6a70;padding:4px 2px;flex:0 0 auto}
     .fmea-body{padding:14px 16px 20px;overflow:auto;flex:1 1 auto;display:flex;flex-direction:column}
@@ -4714,7 +4724,10 @@ ov.innerHTML = `<div class="fmea-modal">
         renk: '#6b4a8a'
       }
     };
-    const PK_LIMIT = 45;
+    /* Form sabit 20 satir degil; veri girildikce alt satir kendiliginden acilir.
+       PK_BASLANGIC = ilk gorulen veri satiri sayisi, PK_LIMIT = guvenlik tavani. */
+    const PK_BASLANGIC = 5;
+    const PK_LIMIT = 60;
     const PK_CACHE = {};
     const pkDurum = { anahtar: null, wb: null, sekme: 0 };
 
@@ -4862,7 +4875,7 @@ ov.innerHTML = `<div class="fmea-modal">
          - veri satirlari ise dar birlestirmeli (J:L kontrol sonucu kutusu) ve
            1-2 dolu hucrelidir
          En alt baslik satiri bulunur, sonrasi veridir (FMEA Kontrol Plani mantigi). */
-      const lim = Math.min(son, ilk - 1 + PK_LIMIT);
+      let lim = Math.min(son, ilk - 1 + PK_LIMIT);
       const doluSay = function (r) {
         const satir = hucreler[r] || {};
         let n = 0;
@@ -4879,13 +4892,47 @@ ov.innerHTML = `<div class="fmea-modal">
           const b = bas[r + ':' + gorunur[i]];
           if (b && b[1] >= 4) { genis = true; break; }
         }
-        if (genis || doluSay(r) >= 5) sonBaslik = r;
+      if (genis || doluSay(r) >= 5) sonBaslik = r;
       }
       /* Veri blogu genis birlestirme iceriyorsa (nadir) basligi o kadar uzat. */
+      /* Kullaci istegi: sabit satir sayisi yok. Veri girildikce alt satir acilir
+         (pkSatirEkle). Baslangicta PK_BASLANGIC satir cizilir. */
+      lim = sonBaslik + pkSatirSayisi();
+
+      /* Yalnizca ana veri govdesini olusturan sutunlar. Excel'de form sagina
+         yardimci sutunlar (TRUE/FALSE, Genel, EMS listesi vb.) eklenmis;
+         bunlar kullaniciya ait degil, onizlemede gizlenir. */
+      const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
+      const sabit = [];
+      for (let i = 0; i < gorunur.length; i++) {
+        const c = gorunur[i];
+        const hu = hucreler[ilk] && hucreler[ilk][c];
+        const metin = hu ? String(pkHucreMetniCoz(hu) || '').trim() : '';
+        if (metin && YARDIMCI[metin]) continue;
+        sabit.push(c);
+      }
+      gorunur.length = 0;
+      Array.prototype.push.apply(gorunur, sabit);
+
+      /* Veri satiri sonrasi tamamen bos sutunlari kirp: tablo icerik bitince biter,
+         Excel'in genis bos alani cizilmez. */
+      const doluSutun = {};
+      for (let r = ilk; r <= lim; r++) {
+        const satir = hucreler[r] || {};
+        for (let i = 0; i < gorunur.length; i++) {
+          const c = gorunur[i];
+          if (bas[r + ':' + c]) { doluSutun[c] = 1; continue; }
+          if (satir[c] && pkHucreMetniCoz(satir[c])) doluSutun[c] = 1;
+        }
+      }
+      let sonSutun = 0;
+      for (let i = 0; i < gorunur.length; i++) if (doluSutun[gorunur[i]]) sonSutun = i;
+      const gorunurK = gorunur.slice(0, sonSutun + 1);
 
       const govde = [];
       const depo = pkEditsYukle();
       const sheetKey = pkDurum.anahtar + '!' + ws.name + '!';
+      const kutu = pkListeSecenekleri(ws);
       let veriSatir = 0;
       for (let r = ilk; r <= lim; r++) {
         if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
@@ -4893,8 +4940,8 @@ ov.innerHTML = `<div class="fmea-modal">
         const veri = r > sonBaslik;
         if (veri) veriSatir++;
         let s = '<tr>';
-        for (let gi = 0; gi < gorunur.length; gi++) {
-          const c = gorunur[gi];
+        for (let gi = 0; gi < gorunurK.length; gi++) {
+          const c = gorunurK[gi];
           if (kap[r + ':' + c]) continue;
           const b = bas[r + ':' + c];
           if (b) {
@@ -4908,9 +4955,24 @@ ov.innerHTML = `<div class="fmea-modal">
           if (veri) {
             const pk = sheetKey + r + '!' + c;
             const dv = pkHucreDeger(depo, pk, ozet);
-            s += '<td class="pkd"' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
-                 '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozet) + '"' +
-                 ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
+            const st = w ? ' style="min-width:' + w + '"' : '';
+            if (kutu && c >= kutu.c1 && c <= kutu.c2) {
+              /* Excel veri dogrulama listesi olan hucre: acilir kutu.
+                 "X" isareti hem Excel'de hem ekranda ayni gorunur. */
+              const opts = [''].concat(kutu.sec);
+              s += '<td class="pkd pkd-sec"' + st + '><select data-pk="' + esc(pk) +
+                   '" data-orig="' + esc(ozet) + '" onchange="pkSecimDegisti(this)">' +
+                   opts.map(function (o) {
+                     return '<option value="' + esc(o) + '"' +
+                            (String(dv) === String(o) ? ' selected' : '') + '>' +
+                            (o ? esc(o) : '—') + '</option>';
+                   }).join('') + '</select></td>';
+              if (String(dv || '').trim()) s = s.replace(/<select([^>]*)>/, '<select$1 class="dolu">');
+            } else {
+              s += '<td class="pkd"' + st + '>' +
+                   '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozet) + '"' +
+                   ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
+            }
           } else {
             s += '<td' + (w ? ' style="min-width:' + w + '"' : '') + '>' + esc(ozet) + '</td>';
           }
@@ -4918,16 +4980,33 @@ ov.innerHTML = `<div class="fmea-modal">
         s += '</tr>';
         govde.push(s);
       }
+      /* Son veri satiri isaretlenir: buraya yazilinca alt satir acilir. */
+      if (govde.length) {
+        govde[govde.length - 1] =
+          govde[govde.length - 1].replace(/data-pk="/g, 'data-last="1" data-pk="');
+      }
 
+      /* Ust bilgi: FMEA kaydindan otomatik gelen alanlar + sayfa sayaclari.
+         Kullanici bu alanlari tekrar yazmaz; Excel'de bos kalsalar da
+         FMEA verisi doldurur. */
+      const oto = pkOtomatikDegerler();
+      const parcaModu = oto.parcaModu;
+      const otoAlan = (etiket, deger) => deger ? pkMetaOto(etiket, deger) : '';
       const meta = '<div class="fmeta">' +
         pkMeta('Sayfa', ws.name) +
-        pkMeta('Satır', (lim - ilk + 1) + ' / ' + (son - ilk + 1)) +
-        pkMeta('Görünür Sütun', gorunur.length) +
+        pkMeta('Satır', veriSatir) +
+        pkMeta('Görünür Sütun', gorunurK.length) +
         pkMeta('Birleştirilmiş', birlSayi) +
         pkMeta('Yazılabilir Satır', veriSatir) +
         '</div>' +
-        '<div class="pk-mini">Beyaz satırlar yazılabilir · kayıtlar kullanıcıya özeldir · <span id="pkEditsSay">Henüz düzenleme yok</span> · ' +
-        '<button onclick="pkEditsTemizle()" style="background:none;color:#8a3a3a;padding:0;font-size:11px;text-decoration:underline">Düzenlemeleri temizle</button></div>';
+        '<div class="fmeta fmeta-oto">' +
+        pkMetaOto('Kontrol Tipi', parcaModu ? 'Parça Kontrolü' : 'Proses Kontrolü') +
+        otoAlan(parcaModu ? 'Parça Stok No / Parça Adı' : 'Proses Adı',
+                parcaModu ? oto.parcaStok : oto.prosesAdi) +
+        otoAlan('Firma Adı / Sektör Adı', oto.firma) +
+        otoAlan('Denetim Ayı', oto.denetimAyi) +
+        otoAlan('Denetçi', oto.denetci) +
+        '</div>';
 
       const not = (son > lim)
         ? '<div class="pk-note">Gösterilen ilk ' + (lim - ilk + 1) + ' satır / ' + (son - ilk + 1) +
@@ -4939,8 +5018,162 @@ ov.innerHTML = `<div class="fmea-modal">
         '</tbody></table></div></div>' + not;
     }
 
+    /* X / N/A kutucuklari. ExcelJS, bu listeleri "data validation extension"
+       olarak saklar ve modele tasimaz; bu yuzden dosyadan dogrulanmis sabit
+       araliklar kullanilir. Secenek metinleri Excel'in kendi kaynak
+       hucresinden okunur (✓ / ✗ / N/A veya ✓ / X / N/A) - kodda sabit yazi yok.
+       { c1, c2, opts: 'AG26:AG28' }  (sutunlar 1 tabanli) */
+    const PK_KUTULAR = {
+      'Günlük-1':    [{ c1: 13, c2: 27, opts: 'AG26:AG28' }, { c1: 12, c2: 26, opts: 'AF26:AF28' }],
+      'Günlük-2':    [{ c1: 13, c2: 28, opts: 'AH26:AH28' }, { c1: 12, c2: 27, opts: 'AG26:AG28' }],
+      'Haftalık':    [{ c1: 12, c2: 15, opts: 'U11:U13' }, { c1: 11, c2: 14, opts: 'T11:T13' }],
+      'Aylık':       [{ c1: 12, c2: 23, opts: 'AC16:AC18' }, { c1: 11, c2: 22, opts: 'AB16:AB18' }]
+    };
+    /* Excel'de X imlemesi kullanilir; ekranda da ayni gorunur. */
+    function pkListeSecenekleri(ws) {
+      try {
+        const tanimlar = PK_KUTULAR[ws.name];
+        if (!tanimlar || !tanimlar.length) return null;
+        /* Aselsan ve Tedarikci ayni sayfa adlarini paylasir; dosyaya gore
+           dogru tanim secilir (ilk bulan kazanir). */
+        const tercih = (pkDurum.anahtar === 'aselsan') ? 1 : 0;
+        for (let t = tercih; t < tanimlar.length; t++) {
+          const tanim = tanimlar[t];
+          const g = pkAralikAyikla(tanim.opts);
+          if (!g) continue;
+          const sec = [];
+          for (let r = g.r1; r <= g.r2; r++) {
+            const hu = pkHucreBul(ws, r, g.c1);
+            const v = hu ? String(pkHucreMetniCoz(hu) || '').trim() : '';
+            if (v) sec.push(v);
+          }
+          if (sec.length) return { c1: tanim.c1, c2: tanim.c2, sec: sec };
+        }
+        return null;
+      } catch (e) { return null; }
+    }
+    function pkHucreBul(ws, r, c) {
+      const rows = (ws.model && Array.isArray(ws.model.rows)) ? ws.model.rows : [];
+      for (let i = 0; i < rows.length; i++) {
+        const cells = (rows[i] && Array.isArray(rows[i].cells)) ? rows[i].cells : rows[i];
+        if (!cells) continue;
+        for (let j = 0; j < cells.length; j++) {
+          const a = pkHucreAdres(cells[j] && cells[j].address);
+          if (a && a.r === r && a.c === c) return cells[j];
+        }
+      }
+      return null;
+    }
+    function pkSecimDegisti(el) {
+      const k = el.dataset.pk;
+      if (!k) return;
+      const depo = pkEditsYukle();
+      const v = String(el.value || '');
+      if (String(el.dataset.orig || '').trim() === v.trim()) delete depo[k];
+      else depo[k] = v;
+      pkEditsYaz(depo);
+      const say = document.getElementById('pkEditsSay');
+      if (say) say.textContent = Object.keys(depo).length ? Object.keys(depo).length + ' düzenleme kayıtlı' : 'Henüz düzenleme yok';
+      if (el.getAttribute('data-last') === '1') pkSatirEkle();
+      if (window.scheduleCloudSync) scheduleCloudSync(1200);
+    }
+    /* FMEA meta alanindan otomatik gelen baslik degerleri. Excel'deki bos
+       ust bilgi hucreleri bu degerlerle doldurulur (kullanici tekrar yazmaz). */
+    function pkOtomatikDegerler() {
+      /* Bu IIFE fmeaMeta/fmeaType'i disaridan gormeyebilir; typeof ile
+         korunur, yoksa o alanlar sessizce bos kalir. */
+      const m = (typeof fmeaMeta !== 'undefined' && fmeaMeta && typeof fmeaMeta === 'object') ? fmeaMeta : {};
+      const tip = (typeof fmeaType !== 'undefined') ? String(fmeaType) : 'proses';
+      const parca = tip === 'parca';
+      /* M() bu IIFE'de tanimsiz; metni guvenli sekilde aliriz. */
+      const T = k => (m && m[k] != null) ? String(m[k]).trim() : '';
+      return {
+        parcaModu: parca,
+        parcaStok: T('parcaAdi') || T('parcaNo') || '',
+        prosesAdi: T('prosesAdi') || '',
+        firma: T('firma') || '',
+        denetimAyi: T('denetimAyi') || T('kpRevTarih') || T('fmeaRevTarih') || '',
+        denetci: T('denetci') || T('ekipLideri') || T('prosesSorumlusu') || T('parcaSorumlusu') || ''
+      };
+    }
+
     function pkMeta(etiket, deger) {
       return '<div class="mi"><div class="ml">' + esc(etiket) + '</div><div class="mv">' + esc(deger) + '</div></div>';
+    }
+
+    /* FMEA'dan otomatik gelen alan: yesil tikli, salt-okunur. Kullanici
+       degeri FMEA kaydindan alir, elle yazmaz. */
+    function pkMetaOto(etiket, deger) {
+      return '<div class="mi mi-oto"><div class="ml">' + esc(etiket) +
+        ' <span class="mi-oto-et" title="FMEA kaydından otomatik alındı">⚡</span></div>' +
+        '<div class="mv">' + esc(deger) + '</div></div>';
+    }
+
+    /* --- buyuyen form satirlari -------------------------------------------------
+       Veri girildikce alt satir acilir. Satir sayisi dosya+sayfa bazinda ve
+       kullaniciya ozel saklanir; sekme degisince kaybolmaz. Focus korunur:
+       tablo yeniden cizilmez, yeni <tr> DOM'a eklenir. */
+    function pkSatirAnahtari() {
+      const k = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
+      let sayfa = '';
+      try {
+        if (pkDurum.wb && pkDurum.wb.worksheets[pkDurum.sekme]) {
+          sayfa = pkDurum.wb.worksheets[pkDurum.sekme].name;
+        }
+      } catch (e) {}
+      return 'pkSatir::' + k + '::' + (pkDurum.anahtar || '') + '::' + sayfa;
+    }
+    function pkSatirSayisi() {
+      try {
+        const n = parseInt(localStorage.getItem(pkSatirAnahtari()) || '0', 10);
+        return Math.min(PK_LIMIT, PK_BASLANGIC + (isNaN(n) || n < 0 ? 0 : n));
+      } catch (e) { return PK_BASLANGIC; }
+    }
+    function pkSatirArtir() {
+      const y = Math.min(PK_LIMIT, pkSatirSayisi() + 1);
+      try { localStorage.setItem(pkSatirAnahtari(), String(y - PK_BASLANGIC)); } catch (e) {}
+      return y;
+    }
+    /* Tablodaki son veri satirini isaretle; son satira yazilunca yeni satir acilir. */
+    function pkSonSatirIsaretle() {
+      const tablo = document.querySelector('#pkOverlay .fmea-table');
+      if (!tablo || !tablo.tBodies[0]) return;
+      const rs = tablo.tBodies[0].rows;
+      for (let i = 0; i < rs.length; i++) {
+        const hucreler = rs[i].querySelectorAll('textarea[data-pk], select[data-pk]');
+        if (!hucreler.length) continue;
+        const sonMu = (i === rs.length - 1);
+        hucreler.forEach(function (el) {
+          if (sonMu) el.setAttribute('data-last', '1'); else el.removeAttribute('data-last');
+        });
+      }
+    }
+    /* Son satirda veri girildi: tabloya yeni bos satir ekle (focus korunur). */
+    function pkSatirEkle() {
+      const tablo = document.querySelector('#pkOverlay .fmea-table');
+      if (!tablo || !tablo.tBodies[0]) return;
+      const rs = tablo.tBodies[0].rows;
+      if (!rs.length) return;
+      const sonTr = rs[rs.length - 1];
+      if (!sonTr.querySelector('[data-last="1"]')) return;
+      const yeniTr = sonTr.cloneNode(true);
+      yeniTr.querySelectorAll('textarea[data-pk], select[data-pk]').forEach(function (el) {
+        const p = String(el.dataset.pk || '').split('!');
+        const r = parseInt(p[2], 10);
+        if (!isNaN(r)) p[2] = String(r + 1);
+        el.dataset.pk = p.join('!');
+        el.removeAttribute('data-last');
+        if (el.tagName === 'TEXTAREA') {
+          el.value = '';
+          try { fitCell(el); } catch (e) {}
+        } else {
+          el.value = '';
+          el.classList.remove('dolu');
+        }
+      });
+      tablo.tBodies[0].appendChild(yeniTr);
+      pkSatirArtir();
+      pkSonSatirIsaretle();
     }
 
     /* --- duzenlenebilir hucre deposu (FMEA / kpEdits mantigi) ---
@@ -4967,6 +5200,7 @@ ov.innerHTML = `<div class="fmea-modal">
       else depo[k] = v;
       pkEditsYaz(depo);
       el.classList.toggle('pkd-dolu', v.trim() !== '');
+      if (el.getAttribute('data-last') === '1') pkSatirEkle();
       if (window.scheduleCloudSync) scheduleCloudSync(1200);
     }
     function pkHucreDeger(depo, anahtar, varsayilan) {
