@@ -5147,7 +5147,7 @@ ov.innerHTML = `<div class="fmea-modal">
             const ozetV = pkHucreMetniCoz(satir[c] || null);
             s += '<td class="pkd"' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
               '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozetV) +
-              '" oninput="pkEditCell(this);fitCell(this)" placeholder="Elle giriniz">' +
+              '" oninput="pkEditCell(this);fitCell(this)">' +
               esc(pkHucreDeger(depo, pk, ozetV)) + '</textarea></td>';
           } else {
             /* Baslik satiri: Excel'deki FALSE/TRUE yerine tik, etiketlerin
@@ -5298,7 +5298,7 @@ ov.innerHTML = `<div class="fmea-modal">
            deger etiketin hemen sagindaki hucreye elle girilir ve pkEdits
            icinde saklanir. "Denetçi Açıklaması"/"Denetçi Adı" eslesmez cunku
            karsilastirma tam metindir. */
-        const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi'];
+        const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Miktar', 'Lot No', 'Seri No'];
         function pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik) {
           const m = {};
           for (let r = ilk; r <= sonBaslik; r++) {
@@ -5306,8 +5306,15 @@ ov.innerHTML = `<div class="fmea-modal">
             for (const k in satir) {
               const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
               if (PK_ELLE_ETIKETLER.indexOf(t) < 0) continue;
-              const hc = pkOtoHedefSutun(bas, kap, hucreler, r, parseInt(k, 10));
-              if (hc >= 0) m[r + ':' + hc] = 1;
+              /* Deger etiketin HEMEN SAGINDAKI hucreye girilir. Etiket
+                 birlestirilmisse (orn. F13:G13) birlesmenin sonuna gecilir.
+                 Hucre icindeki "-" gibi yer tutucu degerler silinmez; kullanici
+                 elle yazacagi icin hucre duzenlenebilir gosterilir. */
+              const c = parseInt(k, 10);
+              const b = bas[r + ':' + c];
+              const s = (b && b[1] >= 2) ? c + b[1] - 1 + 1 : c + 1;
+              if (s > 250) continue;
+              m[r + ':' + s] = 1;
             }
           }
           return m;
@@ -5463,18 +5470,17 @@ ov.innerHTML = `<div class="fmea-modal">
           else depo[pk] = String(deger);
         };
         /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
-           Kaynak Doküman'a yalnizca "Kontrol Plani No." gelir; Siniflandirma
-           bu sutunda degil, Karakteristigi'nin altinda ikinci satir olarak
-           yazilir (Excel'de ayri sutun yok).
+           Kaynak Doküman'a yalnizca "Kontrol Planı No." (kpNo) gelir.
+           Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
+           sutunundan veri TASINMAZ (kullanici istegi).
            Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
            araliksiz/1'den baslamasa bile numara korunur. */
         const kaynakMetni = kpNo || '';
-        const karakteristik = r.sinif ? (r.karak ? r.karak + '\n' + r.sinif : r.sinif) : r.karak;
         yaz('takip', r.no || (sira + 1));
         yaz('kaynak', kaynakMetni);
         yaz('no', r.code);
         yaz('adi', r.adi);
-        yaz('karak', karakteristik);
+        yaz('karak', r.karak || '');
         yaz('spes', r.spes);
         yaz('yontem', r.olcum);
         yaz('kontrol', r.kontrol);
