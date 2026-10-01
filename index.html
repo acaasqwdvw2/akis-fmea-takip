@@ -120,6 +120,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
     .fmea-table td.pk-oto{background:#f2fbf4;color:#17402a}
     .fmea-table td.pk-oto .pk-oto-d{font-weight:700;color:#1d6b33}
+    /* Kontrol Sec ekrani */
+    .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
+      border-radius:4px;cursor:pointer;font-weight:700}
+    .pk-sec-btn:hover{background:#245640}
+    .pk-sec.kutu{border-radius:6px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+    .pk-sec-info{padding:6px 10px;font-size:11px;color:#3d5a63;background:#eef6f7;border-bottom:1px solid #d3e3e6}
+    .pk-sec-scroll{overflow:auto;flex:1 1 auto;min-height:0}
+    .pk-sec-scroll table{border-collapse:collapse;width:100%;font-size:11px}
+    .pk-sec-scroll th{position:sticky;top:0;background:#eef2f3;padding:4px 5px;border:1px solid #c9d6d9;
+      font-weight:700;text-align:center;z-index:2}
+    .pk-sec-scroll td{padding:3px 5px;border:1px solid #dde5e7;vertical-align:top}
+    .pk-sec-scroll tbody tr:nth-child(even){background:#f7fbfb}
+    .pk-sec-scroll .pk-sec-no{width:34px;text-align:center;font-weight:700;background:#eef2f3}
     .fmea-modal .mhead .pk-dl{background:#2e7d32}
     .pk-mini{font-size:11px;color:#5a6a70;padding:4px 2px;flex:0 0 auto}
     .fmea-body{padding:14px 16px 20px;overflow:auto;flex:1 1 auto;display:flex;flex-direction:column}
@@ -1389,6 +1402,51 @@ let nodes = [], selected = null;
       ensureCurrentProject();
       return projects.find(p => p.name === currentProject) || null;
     }
+
+    /* --- KONTROL PLANI KOPRUSU -------------------------------------------------
+       "Kontrol Sec" butonu PK onizlemesinde (ayri IIFE) calisir ve Kontrol
+       Plani satirlarini buradan ister. Veri kaynagi Kontrol Plani ile AYNIDIR
+       (nodes -> altProsesler + kpEdits), boyle secilen satirlar KP'de gecen
+       satirlarla birebir ortusur. */
+    window.__pkKontrolPlani = function () {
+      const p = aktifProje();
+      const meta = (p && p.fmeaMeta) ? p.fmeaMeta : (fmeaMeta || {});
+      const tip = (p && p.type === 'parca') ? 'parca' : (p ? p.type : fmeaType);
+      const store = kpYuku();
+      const satirlar = [];
+      const gorulen = {};
+      const kokler = (p && p.nodes) ? p.nodes : nodes;
+      (kokler || []).forEach(function (nc) {
+        if (!nc || nc.type !== 'process') return;
+        (nc.altProsesler || []).forEach(function (sub) {
+          if (sub.fmeaOnly) return;
+          const cc = sub.code || '';
+          if (gorulen[cc]) return;
+          gorulen[cc] = 1;
+          const sv = store[cc] || {};
+          satirlar.push({
+            no: satirlar.length + 1,
+            code: cc,
+            adi: sub.title || '',
+            karak: sv.karak || '',
+            spes: sv.spes || '',
+            sinif: sv.sinif || '',
+            olcum: sv.olcum || '',
+            miktar: sv.miktar || '',
+            siklik: sv.siklik || '',
+            kontrol: sv.kontrol || '',
+            kayitSorumlu: sv.kayitSorumlu || '',
+            reaksiyon: sv.reaksiyon || ''
+          });
+        });
+      });
+      return {
+        satirlar: satirlar,
+        kpNo: meta.kpNo || '',
+        kpRevNo: meta.kpRevNo || '',
+        tip: tip
+      };
+    };
     // Bulut verisi geldikten sonra secili proje tutmuyorsa ilk projeyi sec.
     // Aksi halde "Aktif FMEA" bulunamaz, proje menusu "-- Tedarikci Secin --" der
     // ve Onaya Gonder butonu calismaz.
@@ -4816,7 +4874,76 @@ ov.innerHTML = `<div class="fmea-modal">
       return (cd && cd.width) ? (cd.width * 7.5).toFixed(0) + 'px' : '';
     }
 
-    function pkIzgaraHtml(ws) {
+    /* Excel baslik metinleri kaynak dosyaya gore degisebilir (kilitli bolge
+       kirpilmasi, kombinatoryal klavye, birlesik bosluk). Karsilastirmayi
+       saglamlastirmak icin metin normalize edilir: kirdirilmis bosluk -> bosluk,
+       Turkce I/ı ve aksanli harfler ASCII karsiliklarina indirgenir. */
+    function pkBaslikNormalize(t) {
+      return String(t == null ? '' : t)
+        .replace(/[\u00A0\u2007\u202F]/g, ' ')     /* kirik/birlestirilmis bosluk */
+        .replace(/[\u0130\u0131]/g, 'i')           /* İ ı */
+        .replace(/[\u015E\u015F]/g, 's')           /* Ş ş */
+        .replace(/[\u011E\u011F]/g, 'g')           /* Ğ ğ */
+        .replace(/[\u00DC\u00FC]/g, 'u')           /* Ü ü */
+        .replace(/[\u00D6\u00F6]/g, 'o')           /* Ö ö */
+        .replace(/[\u00C7\u00E7]/g, 'c')           /* Ç ç */
+        .replace(/[\u00C2\u00E2]/g, 'a')           /* Â â */
+        .replace(/[\u00CE\u00EE]/g, 'i')           /* Î î */
+        .replace(/[\u00DB\u00FB]/g, 'u')           /* Û û */
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    const PK_BASLIK_SUTUN = {
+      takip: 'Takip No', kaynak: 'Kaynak Doküman', no: 'No', adi: 'Adı',
+      karak: 'Karakteristiği', spes: 'Kriteri / Spesifikasyon', yontem: 'Yöntemi',
+      kontrol: '**Gerçekleştirilen Kontrol'
+    };
+    /* Bir Excel satirindaki baslik etiketlerini kolon numaralarina cevirir.
+       KISMI harita dondurur: "Takip No" r15'te, "No/Adı/Karakteristigi" r19'da
+       oldugu icin etiketler birkac satira yayilir; tamlik ayrica denetlenir. */
+    function pkBaslikSatirEtiketleri(satir) {
+      const aday = {};
+      const norm = {};
+      for (const k in PK_BASLIK_SUTUN) norm[k] = pkBaslikNormalize(PK_BASLIK_SUTUN[k]);
+      for (const k in satir) {
+        const t = pkBaslikNormalize(pkHucreMetniCoz(satir[k]));
+        if (!t) continue;
+        for (const alan in norm) {
+          const hedef = norm[alan];
+          if (t === hedef || (alan === 'kontrol' && t.indexOf(hedef) === 0)) {
+            if (aday[alan] === undefined) aday[alan] = parseInt(k, 10);
+          }
+        }
+      }
+      return aday;
+    }
+    /* Formu cizebilmek/aktarabilmek icin gereken minimum basliklar. */
+    const PK_BASLIK_ZORUNLU = ['takip', 'kaynak', 'no', 'adi', 'karak', 'spes'];
+    function pkBaslikTamamMi(harita) {
+      return PK_BASLIK_ZORUNLU.every(a => harita[a] !== undefined);
+    }
+    /* Veri satirlari 5+ etiket hucresi tasidiginda "doluluk" sezgiseli veri
+       satirini baslik sanabiliyordu. Etiket taramasi kesin sonuc verir.
+       DIKKAT: Excel'de basliklar iki satira dagilir — "Takip No / Kaynak
+       Doküman" r15'te (dikey birlestirme), "No / Adı / Karakteristigi" r19'da.
+       Bu yuzden etiketler yukaridan asagiya BIRLESTIRILIR ve tamamlanan ilk
+       satir baslik satiridir. */
+    function pkBaslikSatiriTara(hucreler, ilk, lim) {
+      const birik = {};
+      for (let r = ilk; r <= lim; r++) {
+        const aday = pkBaslikSatirEtiketleri(hucreler[r] || {});
+        for (const a in aday) if (birik[a] === undefined) birik[a] = aday[a];
+        if (pkBaslikTamamMi(birik)) return { satir: r, sutunlar: Object.assign({}, birik) };
+      }
+      return null;
+    }
+
+    /* Sayfa cozumleyici: hucre haritasi, gorunur sutunlar ve baslik/veri
+       ayrimini TEK yerde uretir. Hem cizim (pkIzgaraHtml) hem de Kontrol Sec
+       aktarimi (pkKontrolAktar) bunu kullanir; boyle "Kontrol Sec" her zaman
+       ekranda gorunen satirla ayni satira yazar. */
+    function pkSayfaCozum(ws) {
       const hucreler = {};
       let maxR = 0, maxC = 0;
       const rows = (ws.model && Array.isArray(ws.model.rows)) ? ws.model.rows : [];
@@ -4831,17 +4958,15 @@ ov.innerHTML = `<div class="fmea-modal">
           if (a.c > maxC) maxC = a.c;
         }
       });
-      if (!maxR || !maxC) return '<div class="pk-note">Bu sayfada okunabilir veri yok.</div>';
+      if (!maxR || !maxC) return null;
 
       const kap = {}, bas = {};
-      let birlSayi = 0;
       const birl = (ws.model && ws.model.merges) ? ws.model.merges : [];
       for (let i = 0; i < birl.length; i++) {
         const g = pkAralikAyikla(birl[i]);
         if (!g || (g.r2 === g.r1 && g.c2 === g.c1)) continue;
         const satir = hucreler[g.r1] || {};
         bas[g.r1 + ':' + g.c1] = [g.r2 - g.r1 + 1, g.c2 - g.c1 + 1, pkHucreMetniCoz(satir[g.c1] || null)];
-        birlSayi++;
         for (let r = g.r1; r <= g.r2; r++) for (let c = g.c1; c <= g.c2; c++) {
           if (r === g.r1 && c === g.c1) continue;
           kap[r + ':' + c] = 1;
@@ -4850,7 +4975,7 @@ ov.innerHTML = `<div class="fmea-modal">
 
       const gorunur = [];
       for (let c = 1; c <= maxC; c++) if (!pkHucreGizli(ws, c)) gorunur.push(c);
-      if (!gorunur.length) return '<div class="pk-note">Bu sayfada görünür sütun yok.</div>';
+      if (!gorunur.length) return null;
 
       const doluMu = function (r) {
         const satir = hucreler[r] || {};
@@ -4866,14 +4991,6 @@ ov.innerHTML = `<div class="fmea-modal">
       let son = maxR;
       while (son > ilk && !doluMu(son)) son--;
 
-      /* Baslik/veri ayrimi. Formlarda:
-         - baslik satirlari ya cok genis birlestirme tasiyor (c>=4) ya da
-           cok sayida etiket hucresi var (>=5 dolu hucre)
-           (or. r19: No|Adı|Karakteristiği|... = 22 etiket)
-         - veri satirlari ise dar birlestirmeli (J:L kontrol sonucu kutusu) ve
-           1-2 dolu hucrelidir
-         En alt baslik satiri bulunur, sonrasi veridir (FMEA Kontrol Plani mantigi). */
-      let lim = Math.min(son, ilk - 1 + PK_LIMIT);
       const doluSay = function (r) {
         const satir = hucreler[r] || {};
         let n = 0;
@@ -4883,6 +5000,7 @@ ov.innerHTML = `<div class="fmea-modal">
         }
         return n;
       };
+      const lim = Math.min(son, ilk - 1 + PK_LIMIT);
       let sonBaslik = ilk - 1;
       for (let r = ilk; r <= lim; r++) {
         let genis = false;
@@ -4890,12 +5008,31 @@ ov.innerHTML = `<div class="fmea-modal">
           const b = bas[r + ':' + gorunur[i]];
           if (b && b[1] >= 4) { genis = true; break; }
         }
-      if (genis || doluSay(r) >= 5) sonBaslik = r;
+        if (genis || doluSay(r) >= 5) sonBaslik = r;
       }
-      /* Veri blogu genis birlestirme iceriyorsa (nadir) basligi o kadar uzat. */
-      /* Kullaci istegi: sabit satir sayisi yok. Veri girildikce alt satir acilir
-         (pkSatirEkle). Baslangicta PK_BASLANGIC satir cizilir. */
-      lim = sonBaslik + pkSatirSayisi();
+      /* Etiket taramasi kesin baslik satirini bulur (veri doluysa sezgisel yanilir). */
+      const etiket = pkBaslikSatiriTara(hucreler, ilk, lim);
+      if (etiket) sonBaslik = etiket.satir;
+      return { hucreler: hucreler, maxR: maxR, maxC: maxC, kap: kap, bas: bas,
+               gorunur: gorunur, ilk: ilk, son: son, sonBaslik: sonBaslik,
+               baslikSutunlar: etiket ? etiket.sutunlar : null };
+    }
+    function pkIzgaraHtml(ws) {
+      /* hucre haritasi / gorunur sutunlar / baslik-veri ayrimi ortak cozumleyicide */
+      const cozum = pkSayfaCozum(ws);
+      if (!cozum) return '<div class="pk-note">Bu sayfada okunabilir veri yok.</div>';
+      const { hucreler, maxR, maxC, kap, bas, gorunur, ilk, son, sonBaslik } = cozum;
+      const birlSayi = Object.keys(bas).length;
+
+      /* Baslik/veri ayrimi. Formlarda:
+         - baslik satirlari ya cok genis birlestirme tasiyor (c>=4) ya da
+           cok sayida etiket hucresi var (>=5 dolu hucre)
+           (or. r19: No|Adı|Karakteristiği|... = 22 etiket)
+         - veri satirlari ise dar birlestirmeli (J:L kontrol sonucu kutusu) ve
+           1-2 dolu hucrelidir
+         En alt baslik satiri bulunur, sonrasi veridir (FMEA Kontrol Plani mantigi). */
+      let lim = sonBaslik + pkSatirSayisi();
+
 
       /* Sol bos kenar sutunu (A) cizilmez; kullaniciya ait olmayan yardimci
          sutunlar (yalnizca TRUE/FALSE, Genel, EMS gibi degerler tasiyanlar)
@@ -5147,7 +5284,120 @@ ov.innerHTML = `<div class="fmea-modal">
       return esc(ozet);
     }
 
-    /* --- buyuyen form satirlari -------------------------------------------------
+    /* --- "KONTROL SEC": Kontrol Plani'ndan satir bazinda secim ----------------
+       Secilen satirlar Proses Kontrol Formu'na aktarilir:
+         Takip No -> B, Kaynak Dokuman -> KP No (+ Siniflandirma),
+         No / Adi / Karakteristigi / Kriteri-Spesifikasyon / Yontemi /
+         Gerceklestirilen Kontrol Aciklamasi
+       Sutun adresleri Excel basliklarindan okunur (dosyaya gore degisebilir). */
+    /* Kontrol Sec ekrani: satirlari isaretlenir, onaylaninca PK formuna yazilir. */
+    function pkKontrolSec(anahtar) {
+      const kaynak = (typeof window.__pkKontrolPlani === 'function') ? window.__pkKontrolPlani() : null;
+      if (!kaynak || !kaynak.satirlar || !kaynak.satirlar.length) {
+        ckBildir('Kontrol Planı satırı yok. Önce Kontrol Planı Görüntüle ile satır tanımlayın.', 'uyari');
+        return;
+      }
+      const s = kaynak.satirlar;
+      const sec = {};
+      s.forEach(function (r, i) { sec[i] = true; });
+      const satirHtml = s.map(function (r, i) {
+        return '<tr><td class="pk-sec-no">' + esc(String(r.no)) + '</td>' +
+          '<td>' + esc(r.code) + '</td>' +
+          '<td>' + esc(r.adi) + '</td>' +
+          '<td>' + esc(r.karak) + '</td>' +
+          '<td>' + esc(r.spes) + '</td>' +
+          '<td>' + esc(r.sinif) + '</td>' +
+          '<td>' + esc(r.olcum) + '</td>' +
+          '<td><input type="checkbox" class="pk-sec-kutu" data-i="' + i + '" checked></td></tr>';
+      }).join('');
+      const ov = document.createElement('div');
+      ov.id = 'pkSecOverlay';
+      ov.className = 'fmea-modal';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.5);' +
+        'display:flex;align-items:center;justify-content:center;padding:12px';
+      ov.innerHTML = '<div class="pk-sec kutu" style="max-width:1180px;width:100%;max-height:88vh;' +
+        'display:flex;flex-direction:column;background:#fff">' +
+        '<div class="mhead"><h3>Kontrol Planı\'ndan Seç</h3>' +
+        '<div><button class="pk-dl" onclick="pkSecOnayla(\'' + anahtar + '\')">Seçilenleri Forma Aktar</button> ' +
+        '<button onclick="pkSecKapat()">Kapat (Esc)</button></div></div>' +
+        '<div class="pk-sec-info">Kaynak: Kontrol Planı · KP No: <b>' + esc(kaynak.kpNo || '—') +
+        '</b> · ' + s.length + ' satır listelendi</div>' +
+        '<div class="pk-sec-scroll"><table class="fmea-table cptable"><thead><tr>' +
+        '<th class="pk-sec-no">No</th><th>KP Kodu</th><th>Adı</th><th>Karakteristiği</th>' +
+        '<th>Spesifikasyon</th><th>Sınıflandırma</th><th>Yöntem</th><th>Seç</th>' +
+        '</tr></thead><tbody>' + satirHtml + '</tbody></table></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) pkSecKapat(); });
+    }
+    function pkSecKapat() {
+      const ov = document.getElementById('pkSecOverlay');
+      if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    }
+    function pkSecOnayla(anahtar) {
+      const ov = document.getElementById('pkSecOverlay');
+      if (!ov) return;
+      const secili = Array.prototype.slice.call(ov.querySelectorAll('.pk-sec-kutu'))
+        .filter(function (b) { return b.checked; })
+        .map(function (b) { return parseInt(b.dataset.i, 10); });
+      pkSecKapat();
+      if (!secili.length) { ckBildir('Hiç satır seçilmedi.', 'uyari'); return; }
+      const n = pkKontrolAktar(anahtar, secili);
+      ckBildir(n + ' satır Proses Kontrol Formu\'na aktarıldı.', 'oldu');
+    }
+    /* Secilen Kontrol Plani satirlarini PK formunun veri satirlarina yazar. */
+    function pkKontrolAktar(anahtar, secili) {
+      const key = anahtar || pkDurum.anahtar;
+      if (!key || !pkDurum.wb) return 0;
+      const kaynak = (typeof window.__pkKontrolPlani === 'function') ? window.__pkKontrolPlani() : null;
+      if (!kaynak || !kaynak.satirlar) return 0;
+      const ws = pkDurum.wb.worksheets[pkDurum.sekme];
+      if (!ws) return 0;
+
+      /* Baslik/veri ayrimi pkIzgaraHtml ile ayni cozumleyiciden gelir; boyle
+         aktarilan degerler ekranda gorunen satirin uzerine biner. */
+      const cozum = pkSayfaCozum(ws);
+      if (!cozum) { ckBildir('Sayfa okunamadı.', 'hata'); return 0; }
+      const sut = cozum.baslikSutunlar || pkBaslikSatiriTara(cozum.hucreler, 1, cozum.sonBaslik + 1);
+      if (!sut) { ckBildir('Excel başlık satırı çözümlenemedi.', 'hata'); return 0; }
+      const kolon = sut.sutunlar || sut;
+
+      const depo = pkEditsYukle();
+      const sheetKey = key + '!' + ws.name + '!';
+      const kpNo = kaynak.kpNo || '';
+      const bas = cozum.sonBaslik + 1;
+
+      secili.forEach(function (i, sira) {
+        const r = kaynak.satirlar[i];
+        if (!r) return;
+        const satir = bas + sira;
+        const yaz = function (alan, deger) {
+          const c = kolon[alan];
+          if (!c) return;
+          const pk = sheetKey + satir + '!' + c;
+          if (String(deger) === '') delete depo[pk];
+          else depo[pk] = String(deger);
+        };
+        const kaynakMetni = kpNo ? kpNo + (r.sinif ? ' · ' + r.sinif : '') : (r.sinif || '');
+        yaz('takip', sira + 1);
+        yaz('kaynak', kaynakMetni);
+        yaz('no', r.code);
+        yaz('adi', r.adi);
+        yaz('karak', r.karak);
+        yaz('spes', r.spes);
+        yaz('yontem', r.olcum);
+        yaz('kontrol', r.kontrol);
+      });
+
+      pkEditsYaz(depo);
+      /* Formu yeterli sayida satira buyut. */
+      const gerek = Math.max(pkSatirSayisi(), secili.length);
+      try { localStorage.setItem(pkSatirAnahtari(), String(gerek - PK_BASLANGIC)); } catch (e) {}
+      pkCiz(key);
+      if (window.scheduleCloudSync) scheduleCloudSync(900);
+      return secili.length;
+    }
+
+    /* --- buyuyen form satirlari -----------------------------------------------
        Veri girildikce alt satir acilir. Satir sayisi dosya+sayfa bazinda ve
        kullaniciya ozel saklanir; sekme degisince kaybolmaz. Focus korunur:
        tablo yeniden cizilmez, yeni <tr> DOM'a eklenir. */
@@ -5321,7 +5571,8 @@ ov.innerHTML = `<div class="fmea-modal">
       ov.onclick = function (e) { if (e.target === ov) ov.classList.remove('open'); };
       ov.innerHTML = '<div class="fmea-modal">' +
         '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
-        '<div><button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
+        '<div><button class="pk-sec-btn" onclick="pkKontrolSec(pkDurum.anahtar)">Kontrol Seç</button> ' +
+        '<button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
