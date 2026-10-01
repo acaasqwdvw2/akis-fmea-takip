@@ -124,9 +124,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
       border-radius:4px;cursor:pointer;font-weight:700}
     .pk-sec-btn:hover{background:#245640}
-    .pk-temiz-btn{margin-right:6px;padding:6px 12px;border:1px solid #b3453c;background:#fff;color:#a5352c;
-      border-radius:4px;cursor:pointer;font-weight:700}
-    .pk-temiz-btn:hover{background:#fdeceb}
     .pk-sec.kutu{border-radius:6px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.35)}
     .pk-sec-info{padding:6px 10px;font-size:11px;color:#3d5a63;background:#eef6f7;border-bottom:1px solid #d3e3e6}
     .pk-sec-scroll{overflow:auto;flex:1 1 auto;min-height:0}
@@ -5245,10 +5242,12 @@ ov.innerHTML = `<div class="fmea-modal">
          F14 "Firma Adı / Sektör Adı"                  -> FMEA'dan doldurulur
        Donen anahtar: '<satir>:<sutun>' -> gosterilecek metin */
       /* Ust bilgi degeri etiketin SAGINDAKI hucreye yazilir; etiket hucresi
-         oldugu gibi kalir. Excel'de F13:G13 tek birlestirilmis hucredir, degeri
-         alacak yer etiket blogunun hemen sagindaki BOS hucredir (H13:L13).
-         Birlestirme icindeki hucreler ve dolu hucreler atlanir; bos yer
-         yoksa deger etiketin ALTINA ikinci satir olarak yazilir. */
+         oldugu gibi kalir. Excel'de F13:G13 tek birlestirilmis hucredir, deger
+         etiket blogunun HEMEN sagindaki hucreye (H13) yazilir. O hucrede
+         yalniz "Genel"/"EMS" gibi bolum notu varsa o da ezilir (kullanici
+         istedi); gercek veri varsa bir sonraki bos hucreye gidilir, bos yer
+         hic yoksa deger etiketin ALTINA ikinci satir olarak yazilir. */
+      const BOLUM_ISARETI = { 'Genel': 1, 'EMS': 1 };
       function pkOtoHedefSutun(bas, kap, hucreler, r, c) {
         const satir = hucreler[r] || {};
         let s = c;
@@ -5257,8 +5256,9 @@ ov.innerHTML = `<div class="fmea-modal">
         for (let i = 0; i < 12; i++) {
           s++;
           if (s > 250) break;
-          if (kap[r + ':' + s]) continue;
-          if (!satir[s] || !String(pkHucreMetniCoz(satir[s]) || '').trim()) return s;
+          if (kap[r + ':' + s]) continue;               /* birlestirme icinde */
+          const t = String((satir[s] && pkHucreMetniCoz(satir[s])) || '').trim();
+          if (!t || BOLUM_ISARETI[t]) return s;         /* bos veya bolum notu */
         }
         return -1;
       }
@@ -5623,7 +5623,6 @@ ov.innerHTML = `<div class="fmea-modal">
         '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
         '<div><button class="pk-sec-btn" onclick="pkKontrolSec(pkDurum.anahtar)">Kontrol Seç</button> ' +
         '<button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
-        '<button class="pk-temiz-btn" onclick="pkEditsTemizle()">Tabloyu Temizle</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
