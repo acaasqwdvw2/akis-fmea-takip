@@ -120,6 +120,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
     .fmea-table td.pk-oto{background:#f2fbf4;color:#17402a}
     .fmea-table td.pk-oto .pk-oto-d{font-weight:700;color:#1d6b33}
+    /* Miktar / Lot No / Seri No satirlari: yarim yukseklik (kullani istegi) */
+    .fmea-table tr.pk-yarim>td{padding-top:0;padding-bottom:0;line-height:1.15}
+    .fmea-table tr.pk-yarim>td.pkh{font-size:10px}
+    .fmea-table tr.pk-yarim>td.pkd textarea{padding:1px 4px;font-size:10px;line-height:1.15}
+    .fmea-table tr.pk-yarim>td.pkd select{padding:0 1px;font-size:10px}
     /* Kontrol Sec ekrani */
     .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
       border-radius:4px;cursor:pointer;font-weight:700}
@@ -5051,7 +5056,13 @@ ov.innerHTML = `<div class="fmea-modal">
       const elleUst = pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik);
       const otoSutun = {};
       for (const k in otoHarita) otoSutun[k.split(':')[1]] = 1;
-      for (const k in elleUst) otoSutun[k.split(':')[1]] = 1;   /* elle sutun da gorunur kalmali */
+      /* Miktar/Lot No/Seri No birlestirilen giriş alanlari M..AA kadar
+         genistir; kirpma onlari da gorunur tutsun. */
+      for (const k in elleUst) {
+        const par = k.split(':'), rr = par[0], cc = par[1];
+        for (let i = 0; i < (elleUst[k] || 1); i++) otoSutun[Number(cc) + i] = 1;
+        void rr;
+      }
       const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
       const sabit = [];
       for (let i = 0; i < gorunur.length; i++) {
@@ -5082,7 +5093,11 @@ ov.innerHTML = `<div class="fmea-modal">
              tutsun yoksa "Denetim Ayı"/"Denetçi" degeri ekranda kaybolur.
              Elle girilen ust bilgi hucreleri de ayni sekilde tutulur. */
           if (otoHarita[r + ':' + c]) { doluSutun[c] = 1; continue; }
-          if (elleUst[r + ':' + c]) { doluSutun[c] = 1; continue; }
+          if (elleUst[r + ':' + c]) {
+            const g = elleUst[r + ':' + c] || 1;
+            for (let i = 0; i < g; i++) doluSutun[c + i] = 1;
+            continue;
+          }
           if (satir[c] && pkHucreMetniCoz(satir[c])) doluSutun[c] = 1;
         }
       }
@@ -5095,14 +5110,24 @@ ov.innerHTML = `<div class="fmea-modal">
       const sheetKey = pkDurum.anahtar + '!' + ws.name + '!';
       const kutu = pkListeSecenekleri(ws);
       let veriSatir = 0;
+      const elleAtla = {};
+      /* Genisletilerek birlestirilen ust bilgi alanlarinin bulundugu satirlar:
+         Miktar, Lot No, Seri No. Bu satirlar ekranda yariya indirilir. */
+      const elleSatir = {};
+      for (const k in elleUst) elleSatir[Number(k.split(':')[0])] = 1;
       for (let r = ilk; r <= lim; r++) {
         if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
         const satir = hucreler[r] || {};
         const veri = r > sonBaslik;
         if (veri) veriSatir++;
-        let s = '<tr>';
+        /* Miktar / Lot No / Seri No etiketlerinin bulundugu satirlar yariya
+           indirilir (kullani istegi). Satirlar pkYaraliSatir ile isaretlenir;
+           birlestirilmis hucrelerin icinde gizli kalmasina dikkat edilir. */
+        let s = '<tr' + (elleSatir[r] ? ' class="pk-yarim"' : '') + '>';
         for (let gi = 0; gi < gorunurK.length; gi++) {
           const c = gorunurK[gi];
+          /* Onceki hucre birlestirilip bu sutunu kapsadiysa atla (colspan). */
+          if (elleAtla[r] && elleAtla[r][c]) continue;
           if (kap[r + ':' + c]) continue;
           const b = bas[r + ':' + c];
           if (b) {
@@ -5140,15 +5165,24 @@ ov.innerHTML = `<div class="fmea-modal">
                    ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
             }
           } else if (elleUst[r + ':' + c]) {
-            /* "Denetim Ayı" / "Denetçi" degeri otomatik gelmez; baslik bandinda
-               olmasina ragmen veri hucresi gibi elle duzenlenir ve pkEdits'e
-               yazilir. Etiket hucresi (solda) baslik renginde kalir. */
+            /* "Denetim Ayı" / "Denetçi" / "Miktar" / "Lot No" / "Seri No"
+               degeri otomatik gelmez; baslik bandinda olmasina ragmen veri
+               hucresi gibi elle duzenlenir ve pkEdits'e yazilir.
+               Miktar/Lot No/Seri No degeri 15 kontrol sutununu (M..AA) kaplar:
+               colspan ile birlestirilir ve kapsanan sutunlar atlanir. */
+            const genis = elleUst[r + ':' + c] || 1;
             const pk = sheetKey + r + '!' + c;
             const ozetV = pkHucreMetniCoz(satir[c] || null);
-            s += '<td class="pkd"' + (w ? ' style="min-width:' + w + '"' : '') + '>' +
+            s += '<td class="pkd"' + (genis > 1 ? ' colspan="' + genis + '"' : '') +
+              (w ? ' style="min-width:' + w + '"' : '') + '>' +
               '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozetV) +
               '" oninput="pkEditCell(this);fitCell(this)">' +
               esc(pkHucreDeger(depo, pk, ozetV)) + '</textarea></td>';
+            /* birlestirilen hucreleri goster, boylece asagidaki hucreler kaymaz */
+            if (genis > 1) {
+              elleAtla[r] = elleAtla[r] || {};
+              for (let k = 0; k < genis - 1; k++) elleAtla[r][c + k + 1] = 1;
+            }
           } else {
             /* Baslik satiri: Excel'deki FALSE/TRUE yerine tik, etiketlerin
                devamina FMEA degeri yazilir. Kullanici istegi: butun baslik
@@ -5294,11 +5328,14 @@ ov.innerHTML = `<div class="fmea-modal">
 
         /* Ust bilgi alanlarindan OTOMATIK DOLMAYAN, kullanici tarafindan elle
            girilen hucreler. "Denetim Ayı" ve "Denetçi" etiketleri FMEA'dan
-           gelmez; degerleri kullanicinin kendisi yazar. Etiket solda kalir,
-           deger etiketin hemen sagindaki hucreye elle girilir ve pkEdits
-           icinde saklanir. "Denetçi Açıklaması"/"Denetçi Adı" eslesmez cunku
-           karsilastirma tam metindir. */
+           gelmez; degerleri kullanicinin kendisi yazar. "Miktar", "Lot No" ve
+           "Seri No" da veri satirlarina degil ust bilgi bandina yazilir ve
+           genis alana sahip olmali: deger hucreleri 15 kontrol sutununu
+           (M..AA) kaplayacak sekilde birlestirilir.
+           Doner: { "satir:sutun" : birlestirilecekHucreSayisi }
+           (1 = birlestirme yok, sadece tek hucre). */
         const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Miktar', 'Lot No', 'Seri No'];
+        const PK_GENIS_ETIKETLER = ['Miktar', 'Lot No', 'Seri No'];
         function pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik) {
           const m = {};
           for (let r = ilk; r <= sonBaslik; r++) {
@@ -5314,7 +5351,23 @@ ov.innerHTML = `<div class="fmea-modal">
               const b = bas[r + ':' + c];
               const s = (b && b[1] >= 2) ? c + b[1] - 1 + 1 : c + 1;
               if (s > 250) continue;
-              m[r + ':' + s] = 1;
+              /* Miktar/Lot No/Seri No: deger alani 15 kontrol sutununa kadar
+                 genisletilir. Hucre icindeki "-" gibi yer tutucular engel
+                 degildir (Excel'de "yok" anlamina gelir); baska bir etiket
+                 ya da birlestirme varsa orada durulur. */
+              let genis = 1;
+              if (PK_GENIS_ETIKETLER.indexOf(t) >= 0) {
+                let g = 0;
+                for (let i = 0; i < 15; i++) {
+                  if (s + g > 250) break;
+                  if (kap[r + ':' + (s + g)]) break;
+                  const t2 = String((satir[s + g] && pkHucreMetniCoz(satir[s + g])) || '').trim();
+                  if (t2 && t2 !== '-') break;
+                  g++;
+                }
+                if (g >= 3) genis = g;
+              }
+              m[r + ':' + s] = genis;
             }
           }
           return m;
