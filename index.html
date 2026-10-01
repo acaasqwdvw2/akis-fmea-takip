@@ -120,13 +120,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
     .fmea-table td.pk-oto{background:#f2fbf4;color:#17402a}
     .fmea-table td.pk-oto .pk-oto-d{font-weight:700;color:#1d6b33}
-    /* Miktar / Lot No / Seri No satirlari: yarim yukseklik (kullani istegi) */
-    .fmea-table tr.pk-yarim>td{padding-top:0;padding-bottom:0;line-height:1.15}
-    .fmea-table tr.pk-yarim>td.pkh{font-size:10px}
-    .fmea-table tr.pk-yarim>td.pk-oto{font-size:10px}
-    .fmea-table tr.pk-yarim>td.pk-oto .pk-oto-d{font-size:10px}
-    .fmea-table tr.pk-yarim>td.pkd textarea{padding:1px 4px;font-size:10px;line-height:1.15}
-    .fmea-table tr.pk-yarim>td.pkd select{padding:0 1px;font-size:10px}
+    /* Miktar / Lot No / Seri No ve Proses/Parça Kontrolü satirlari yariya
+       indirilir. Birlestirilmis hucre (F15:I18, J15:K18, D15:E18) bu
+       satirlari kapsadigi icin rowspan hucreleri de kucultulur. */
+    .fmea-table tr.pk-yarim>td{padding:0 4px}
+    .fmea-table tr.pk-yarim>td.pkh{font-size:9.5px;line-height:1.05}
+    .fmea-table tr.pk-yarim>td.pk-oto{font-size:9.5px;line-height:1.05}
+    .fmea-table tr.pk-yarim>td.pk-oto .pk-oto-d{font-size:9.5px;line-height:1.05}
+    .fmea-table tr.pk-yarim>td.pkd textarea{padding:0 3px;font-size:9.5px;line-height:1.05;height:auto!important;min-height:0;overflow:hidden}
+    .fmea-table tr.pk-yarim>td.pkd select{padding:0 1px;font-size:9.5px;height:15px}
     /* Kontrol Sec ekrani */
     .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
       border-radius:4px;cursor:pointer;font-weight:700}
@@ -5151,8 +5153,48 @@ ov.innerHTML = `<div class="fmea-modal">
           const c = gorunurK[gi];
           /* Onceki hucre birlestirilip bu sutunu kapsadiysa atla (colspan). */
           if (elleAtla[r] && elleAtla[r][c]) continue;
+          /* Veri satirlarindaki birlestirilmis hucreler (orn. J20:L20
+             "**Gerceklestirilen Kontrol Aciklamasi", AC20:AD20 "Denetçi
+             Açıklaması") de veri alanidir: kullanici bunlara da giris yapabilmeli.
+             Birlestirmenin sol ust kosesi (b) render edilir, digerleri atlanir. */
           if (kap[r + ':' + c]) continue;
           const b = bas[r + ':' + c];
+          if (b && veri) {
+            /* Birlestirilmis VERI hucresi: normal veri hucresi gibi duzenlenir.
+               Metin sol ust hucresinde tutulur (pkEdits anahtari da oraya yazilir). */
+            const pkB = sheetKey + r + '!' + c;
+            const ozetB = pkHucreMetniCoz(satir[c] || null);
+            const dvB = pkHucreDeger(depo, pkB, ozetB);
+            let bW = '';
+            if (b[1] > 1) {
+              let toplam = 0, varMi = false;
+              for (let i = 0; i < b[1]; i++) {
+                const p = pkHucreDolgu(ws, c + i);
+                if (p) { toplam += parseInt(p, 10); varMi = true; }
+              }
+              if (varMi) bW = Math.max(30, toplam) + 'px';
+            }
+            const stB = bW ? ' style="min-width:' + bW + '"' : '';
+            if (kutu && c >= kutu.c1 && c <= kutu.c2) {
+              const opts = [''].concat(kutu.sec);
+              s += '<td class="pkd pkd-sec"' + stB + '><select data-pk="' + esc(pkB) +
+                   '" data-orig="' + esc(ozetB) + '" onchange="pkSecimDegisti(this)">' +
+                   opts.map(function (o) {
+                     return '<option value="' + esc(o) + '"' +
+                            (String(dvB) === String(o) ? ' selected' : '') + '>' +
+                            (o ? esc(o) : '—') + '</option>';
+                   }).join('') + '</select></td>';
+            } else {
+              s += '<td class="pkd"' + stB + '>' +
+                   '<textarea rows="1" data-pk="' + esc(pkB) + '" data-orig="' + esc(ozetB) +
+                   '" oninput="pkEditCell(this);fitCell(this)">' + esc(dvB) + '</textarea></td>';
+            }
+            if (b[1] > 1) {
+              elleAtla[r] = elleAtla[r] || {};
+              for (let i = 0; i < b[1] - 1; i++) elleAtla[r][c + i + 1] = 1;
+            }
+            continue;
+          }
           if (b) {
             const baslikSinifi = !veri && b[1] > 2 ? ' class="pkm"' : (!veri ? ' class="pkh"' : '');
             /* Ust bilgi alanlari Excel'de birlestirilmis hucrede olabilir
@@ -5369,7 +5411,6 @@ ov.innerHTML = `<div class="fmea-modal">
            Doner: { "satir:sutun" : birlestirilecekHucreSayisi }
            (1 = birlestirme yok, sadece tek hucre). */
         const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Miktar', 'Lot No', 'Seri No'];
-        const PK_GENIS_ETIKETLER = ['Miktar', 'Lot No', 'Seri No'];
         function pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik) {
           const m = {};
           for (let r = ilk; r <= sonBaslik; r++) {
@@ -5377,31 +5418,14 @@ ov.innerHTML = `<div class="fmea-modal">
             for (const k in satir) {
               const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
               if (PK_ELLE_ETIKETLER.indexOf(t) < 0) continue;
-              /* Deger etiketin HEMEN SAGINDAKI hucreye girilir. Etiket
-                 birlestirilmisse (orn. F13:G13) birlesmenin sonuna gecilir.
-                 Hucre icindeki "-" gibi yer tutucu degerler silinmez; kullanici
-                 elle yazacagi icin hucre duzenlenebilir gosterilir. */
+              /* Deger etiketin HEMEN SAGINDAKI tek hucreye girilir.
+                 Birlestirme YAPILMAZ (kullanici istegi) - her alan tek
+                 sutunda kalir. */
               const c = parseInt(k, 10);
               const b = bas[r + ':' + c];
               const s = (b && b[1] >= 2) ? c + b[1] - 1 + 1 : c + 1;
               if (s > 250) continue;
-              /* Miktar/Lot No/Seri No: deger alani 15 kontrol sutununa kadar
-                 genisletilir. Hucre icindeki "-" gibi yer tutucular engel
-                 degildir (Excel'de "yok" anlamina gelir); baska bir etiket
-                 ya da birlestirme varsa orada durulur. */
-              let genis = 1;
-              if (PK_GENIS_ETIKETLER.indexOf(t) >= 0) {
-                let g = 0;
-                for (let i = 0; i < 15; i++) {
-                  if (s + g > 250) break;
-                  if (kap[r + ':' + (s + g)]) break;
-                  const t2 = String((satir[s + g] && pkHucreMetniCoz(satir[s + g])) || '').trim();
-                  if (t2 && t2 !== '-') break;
-                  g++;
-                }
-                if (g >= 3) genis = g;
-              }
-              m[r + ':' + s] = genis;
+              m[r + ':' + s] = 1;
             }
           }
           return m;
@@ -5523,7 +5547,13 @@ ov.innerHTML = `<div class="fmea-modal">
       const n = pkKontrolAktar(anahtar, secili);
       ckBildir(n + ' satır Proses Kontrol Formu\'na aktarıldı.', 'oldu');
     }
-    /* Secilen Kontrol Plani satirlarini PK formunun veri satirlarina yazar. */
+    /* Secilen Kontrol Plani satirlarini PK formunun veri satirlarina yazar.
+       Ayni kontrol tablosu birden fazla sayfada yer alir (Tedarikci ve
+       Aselsan dosyalarinda "Günlük-1" ve "Günlük-2"). Kullanicinin istegi
+       uzerine secilen satirlar BU SAYFAYA ve ayni duzeni tasiyan diger
+       gunluk sayfalarina da yazilir; boylece "Günlük-2" sekmesi de ayni
+       tabloyu gosterir. Sayfa duzeni farkli olan sayfalar (Haftalik, Aylik)
+       atlanir: eslesme baslik satiri cozumleyicisi ile yapilir. */
     function pkKontrolAktar(anahtar, secili) {
       const key = anahtar || pkDurum.anahtar;
       if (!key || !pkDurum.wb) return 0;
@@ -5541,44 +5571,72 @@ ov.innerHTML = `<div class="fmea-modal">
       const kolon = sut.sutunlar || sut;
 
       const depo = pkEditsYukle();
-      const sheetKey = key + '!' + ws.name + '!';
       const kpNo = kaynak.kpNo || '';
-      const bas = cozum.sonBaslik + 1;
 
-      secili.forEach(function (i, sira) {
-        const r = kaynak.satirlar[i];
-        if (!r) return;
-        const satir = bas + sira;
-        const yaz = function (alan, deger) {
-          const c = kolon[alan];
-          if (!c) return;
-          const pk = sheetKey + satir + '!' + c;
-          if (String(deger) === '') delete depo[pk];
-          else depo[pk] = String(deger);
-        };
-        /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
-           Kaynak Doküman'a yalnizca "Kontrol Planı No." (kpNo) gelir.
-           Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
-           sutunundan veri TASINMAZ (kullanici istegi).
-           Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
-           araliksiz/1'den baslamasa bile numara korunur. */
-        const kaynakMetni = kpNo || '';
-        yaz('takip', r.no || (sira + 1));
-        yaz('kaynak', kaynakMetni);
-        yaz('no', r.code);
-        yaz('adi', r.adi);
-        yaz('karak', r.karak || '');
-        yaz('spes', r.spes);
-        yaz('yontem', r.olcum);
-        yaz('kontrol', r.kontrol);
+      /* Hedef sayfalar: aktif sayfa + ayni denetim tablosunu tasiyan
+         diger gunluk sayfalari. "Günlük" onekli olmayan sayfalar (Kullanım
+         Talimatı, Sayfa2, Haftalık, Aylık) farkli duzendir, atlanir. */
+      const hedefler = [];
+      hedefler.push({ ws: ws, cozum: cozum, kolon: kolon });
+      try {
+        pkDurum.wb.eachSheet(function (s) {
+          if (s === ws || s.name === ws.name) return;
+          if (s.name.indexOf('Günlük') !== 0) return;
+          const cz = pkSayfaCozum(s);
+          if (!cz) return;
+          /* Veri tablosu ayni mi? "Takip No" ve "**Gerceklestirilen Kontrol
+             Aciklamasi" sutunlari eslesmiyorsa bu sayfa farkli bir tablodur. */
+          const st = cz.baslikSutunlar || pkBaslikSatiriTara(cz.hucreler, 1, cz.sonBaslik + 1);
+          if (!st) return;
+          const kl = st.sutunlar || st;
+          if (!kl.takip || !kl.kontrol) return;
+          hedefler.push({ ws: s, cozum: cz, kolon: kl });
+        });
+      } catch (e) {}
+
+      let yazilan = 0;
+      hedefler.forEach(function (h) {
+        const sheetKey = key + '!' + h.ws.name + '!';
+        const bas = h.cozum.sonBaslik + 1;
+        secili.forEach(function (i, sira) {
+          const r = kaynak.satirlar[i];
+          if (!r) return;
+          const satir = bas + sira;
+          const yaz = function (alan, deger) {
+            const c = h.kolon[alan];
+            if (!c) return;
+            const pk = sheetKey + satir + '!' + c;
+            if (String(deger) === '') delete depo[pk];
+            else depo[pk] = String(deger);
+          };
+          /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
+             Kaynak Doküman'a yalnizca "Kontrol Planı No." (kpNo) gelir.
+             Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
+             sutunundan veri TASINMAZ (kullanici istegi).
+             Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
+             araliksiz/1'den baslamasa bile numara korunur. */
+          const kaynakMetni = kpNo || '';
+          yaz('takip', r.no || (sira + 1));
+          yaz('kaynak', kaynakMetni);
+          yaz('no', r.code);
+          yaz('adi', r.adi);
+          yaz('karak', r.karak || '');
+          yaz('spes', r.spes);
+          yaz('yontem', r.olcum);
+          yaz('kontrol', r.kontrol);
+        });
+        yazilan++;
       });
 
       pkEditsYaz(depo);
-      /* Formu yeterli sayida satira buyut. */
+      /* Formu yeterli sayida satira buyut (aktif sayfa + hedef sayfalar). */
       const gerek = Math.max(pkSatirSayisi(), secili.length);
       try { localStorage.setItem(pkSatirAnahtari(), String(gerek - PK_BASLANGIC)); } catch (e) {}
       pkCiz(key);
       if (window.scheduleCloudSync) scheduleCloudSync(900);
+      if (yazilan > 1) {
+        ckBildir(secili.length + ' satır ' + yazilan + ' sayfaya aktarıldı.', 'oldu');
+      }
       return secili.length;
     }
 
