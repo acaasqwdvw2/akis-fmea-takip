@@ -118,10 +118,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .fmea-table td.pkd-sec select:focus{outline:2px solid #ffb300;outline-offset:-2px;background:#fffef2}
     .fmea-table td.pkd-sec select.dolu{background:#eaf4f6;font-weight:700}
     /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
-    .fmeta-oto{margin-top:4px}
-    .mi-oto .ml{color:#2e6b3f}
-    .mi-oto-et{color:#2e9e4f;cursor:help}
-    .mi-oto .mv{background:#f2fbf4;color:#17402a;font-weight:700}
+    .fmea-table td.pk-oto{background:#f2fbf4;color:#17402a}
+    .fmea-table td.pk-oto .pk-oto-d{font-weight:700;color:#1d6b33}
     .fmea-modal .mhead .pk-dl{background:#2e7d32}
     .pk-mini{font-size:11px;color:#5a6a70;padding:4px 2px;flex:0 0 auto}
     .fmea-body{padding:14px 16px 20px;overflow:auto;flex:1 1 auto;display:flex;flex-direction:column}
@@ -4899,17 +4897,21 @@ ov.innerHTML = `<div class="fmea-modal">
          (pkSatirEkle). Baslangicta PK_BASLANGIC satir cizilir. */
       lim = sonBaslik + pkSatirSayisi();
 
-      /* Yalnizca ana veri govdesini olusturan sutunlar. Excel'de form sagina
-         yardimci sutunlar (TRUE/FALSE, Genel, EMS listesi vb.) eklenmis;
-         bunlar kullaniciya ait degil, onizlemede gizlenir. */
+      /* Sol bos kenar sutunu (A) cizilmez; kullaniciya ait olmayan yardimci
+         sutunlar (yalnizca TRUE/FALSE, Genel, EMS gibi degerler tasiyanlar)
+         da gizlenir. */
       const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
       const sabit = [];
       for (let i = 0; i < gorunur.length; i++) {
         const c = gorunur[i];
-        const hu = hucreler[ilk] && hucreler[ilk][c];
-        const metin = hu ? String(pkHucreMetniCoz(hu) || '').trim() : '';
-        if (metin && YARDIMCI[metin]) continue;
-        sabit.push(c);
+        if (c === 1) continue;                       /* sol bos kenar sutunu */
+        let farkli = '';
+        for (let r = ilk; r <= sonBaslik && !farkli; r++) {
+          const hu = hucreler[r] && hucreler[r][c];
+          const t = hu ? String(pkHucreMetniCoz(hu) || '').trim() : '';
+          if (t && !YARDIMCI[t]) farkli = t;
+        }
+        if (farkli) sabit.push(c);
       }
       gorunur.length = 0;
       Array.prototype.push.apply(gorunur, sabit);
@@ -4929,6 +4931,8 @@ ov.innerHTML = `<div class="fmea-modal">
       for (let i = 0; i < gorunur.length; i++) if (doluSutun[gorunur[i]]) sonSutun = i;
       const gorunurK = gorunur.slice(0, sonSutun + 1);
 
+      const oto = pkOtomatikDegerler();
+      const otoHarita = pkOtoHarita(hucreler, ilk, sonBaslik, oto);
       const govde = [];
       const depo = pkEditsYukle();
       const sheetKey = pkDurum.anahtar + '!' + ws.name + '!';
@@ -4946,14 +4950,19 @@ ov.innerHTML = `<div class="fmea-modal">
           const b = bas[r + ':' + c];
           if (b) {
             const baslikSinifi = !veri && b[1] > 2 ? ' class="pkm"' : (!veri ? ' class="pkh"' : '');
-            s += '<td' + baslikSinifi + (b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
-                 (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + '>' + esc(b[2]) + '</td>';
+            /* Ust bilgi alanlari Excel'de birlestirilmis hucrede olabilir
+               (F13:G13 "Parça Stok No / ...", B13:C13 "Proses Kontrolü"). */
+            const ana = r + ':' + c;
+            const otoMu = !veri && Object.prototype.hasOwnProperty.call(otoHarita, ana);
+            s += '<td' + (otoMu ? ' class="pk-oto"' : baslikSinifi) +
+                 (b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
+                 (b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + '>' +
+                 (otoMu ? otoHarita[ana] : esc(b[2])) + '</td>';
             continue;
           }
           const w = pkHucreDolgu(ws, c);
           const ozet = pkHucreMetniCoz(satir[c] || null);
-          if (veri) {
-            const pk = sheetKey + r + '!' + c;
+          if (veri) {            const pk = sheetKey + r + '!' + c;
             const dv = pkHucreDeger(depo, pk, ozet);
             const st = w ? ' style="min-width:' + w + '"' : '';
             if (kutu && c >= kutu.c1 && c <= kutu.c2) {
@@ -4974,7 +4983,12 @@ ov.innerHTML = `<div class="fmea-modal">
                    ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
             }
           } else {
-            s += '<td' + (w ? ' style="min-width:' + w + '"' : '') + '>' + esc(ozet) + '</td>';
+            /* Baslik satiri: Excel'deki FALSE/TRUE yerine tik, etiketlerin
+               devamina FMEA degeri yazilir. */
+            const gorunen = pkHucreGorunenMetin(r, c, ozet, otoHarita);
+            const otoMu = Object.prototype.hasOwnProperty.call(otoHarita, r + ':' + c);
+            s += '<td' + (otoMu ? ' class="pk-oto"' : '') +
+                 (w ? ' style="min-width:' + w + '"' : '') + '>' + gorunen + '</td>';
           }
         }
         s += '</tr>';
@@ -4986,36 +5000,12 @@ ov.innerHTML = `<div class="fmea-modal">
           govde[govde.length - 1].replace(/data-pk="/g, 'data-last="1" data-pk="');
       }
 
-      /* Ust bilgi: FMEA kaydindan otomatik gelen alanlar + sayfa sayaclari.
-         Kullanici bu alanlari tekrar yazmaz; Excel'de bos kalsalar da
-         FMEA verisi doldurur. */
-      const oto = pkOtomatikDegerler();
-      const parcaModu = oto.parcaModu;
-      const otoAlan = (etiket, deger) => deger ? pkMetaOto(etiket, deger) : '';
-      const meta = '<div class="fmeta">' +
-        pkMeta('Sayfa', ws.name) +
-        pkMeta('Satır', veriSatir) +
-        pkMeta('Görünür Sütun', gorunurK.length) +
-        pkMeta('Birleştirilmiş', birlSayi) +
-        pkMeta('Yazılabilir Satır', veriSatir) +
-        '</div>' +
-        '<div class="fmeta fmeta-oto">' +
-        pkMetaOto('Kontrol Tipi', parcaModu ? 'Parça Kontrolü' : 'Proses Kontrolü') +
-        otoAlan(parcaModu ? 'Parça Stok No / Parça Adı' : 'Proses Adı',
-                parcaModu ? oto.parcaStok : oto.prosesAdi) +
-        otoAlan('Firma Adı / Sektör Adı', oto.firma) +
-        otoAlan('Denetim Ayı', oto.denetimAyi) +
-        otoAlan('Denetçi', oto.denetci) +
-        '</div>';
+      /* Sayfa/olcu kartlari ve alt bilgi satiri kullanici istegiyle kaldirildi.
+         Ust bilgi artikca Excel'in kendi hucrelerinden gelir (bkz. pkOtoHarita). */
 
-      const not = (son > lim)
-        ? '<div class="pk-note">Gösterilen ilk ' + (lim - ilk + 1) + ' satır / ' + (son - ilk + 1) +
-          ' satır.</div>' : '';
-
-      return meta +
-        '<div class="fmea-x"><div class="fmea-sctop"><div class="fmea-sctrack"></div></div>' +
+      return '<div class="fmea-x"><div class="fmea-sctop"><div class="fmea-sctrack"></div></div>' +
         '<div class="fmea-scroll"><table class="fmea-table cptable"><tbody>' + govde.join('') +
-        '</tbody></table></div></div>' + not;
+        '</tbody></table></div></div>';
     }
 
     /* X / N/A kutucuklari. ExcelJS, bu listeleri "data validation extension"
@@ -5101,12 +5091,60 @@ ov.innerHTML = `<div class="fmea-modal">
       return '<div class="mi"><div class="ml">' + esc(etiket) + '</div><div class="mv">' + esc(deger) + '</div></div>';
     }
 
-    /* FMEA'dan otomatik gelen alan: yesil tikli, salt-okunur. Kullanici
-       degeri FMEA kaydindan alir, elle yazmaz. */
-    function pkMetaOto(etiket, deger) {
-      return '<div class="mi mi-oto"><div class="ml">' + esc(etiket) +
-        ' <span class="mi-oto-et" title="FMEA kaydından otomatik alındı">⚡</span></div>' +
-        '<div class="mv">' + esc(deger) + '</div></div>';
+    /* Excel'de zaten yer alan ust bilgi alanlari:
+         B13 "Proses Kontrolü" / D13 FALSE   -> aktif olana tik atilir
+         B14 "Parça Kontrolü"  / D14 FALSE   -> digeri bos kalir
+         F13 "Parça Stok No / Parça Adı/Proses Adı" -> FMEA'dan doldurulur
+         F14 "Firma Adı / Sektör Adı"                  -> FMEA'dan doldurulur
+       Donen anahtar: '<satir>:<sutun>' -> gosterilecek metin */
+    function pkOtoHarita(hucreler, ilk, sonBaslik, oto) {
+      const h = {};
+      let prosesSatir = 0, parcaSatir = 0, parcaNoSat = 0, parcaNoCol = 0, firmaSat = 0, firmaCol = 0;
+      for (let r = ilk; r <= sonBaslik; r++) {
+        const satir = hucreler[r] || {};
+        for (const k in satir) {
+          const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
+          const cc = parseInt(k, 10);
+          if (t === 'Proses Kontrolü') prosesSatir = r;
+          else if (t === 'Parça Kontrolü') parcaSatir = r;
+          else if (t.indexOf('Parça Stok No') === 0) { parcaNoSat = r; parcaNoCol = cc; }
+          else if (t.indexOf('Firma Adı') === 0) { firmaSat = r; firmaCol = cc; }
+        }
+      }
+      /* Tik sutunu: FALSE/TRUE yazan hucre (Excel'de D13/D14) */
+      let tikCol = 0;
+      [prosesSatir, parcaSatir].forEach(function (r) {
+        if (!r || tikCol) return;
+        const satir = hucreler[r] || {};
+        for (const k in satir) {
+          const t = String(pkHucreMetniCoz(satir[k]) || '').trim().toLowerCase();
+          if (t === 'true' || t === 'false') { tikCol = parseInt(k, 10); return; }
+        }
+      });
+      if (tikCol) {
+        if (prosesSatir) h[prosesSatir + ':' + tikCol] = oto.parcaModu ? '' : '✓';
+        if (parcaSatir) h[parcaSatir + ':' + tikCol] = oto.parcaModu ? '✓' : '';
+      }
+      /* Etiketlerin devamına FMEA degeri yazilir */
+      if (parcaNoSat && parcaNoCol) {
+        const deger = oto.parcaModu ? (oto.parcaStok || '—') : (oto.prosesAdi || '—');
+        h[parcaNoSat + ':' + parcaNoCol] =
+          '<b>Parça Stok No / Parça Adı/Proses Adı:</b> <span class="pk-oto-d">' + esc(deger) + '</span>';
+      }
+      if (firmaSat && firmaCol) {
+        const deger = oto.firma || '—';
+        h[firmaSat + ':' + firmaCol] =
+          '<b>Firma Adı / Sektör Adı:</b> <span class="pk-oto-d">' + esc(deger) + '</span>';
+      }
+      return h;
+    }
+
+    /* Excel'de zaten yer alan ust bilgi alanlari icin gorunum haritasi:
+         hucre metni degistirilir, hucre sayisi degismez. */
+    function pkHucreGorunenMetin(r, c, ozet, otoHarita) {
+      const ana = r + ':' + c;
+      if (Object.prototype.hasOwnProperty.call(otoHarita, ana)) return otoHarita[ana];
+      return esc(ozet);
     }
 
     /* --- buyuyen form satirlari -------------------------------------------------
@@ -5283,8 +5321,7 @@ ov.innerHTML = `<div class="fmea-modal">
       ov.onclick = function (e) { if (e.target === ov) ov.classList.remove('open'); };
       ov.innerHTML = '<div class="fmea-modal">' +
         '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
-        '<div><button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Doldurulmuş Excel</button> ' +
-        '<button onclick="pkDownloadProsesKontrolFormu(pkDurum.anahtar)">⬇ Şablon</button> ' +
+        '<div><button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
