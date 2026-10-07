@@ -4781,7 +4781,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-a';
+    const PK_SABLON_VER = '2026-10-07-b';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -5549,6 +5549,22 @@ ov.innerHTML = `<div class="fmea-modal">
           if (t === 'true' || t === 'false') { tikCol = parseInt(k, 10); return; }
         }
       });
+      /* Aselsan Global sablonunda D13/D14 TRUE/FALSE degeri TUTULMAZ (bos);
+         tik sutunu o zaman etiket blogunun bittigi yerden bulunur. Her iki
+         dosyada da duzen aynidir: B13:C13 "Proses Kontrolü", D13:E13 tik
+         hucresi. Kullanicinin istegi: tedarikcide ne tikliyse Aselsan'da da
+         aynisi tikli gorunsun. */
+      if (!tikCol && prosesSatir) {
+        const satirP = hucreler[prosesSatir] || {};
+        for (const k in satirP) {
+          const t = String(pkHucreMetniCoz(satirP[k]) || '').trim();
+          if (t !== 'Proses Kontrolü') continue;
+          const c0 = parseInt(k, 10);
+          const b0 = bas[prosesSatir + ':' + c0];
+          tikCol = (b0 && b0[1] > 1) ? c0 + b0[1] : c0 + 1;
+          break;
+        }
+      }
       if (tikCol) {
         if (prosesSatir) h[prosesSatir + ':' + tikCol] = oto.parcaModu ? '' : '✓';
         if (parcaSatir) h[parcaSatir + ':' + tikCol] = oto.parcaModu ? '✓' : '';
@@ -5739,21 +5755,35 @@ ov.innerHTML = `<div class="fmea-modal">
        Veri girildikce alt satir acilir. Satir sayisi dosya+sayfa bazinda ve
        kullaniciya ozel saklanir; sekme degisince kaybolmaz. Focus korunur:
        tablo yeniden cizilmez, yeni <tr> DOM'a eklenir. */
-    function pkSatirAnahtari() {
+    function pkSatirAnahtari(sayfa) {
       const k = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
-      let sayfa = '';
-      try {
-        if (pkDurum.wb && pkDurum.wb.worksheets[pkDurum.sekme]) {
-          sayfa = pkDurum.wb.worksheets[pkDurum.sekme].name;
-        }
-      } catch (e) {}
-      return 'pkSatir::' + k + '::' + (pkDurum.anahtar || '') + '::' + sayfa;
+      let sf = sayfa || '';
+      if (!sf) {
+        try {
+          if (pkDurum.wb && pkDurum.wb.worksheets[pkDurum.sekme]) {
+            sf = pkDurum.wb.worksheets[pkDurum.sekme].name;
+          }
+        } catch (e) {}
+      }
+      return 'pkSatir::' + k + '::' + (pkDurum.anahtar || '') + '::' + sf;
     }
     function pkSatirSayisi() {
+      let n = 0;
       try {
-        const n = parseInt(localStorage.getItem(pkSatirAnahtari()) || '0', 10);
-        return Math.min(PK_LIMIT, PK_BASLANGIC + (isNaN(n) || n < 0 ? 0 : n));
-      } catch (e) { return PK_BASLANGIC; }
+        const s = parseInt(localStorage.getItem(pkSatirAnahtari()) || '0', 10);
+        n = (isNaN(s) || s < 0) ? 0 : s;
+      } catch (e) { n = 0; }
+      /* Günlük-1'e girilen satir sayisi kadar alan Günlük-2'de de gosterilir:
+         veriler aynen yansidigi icin Günlük-2'de satir eksik kalmamali. */
+      try {
+        const sf = (pkDurum.wb && pkDurum.wb.worksheets[pkDurum.sekme])
+          ? pkDurum.wb.worksheets[pkDurum.sekme].name : '';
+        if (sf && sf.indexOf('Günlük') === 0 && sf !== 'Günlük-1') {
+          const s1 = parseInt(localStorage.getItem(pkSatirAnahtari('Günlük-1')) || '0', 10);
+          if (!isNaN(s1) && s1 > n) n = s1;
+        }
+      } catch (e2) {}
+      return Math.min(PK_LIMIT, PK_BASLANGIC + n);
     }
     function pkSatirArtir() {
       const y = Math.min(PK_LIMIT, pkSatirSayisi() + 1);
@@ -5822,15 +5852,75 @@ ov.innerHTML = `<div class="fmea-modal">
       if (!k) return;
       const depo = pkEditsYukle();
       const v = String(el.value || '');
-      if (String(el.dataset.orig || '').trim() === v.trim()) delete depo[k];
+      /* Miraslanan bir alan (Günlük-2) silinip bosaltilamaz: anahtar silinirse
+         deger Günlük-1'den geri gelir. Bu yuzden mirasli hucrelerde HER deger
+         (bos olsa bile) yerel olarak kaydedilir. */
+      const miras = pkMirasKaynak(k);
+      if (!miras && String(el.dataset.orig || '').trim() === v.trim()) delete depo[k];
       else depo[k] = v;
       pkEditsYaz(depo);
       el.classList.toggle('pkd-dolu', v.trim() !== '');
       if (el.getAttribute('data-last') === '1') pkSatirEkle();
       if (window.scheduleCloudSync) scheduleCloudSync(1200);
     }
+    /* --- Günlük-1 -> Günlük-2 mirası ---------------------------------------
+       Kullanıcı isteği: Günlük-1'e girilen veriler aynen Günlük-2'ye yansır;
+       tik / X / N-A sonuc sutunlari HARIC (her gunun sonuclari ayri girilir).
+       Günlük-2'nin sonuc sutunlari Günlük-1'den bir sutun genistir (16 sutun);
+       bu yuzden sonuc blogunun SAGINDAKI alanlar (Döf No, Denetçi Açıklaması,
+       Denetim Ayı, Denetçi) bir sutun sola kayar. Sol taraftaki alanlar
+       (Takip No, Kaynak, No, Adı, ... Miktar/Lot/Seri) ayni sutundadir.
+       Okuma yonunde (Günlük-2 goruntulenirken) deger Günlük-1'den okunur;
+       indirme yonünde Günlük-1 degeri Günlük-2'ye kopyalanir. */
+    /* Veri satirlari 20'den baslar (ust bilgi bandi 1-19). Tik/X/N-A sonuc
+       sutunlari yalnizca VERI satirlarinda miras disidir; ayni sutunlarin
+       band satirlarindaki giris alanlari (Miktar, Lot No, Seri No) veridir
+       ve Günlük-1'den aynen yansir. */
+    const PK_MIRAS_VERI_SATIRI = 20;
+    function pkMirasEsleme(anahtar, sayfa) {
+      try {
+        if (String(sayfa).indexOf('Günlük') !== 0 || sayfa === 'Günlük-1') return null;
+        const tercih = (anahtar === 'aselsan') ? 1 : 0;
+        const g1t = PK_KUTULAR['Günlük-1'], g2t = PK_KUTULAR[sayfa];
+        const g1 = g1t && g1t[tercih], g2 = g2t && g2t[tercih];
+        if (!g1 || !g2) return null;
+        return { hedefC1: g2.c1, hedefC2: g2.c2,
+                 kaynakC1: g1.c1, kaynakC2: g1.c2,
+                 kaydirma: (g2.c2 - g2.c1) - (g1.c2 - g1.c1) };
+      } catch (e) { return null; }
+    }
+    /* Günlük-2 anahtarindan Günlük-1 anahtarini uretir.
+       Sonuc (tik/X/N-A) sutunlari miras disidir -> null. */
+    function pkMirasKaynak(pk) {
+      try {
+        const p = String(pk || '').split('!');
+        if (p.length !== 4) return null;
+        const e = pkMirasEsleme(p[0], p[1]);
+        if (!e) return null;
+        const c = parseInt(p[3], 10);
+        const r = parseInt(p[2], 10);
+        if (!(c > 0) || !(r > 0)) return null;
+        if (r >= PK_MIRAS_VERI_SATIRI && c >= e.hedefC1 && c <= e.hedefC2) return null;
+        const k = (c > e.hedefC2) ? c - e.kaydirma : c;
+        return p[0] + '!Günlük-1!' + p[2] + '!' + k;
+      } catch (e2) { return null; }
+    }
+    /* Günlük-1 anahtarindan Günlük-2 anahtarini uretir (indirme icin).
+       Sonuc (tik/X/N-A) sutunlari kopyalanmaz -> null. */
+    function pkMirasHedef(anahtar, satir, sutun) {
+      try {
+        const e = pkMirasEsleme(anahtar, 'Günlük-2');
+        if (!e || !(sutun > 0) || !(satir > 0)) return null;
+        if (satir >= PK_MIRAS_VERI_SATIRI && sutun >= e.kaynakC1 && sutun <= e.kaynakC2) return null;
+        const h = (sutun > e.kaynakC2) ? sutun + e.kaydirma : sutun;
+        return anahtar + '!Günlük-2!' + satir + '!' + h;
+      } catch (e2) { return null; }
+    }
     function pkHucreDeger(depo, anahtar, varsayilan) {
-      return Object.prototype.hasOwnProperty.call(depo, anahtar) ? depo[anahtar] : varsayilan;
+      if (Object.prototype.hasOwnProperty.call(depo, anahtar)) return depo[anahtar];
+      const miras = pkMirasKaynak(anahtar);
+      if (miras && Object.prototype.hasOwnProperty.call(depo, miras)) return depo[miras];
+      return varsayilan;
     }
     function pkHucreYukle() {
       const depo = pkEditsYukle();
@@ -6011,6 +6101,20 @@ ov.innerHTML = `<div class="fmea-modal">
           const r = parseInt(parca[2], 10), c = parseInt(parca[3], 10);
           if (!r || !c) return;
           ws.getCell(r, c).value = depo[k];
+          yazilan++;
+        });
+        /* Günlük-1'den miraslanan alanlar da sablona yazilir (tik/X/N-A
+           sutunlari haric); boylece indirilen dosyada Günlük-2 de goruntulendigi
+           gibi dolu olur. */
+        anahtarlar.forEach(function (k) {
+          const parca = k.split('!');
+          if (parca.length < 4 || parca[0] !== key || parca[1] !== 'Günlük-1') return;
+          const hedef = pkMirasHedef(parca[0], parseInt(parca[2], 10), parseInt(parca[3], 10));
+          if (!hedef || Object.prototype.hasOwnProperty.call(depo, hedef)) return;
+          const hp = hedef.split('!');
+          const ws = wb.getWorksheet(hp[1]);
+          if (!ws) return;
+          ws.getCell(parseInt(hp[2], 10), parseInt(hp[3], 10)).value = depo[k];
           yazilan++;
         });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
