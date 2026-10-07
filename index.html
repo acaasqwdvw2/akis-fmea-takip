@@ -4781,7 +4781,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-01-a';
+    const PK_SABLON_VER = '2026-10-07-a';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4885,13 +4885,6 @@ ov.innerHTML = `<div class="fmea-modal">
       return false;
     }
 
-    /* Kullanici istegi: sutun genislik carpanlari.
-       1) **Gerceklestirilen Kontrol Aciklamasi (J:L) 2 kat genisletilir.
-       2) 1..15 numarali kontrol sutunlari (M:AA) ucuz 3'te 1'e indirilir. */
-    const PK_UST_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Denetçi Adı', 'Denetim Yılı'];
-    /* Bu etiketler kaynak dosyada ust bilgi bandinda (r13/r14) bulunur;
-       veri satirlari (r20+) taranmaz. */
-    const PK_UST_SATIR_SINIR = 20;
     /* Excel'de GIRIS IZNI olan hucreler BEYAZdir; etiket ve sablon
        metinleri tema tonuyla renklendirilmistir (theme:4 / theme:8).
        ExcelJS dolguyu { type:'pattern', pattern:'solid'|'none',
@@ -4909,79 +4902,14 @@ ov.innerHTML = `<div class="fmea-modal">
       const a = String(g.argb || g.rgb || '').toUpperCase();
       return a === 'FFFFFFFF' || a === 'FFFFFF' || a === '00FFFFFF';
     }
-    /* Sutun araliklari sayfa duzeninden bir kez hesaplanir (WeakMap onbellegi):
-       pkHucreDolgu her hucre icin cagrildigi icin tekrar cagrilamaz.
-       Tam sayfa cozumune (pkSayfaCozum) bir kez daha girilmez: ayni hucre
-       haritasi burada da kurulur, cift maliyet olusmaz. */
-    const pkAralikOnbellek = new WeakMap();
-    const PK_SAYFA_HAFTALIK = 'Haftalık';
-    function pkSutunAraliklari(ws) {
-      const eski = pkAralikOnbellek.get(ws);
-      if (eski) return eski;
-      const a = { gerk: null, kutu: null, ust: {} };
-      const hucreler = {};
-      const rows = (ws.model && Array.isArray(ws.model.rows)) ? ws.model.rows : [];
-      rows.forEach(function (r) {
-        const cells = (r && Array.isArray(r.cells)) ? r.cells : r;
-        if (!cells || !cells.length) return;
-        for (let i = 0; i < cells.length; i++) {
-          const ad = pkHucreAdres(cells[i] && cells[i].address);
-          if (!ad) continue;
-          (hucreler[ad.r] || (hucreler[ad.r] = {}))[ad.c] = cells[i];
-        }
-      });
-      /* **Gerceklestirilen Kontrol Aciklamasi birlestirilmis blogu */
-      const birl = (ws.model && ws.model.merges) ? ws.model.merges : [];
-      for (let i = 0; i < birl.length; i++) {
-        const g = pkAralikAyikla(birl[i]);
-        if (!g) continue;
-        const t = pkHucreMetniCoz((hucreler[g.r1] || {})[g.c1] || null);
-        if (pkBaslikNormalize(t).indexOf('**gerceklestirilen') !== 0) continue;
-        a.gerk = [g.c1, g.c2];
-        break;
-      }
-      /* Kontrol sonucu araligi (1..N) PK_KUTULAR'dan gelir. */
-      const k = pkListeSecenekleri(ws);
-      if (k) a.kutu = [k.c1, k.c2];
-      /* Haftalik sayfasinda etiket sutunu 2 kat genisletilir (kullani istegi). */
-      if (ws && ws.name === PK_SAYFA_HAFTALIK) {
-        for (const rk in hucreler) {
-          if (parseInt(rk, 10) > PK_UST_SATIR_SINIR) continue;
-          const satir = hucreler[rk];
-          for (const ck in satir) {
-            const t = String(pkHucreMetniCoz(satir[ck]) || '').trim();
-            if (PK_UST_ETIKETLER.indexOf(t) < 0) continue;
-            a.ust[parseInt(ck, 10)] = 1;
-          }
-        }
-      }
-      pkAralikOnbellek.set(ws, a);
-      return a;
-    }
-    /* Kullanici istegi: sutun genislik carpanlari.
-       1) **Gerceklestirilen Kontrol Aciklamasi birlestirilmis blogu 2 kat;
-          Haftalik sayfasinda yariya indirilip 1 kat birakildi.
-       2) Kontrol sonucu sutunlari (1..N) 3'te 1'e indirilir.
-       3) Haftalik sayfasinda ust bilgi etiket sutunu 2 kat.
-       Araliklar SABIT sutun numarasindan degil, sayfanin kendi
-       yapisindan okunur: sayfa duzenleri farklidir (Aylik'ta kontrol
-       sutunlari L'den, Aselsan Haftalik'ta K'den baslar). Sabit
-       numara kullanmak bu sayfalarda "1" yazan sutunu "2"ye gore
-       6 kat genis gösteriyordu. */
-    function pkSutunCarpani(ws, colNo) {
-      const a = pkSutunAraliklari(ws);
-      if (a.kutu && colNo >= a.kutu[0] && colNo <= a.kutu[1]) return 1 / 3;
-      if (a.gerk && colNo >= a.gerk[0] && colNo <= a.gerk[1]) {
-        return (ws && ws.name === PK_SAYFA_HAFTALIK) ? 1 : 2;
-      }
-      if (a.ust[colNo]) return 2;
-      return 1;
-    }
+    /* Sutun genisligi: Excel kaynak dosyadaki deger BIREBIR uygulanir
+       (kullanici istegi). Hicbir carpan (x2, 1/3, Haftalik 2x) kullanilmaz.
+       Excel'in kendi donusumu: piksel = yuvarla(genislik * 7) + 5
+       (Calibri 11 varsayilan rakam genisligi 7 piksel, +5 kenar bosluğu). */
     function pkHucreDolgu(ws, colNo) {
       const cd = ws.columns && ws.columns[colNo - 1];
       if (!cd || !cd.width) return '';
-      const px = cd.width * 7.5 * pkSutunCarpani(ws, colNo);
-      return Math.max(30, Math.round(px)) + 'px';
+      return Math.max(30, Math.round(cd.width * 7) + 5) + 'px';
     }
 
     /* Excel baslik metinleri kaynak dosyaya gore degisebilir (kilitli bolge
