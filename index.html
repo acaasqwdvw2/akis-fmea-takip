@@ -129,6 +129,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .fmea-table tr.pk-yarim>td.pk-oto .pk-oto-d{font-size:9.5px;line-height:1.05}
     .fmea-table tr.pk-yarim>td.pkd textarea{padding:0 3px;font-size:9.5px;line-height:1.05;height:auto!important;min-height:0;overflow:hidden}
     .fmea-table tr.pk-yarim>td.pkd select{padding:0 1px;font-size:9.5px;height:15px}
+    /* Excel'de giris izni olmayan (renkli) hucre: salt metin, duzenlenemez. */
+    .fmea-table td.pk-sabit{background:#e4ebee;color:#5d6d72;font-weight:600;text-align:center}
     /* Kontrol Sec ekrani */
     .pk-sec-btn{margin-right:6px;padding:6px 12px;border:1px solid #2e6b4f;background:#2e6b4f;color:#fff;
       border-radius:4px;cursor:pointer;font-weight:700}
@@ -4886,15 +4888,99 @@ ov.innerHTML = `<div class="fmea-modal">
     /* Kullanici istegi: sutun genislik carpanlari.
        1) **Gerceklestirilen Kontrol Aciklamasi (J:L) 2 kat genisletilir.
        2) 1..15 numarali kontrol sutunlari (M:AA) ucuz 3'te 1'e indirilir. */
-    function pkSutunCarpani(colNo) {
-      if (colNo >= 10 && colNo <= 12) return 2;    /* J:L  **Gerceklestirilen Kontrol Aciklamasi */
-      if (colNo >= 13 && colNo <= 27) return 1 / 3; /* M:AA  1..15 kontrol sutunlari */
+    const PK_UST_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Denetçi Adı', 'Denetim Yılı'];
+    /* Bu etiketler kaynak dosyada ust bilgi bandinda (r13/r14) bulunur;
+       veri satirlari (r20+) taranmaz. */
+    const PK_UST_SATIR_SINIR = 20;
+    /* Excel'de GIRIS IZNI olan hucreler BEYAZdir; etiket ve sablon
+       metinleri tema tonuyla renklendirilmistir (theme:4 / theme:8).
+       ExcelJS dolguyu { type:'pattern', pattern:'solid'|'none',
+       fgColor:{argb|theme|tint} } olarak tasir; tema renklerinde argb
+       gelmez, bu yuzden "beyaz" yalnizca argb ile beyaz oldugunda dogrulanir. */
+    function pkHucreBeyaz(hu) {
+      if (!hu) return true;                                  /* hucre yok = bos = yazilabilir */
+      const f = hu.fill || (hu.style && hu.style.fill) || null;
+      if (!f) return true;
+      if (f.type && f.type !== 'pattern') return false;      /* gradient vb. renkli */
+      const p = f.pattern || f.patternType || 'none';
+      if (p === 'none') return true;
+      const g = f.fgColor || f.startColor || null;
+      if (!g) return false;
+      const a = String(g.argb || g.rgb || '').toUpperCase();
+      return a === 'FFFFFFFF' || a === 'FFFFFF' || a === '00FFFFFF';
+    }
+    /* Sutun araliklari sayfa duzeninden bir kez hesaplanir (WeakMap onbellegi):
+       pkHucreDolgu her hucre icin cagrildigi icin tekrar cagrilamaz.
+       Tam sayfa cozumune (pkSayfaCozum) bir kez daha girilmez: ayni hucre
+       haritasi burada da kurulur, cift maliyet olusmaz. */
+    const pkAralikOnbellek = new WeakMap();
+    const PK_SAYFA_HAFTALIK = 'Haftalık';
+    function pkSutunAraliklari(ws) {
+      const eski = pkAralikOnbellek.get(ws);
+      if (eski) return eski;
+      const a = { gerk: null, kutu: null, ust: {} };
+      const hucreler = {};
+      const rows = (ws.model && Array.isArray(ws.model.rows)) ? ws.model.rows : [];
+      rows.forEach(function (r) {
+        const cells = (r && Array.isArray(r.cells)) ? r.cells : r;
+        if (!cells || !cells.length) return;
+        for (let i = 0; i < cells.length; i++) {
+          const ad = pkHucreAdres(cells[i] && cells[i].address);
+          if (!ad) continue;
+          (hucreler[ad.r] || (hucreler[ad.r] = {}))[ad.c] = cells[i];
+        }
+      });
+      /* **Gerceklestirilen Kontrol Aciklamasi birlestirilmis blogu */
+      const birl = (ws.model && ws.model.merges) ? ws.model.merges : [];
+      for (let i = 0; i < birl.length; i++) {
+        const g = pkAralikAyikla(birl[i]);
+        if (!g) continue;
+        const t = pkHucreMetniCoz((hucreler[g.r1] || {})[g.c1] || null);
+        if (pkBaslikNormalize(t).indexOf('**gerceklestirilen') !== 0) continue;
+        a.gerk = [g.c1, g.c2];
+        break;
+      }
+      /* Kontrol sonucu araligi (1..N) PK_KUTULAR'dan gelir. */
+      const k = pkListeSecenekleri(ws);
+      if (k) a.kutu = [k.c1, k.c2];
+      /* Haftalik sayfasinda etiket sutunu 2 kat genisletilir (kullani istegi). */
+      if (ws && ws.name === PK_SAYFA_HAFTALIK) {
+        for (const rk in hucreler) {
+          if (parseInt(rk, 10) > PK_UST_SATIR_SINIR) continue;
+          const satir = hucreler[rk];
+          for (const ck in satir) {
+            const t = String(pkHucreMetniCoz(satir[ck]) || '').trim();
+            if (PK_UST_ETIKETLER.indexOf(t) < 0) continue;
+            a.ust[parseInt(ck, 10)] = 1;
+          }
+        }
+      }
+      pkAralikOnbellek.set(ws, a);
+      return a;
+    }
+    /* Kullanici istegi: sutun genislik carpanlari.
+       1) **Gerceklestirilen Kontrol Aciklamasi birlestirilmis blogu 2 kat;
+          Haftalik sayfasinda yariya indirilip 1 kat birakildi.
+       2) Kontrol sonucu sutunlari (1..N) 3'te 1'e indirilir.
+       3) Haftalik sayfasinda ust bilgi etiket sutunu 2 kat.
+       Araliklar SABIT sutun numarasindan degil, sayfanin kendi
+       yapisindan okunur: sayfa duzenleri farklidir (Aylik'ta kontrol
+       sutunlari L'den, Aselsan Haftalik'ta K'den baslar). Sabit
+       numara kullanmak bu sayfalarda "1" yazan sutunu "2"ye gore
+       6 kat genis gösteriyordu. */
+    function pkSutunCarpani(ws, colNo) {
+      const a = pkSutunAraliklari(ws);
+      if (a.kutu && colNo >= a.kutu[0] && colNo <= a.kutu[1]) return 1 / 3;
+      if (a.gerk && colNo >= a.gerk[0] && colNo <= a.gerk[1]) {
+        return (ws && ws.name === PK_SAYFA_HAFTALIK) ? 1 : 2;
+      }
+      if (a.ust[colNo]) return 2;
       return 1;
     }
     function pkHucreDolgu(ws, colNo) {
       const cd = ws.columns && ws.columns[colNo - 1];
       if (!cd || !cd.width) return '';
-      const px = cd.width * 7.5 * pkSutunCarpani(colNo);
+      const px = cd.width * 7.5 * pkSutunCarpani(ws, colNo);
       return Math.max(30, Math.round(px)) + 'px';
     }
 
@@ -5066,17 +5152,19 @@ ov.innerHTML = `<div class="fmea-modal">
          otoHarita once yapilir ve hedef sutunlar zorla gorunur birakilir. */
       const oto = pkOtomatikDegerler();
       const otoHarita = pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto);
-      /* Elle girilen ust bilgi hucreleri (Denetim Ayı / Denetçi degeri). */
-      const elleUst = pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik);
+      /* Elle girilen ust bilgi hucreleri: giris noktalari Excel'in BEYAZ
+         (yazma izni olan) hucrelerinden turetir. */
+      const elleUst = pkManuelUstBilgi(ws, hucreler, bas, kap, ilk, sonBaslik);
       const otoSutun = {};
       for (const k in otoHarita) otoSutun[k.split(':')[1]] = 1;
-      /* Miktar/Lot No/Seri No birlestirilen giriş alanlari M..AA kadar
-         genistir; kirpma onlari da gorunur tutsun. */
-      for (const k in elleUst) {
+      /* Miktar/Lot No/Seri No giriis alanlari ve bir sola gosterilen ust
+         bilgi etiketleri kirpma sirasinda da gorunur tutulur. */
+      for (const k in elleUst.hucre) {
         const par = k.split(':'), rr = par[0], cc = par[1];
-        for (let i = 0; i < (elleUst[k] || 1); i++) otoSutun[Number(cc) + i] = 1;
+        for (let i = 0; i < (elleUst.hucre[k] || 1); i++) otoSutun[Number(cc) + i] = 1;
         void rr;
       }
+      for (const k in elleUst.sol) otoSutun[k.split(':')[1]] = 1;
       const YARDIMCI = { 'TRUE': 1, 'FALSE': 1, 'Genel': 1, 'EMS': 1 };
       const sabit = [];
       for (let i = 0; i < gorunur.length; i++) {
@@ -5107,11 +5195,13 @@ ov.innerHTML = `<div class="fmea-modal">
              tutsun yoksa "Denetim Ayı"/"Denetçi" degeri ekranda kaybolur.
              Elle girilen ust bilgi hucreleri de ayni sekilde tutulur. */
           if (otoHarita[r + ':' + c]) { doluSutun[c] = 1; continue; }
-          if (elleUst[r + ':' + c]) {
-            const g = elleUst[r + ':' + c] || 1;
+          if (elleUst.hucre[r + ':' + c]) {
+            const g = elleUst.hucre[r + ':' + c] || 1;
             for (let i = 0; i < g; i++) doluSutun[c + i] = 1;
             continue;
           }
+          if (elleUst.sol[r + ':' + c]) { doluSutun[c] = 1; continue; }
+          if (elleUst.sil[r + ':' + c]) { doluSutun[c] = 1; continue; }
           if (satir[c] && pkHucreMetniCoz(satir[c])) doluSutun[c] = 1;
         }
       }
@@ -5130,7 +5220,7 @@ ov.innerHTML = `<div class="fmea-modal">
          "Proses Kontrolü" ve "Parça Kontrolü" etiket satirlari da yariya
          indirilir (kullani istegi). */
       const elleSatir = {};
-      for (const k in elleUst) elleSatir[Number(k.split(':')[0])] = 1;
+      for (const k in elleUst.hucre) elleSatir[Number(k.split(':')[0])] = 1;
       /* r13 "Proses Kontrolü", r14 "Parça Kontrolü" etiketlerinin bulundugu
          satirlar: etiket metni bas harfiyle eslesir. */
       for (let r = ilk; r <= sonBaslik; r++) {
@@ -5161,7 +5251,8 @@ ov.innerHTML = `<div class="fmea-modal">
           const b = bas[r + ':' + c];
           if (b && veri) {
             /* Birlestirilmis VERI hucresi: normal veri hucresi gibi duzenlenir.
-               Metin sol ust hucresinde tutulur (pkEdits anahtari da oraya yazilir). */
+               Metin sol ust hucresinde tutulur (pkEdits anahtari da oraya yazilir).
+               Excel'de renkli (yazma izni olmayan) hucre SALT METIN olur. */
             const pkB = sheetKey + r + '!' + c;
             const ozetB = pkHucreMetniCoz(satir[c] || null);
             const dvB = pkHucreDeger(depo, pkB, ozetB);
@@ -5181,7 +5272,9 @@ ov.innerHTML = `<div class="fmea-modal">
                kaydirir ve "Dof No / Denetci Aciklamasi" basliklarinin alti
                bos (cercievesiz, veri girilemez) kalir. */
             const csB = b[1] > 1 ? ' colspan="' + b[1] + '"' : '';
-            if (kutu && c >= kutu.c1 && c <= kutu.c2) {
+            if (!pkHucreBeyaz(satir[c] || null)) {
+              s += '<td class="pk-sabit"' + csB + stB + '>' + esc(dvB) + '</td>';
+            } else if (kutu && c >= kutu.c1 && c <= kutu.c2) {
               const opts = [''].concat(kutu.sec);
               s += '<td class="pkd pkd-sec"' + csB + stB + '><select data-pk="' + esc(pkB) +
                    '" data-orig="' + esc(ozetB) + '" onchange="pkSecimDegisti(this)">' +
@@ -5229,7 +5322,10 @@ ov.innerHTML = `<div class="fmea-modal">
           if (veri) {            const pk = sheetKey + r + '!' + c;
             const dv = pkHucreDeger(depo, pk, ozet);
             const st = w ? ' style="min-width:' + w + '"' : '';
-            if (kutu && c >= kutu.c1 && c <= kutu.c2) {
+            if (!pkHucreBeyaz(satir[c] || null)) {
+              /* Excel'de renkli hucre: giris izni yok, salt metin. */
+              s += '<td class="pk-sabit"' + st + '>' + esc(dv) + '</td>';
+            } else if (kutu && c >= kutu.c1 && c <= kutu.c2) {
               /* Excel veri dogrulama listesi olan hucre: acilir kutu.
                  "X" isareti hem Excel'de hem ekranda ayni gorunur. */
               const opts = [''].concat(kutu.sec);
@@ -5246,13 +5342,13 @@ ov.innerHTML = `<div class="fmea-modal">
                    '<textarea rows="1" data-pk="' + esc(pk) + '" data-orig="' + esc(ozet) + '"' +
                    ' oninput="pkEditCell(this);fitCell(this)" placeholder="…">' + esc(dv) + '</textarea></td>';
             }
-          } else if (elleUst[r + ':' + c]) {
-            /* "Denetim Ayı" / "Denetçi" / "Miktar" / "Lot No" / "Seri No"
-               degeri otomatik gelmez; baslik bandinda olmasina ragmen veri
-               hucresi gibi elle duzenlenir ve pkEdits'e yazilir.
-               Miktar/Lot No/Seri No degeri 15 kontrol sutununu (M..AA) kaplar:
-               colspan ile birlestirilir ve kapsanan sutunlar atlanir. */
-            const genis = elleUst[r + ':' + c] || 1;
+          } else if (elleUst.hucre[r + ':' + c]) {
+            /* "Denetim Ayı" / "Denetçi" / "Denetçi Adı" / "Denetim Yılı" /
+               "Miktar" / "Lot No" / "Seri No" degeri otomatik gelmez; baslik
+               bandinda olmasina ragmen veri hucresi gibi elle duzenlenir ve
+               pkEdits'e yazilir. Her alan TEK hucrede kalir (kullani istegi:
+               birlestirme yapilmaz). */
+            const genis = elleUst.hucre[r + ':' + c] || 1;
             const pk = sheetKey + r + '!' + c;
             const ozetV = pkHucreMetniCoz(satir[c] || null);
             s += '<td class="pkd"' + (genis > 1 ? ' colspan="' + genis + '"' : '') +
@@ -5273,9 +5369,14 @@ ov.innerHTML = `<div class="fmea-modal">
                Karakteristigi, Kriteri/Spesifikasyon, Yontemi, Ekipman No,
                **Gerceklestirilen Kontrol Aciklamasi, 1..15, Def No,
                Denetci Aciklamasi, Denetim Ayi). Otomatik deger hucreleri
-               (yesil) onun uzerine biner. */
-            const gorunen = pkHucreGorunenMetin(r, c, ozet, otoHarita);
-            const otoMu = Object.prototype.hasOwnProperty.call(otoHarita, r + ':' + c);
+               (yesil) onun uzerine biner.
+               Bir sutun sola gosterilen ust bilgi etiketleri (Aylik:
+               Denetim Yili / Denetci Adi) burada basilir. */
+            const anaK = r + ':' + c;
+            const solaEt = elleUst.sol[anaK];
+            const gorunen = solaEt ? esc(solaEt)
+              : (elleUst.sil[anaK] ? '' : pkHucreGorunenMetin(r, c, ozet, otoHarita));
+            const otoMu = Object.prototype.hasOwnProperty.call(otoHarita, anaK);
             s += '<td' + (otoMu ? ' class="pk-oto"' : ' class="pkh"') +
                  (w ? ' style="min-width:' + w + '"' : '') + '>' + gorunen + '</td>';
           }
@@ -5409,32 +5510,92 @@ ov.innerHTML = `<div class="fmea-modal">
         }
 
         /* Ust bilgi alanlarindan OTOMATIK DOLMAYAN, kullanici tarafindan elle
-           girilen hucreler. "Denetim Ayı" ve "Denetçi" etiketleri FMEA'dan
-           gelmez; degerleri kullanicinin kendisi yazar. "Miktar", "Lot No" ve
-           "Seri No" da veri satirlarina degil ust bilgi bandina yazilir ve
-           genis alana sahip olmali: deger hucreleri 15 kontrol sutununu
-           (M..AA) kaplayacak sekilde birlestirilir.
-           Doner: { "satir:sutun" : birlestirilecekHucreSayisi }
-           (1 = birlestirme yok, sadece tek hucre). */
-        const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Miktar', 'Lot No', 'Seri No'];
-        function pkManuelUstBilgi(hucreler, bas, kap, ilk, sonBaslik) {
+           girilen hucreler. "Denetim Ayı", "Denetçi", "Denetçi Adı" ve
+           "Denetim Yılı" ust bilgi bandinda; "Miktar", "Lot No" ve "Seri No"
+           veri satirlarina degil ust bilgi bandina yazilir.
+           GIRIS NOKTASI KURALI: Excel'de yazma izni olan hucreler BEYAZdir;
+           etiket/sablon hucreleri renklendirilmistir. Bu yuzden deger
+           hucreleri SABIT sutun numarasiyla (etiket+1) degil, sayfanin
+           kendi yapisiyla bulunur: etiketin sagindaki ilk beyaz ve
+           birlestirme disi hucre. Sayfa duzenleri farklidir (Tedarikci
+           Haftalik'ta Q, Aselsan'da P) - sabit numara kullanmak yanlis
+           hucreyi isaretlerdi.
+           Doner: { hucre: { "satir:sutun": 1 }, sol: { "satir:sutun": etiket } }
+           (her alan TEK hucrede kalir; birlestirme YAPILMAZ - kullanici istegi) */
+        const PK_ELLE_ETIKETLER = ['Denetim Ayı', 'Denetçi', 'Denetçi Adı', 'Denetim Yılı', 'Miktar', 'Lot No', 'Seri No'];
+        /* Miktar / Lot No / Seri No satirlarinda etiketin sagindaki beyaz
+           hucreler Döf No sutununa kadar TAMI giris alanidir (kullani istegi).
+           Her hucre AYRI ayri yazilir - birlestirme YAPILMAZ. */
+        const PK_KONTROL_SATIR_ETIKETLER = ['Miktar', 'Lot No', 'Seri No'];
+        /* Kullani istegi: bu etiketler ekranda bir sutun sola gosterilir.
+           Etiketin bir sola gosterilecegi hucre, kaynak dosyada renkli bir
+           birlestirmenin icinde kalirsa o birlestirmenin sag kenarindaki
+           sutun serbest birakilir (Aylik: K13:X14 -> K13:W14).
+           Deger, etiketten sonraki ilk beyaz hucreye yazilmaya devam eder. */
+        const PK_UST_ETIKET_SOLA = { 'Aylık': ['Denetim Yılı', 'Denetçi Adı'] };
+        /* Renkli birlestirmenin sag kenarini bir sutun sola cek: (r,c)
+           serbest kalir. Yalnizca sag kenar daraltilabilir. */
+        function pkBirlestirmeDaralt(bas, kap, r, c) {
+          for (const ana in bas) {
+            const par = ana.split(':');
+            const ra = parseInt(par[0], 10), ca = parseInt(par[1], 10);
+            const b = bas[ana];
+            if (r < ra || r > ra + b[0] - 1) continue;
+            if (c < ca || c > ca + b[1] - 1) continue;
+            if (c !== ca + b[1] - 1 || b[1] < 2) return false;
+            for (let rr = ra; rr <= ra + b[0] - 1; rr++) delete kap[rr + ':' + c];
+            b[1] -= 1;
+            return true;
+          }
+          return !kap[r + ':' + c];
+        }
+        function pkManuelUstBilgi(ws, hucreler, bas, kap, ilk, sonBaslik) {
           const m = {};
+          const sol = {};
+          const sil = {};
+          const solaEtiket = (ws && PK_UST_ETIKET_SOLA[ws.name]) || [];
+          /* Etiketin sagindaki ilk beyaz + birlestirme disi hucre. */
+          const ilkBeyaz = function (r, c) {
+            for (let i = 1; i <= 12; i++) {
+              const s = c + i;
+              if (s > 250) return 0;
+              if (kap[r + ':' + s]) continue;                  /* birlestirme ici */
+              if (bas[r + ':' + s]) continue;                 /* baslik blogu */
+              if (pkHucreBeyaz(pkHucreBul(ws, r, s))) return s;
+            }
+            return 0;
+          };
+          /* Döf No sutunu: kontrol satirlarinda etiketin sagindan (bu sutun
+             HARIC) kadar olan beyaz hucrelerin tamami giris alanidir. */
+          let defNo = 0;
+          for (const ana in bas) {
+            if (pkBaslikNormalize(bas[ana][2] || '').indexOf('dof no') !== 0) continue;
+            const p = parseInt(ana.split(':')[1], 10);
+            if (p > 0 && (!defNo || p < defNo)) defNo = p;
+          }
           for (let r = ilk; r <= sonBaslik; r++) {
             const satir = hucreler[r] || {};
             for (const k in satir) {
               const t = String(pkHucreMetniCoz(satir[k]) || '').trim();
               if (PK_ELLE_ETIKETLER.indexOf(t) < 0) continue;
-              /* Deger etiketin HEMEN SAGINDAKI tek hucreye girilir.
-                 Birlestirme YAPILMAZ (kullanici istegi) - her alan tek
-                 sutunda kalir. */
               const c = parseInt(k, 10);
-              const b = bas[r + ':' + c];
-              const s = (b && b[1] >= 2) ? c + b[1] - 1 + 1 : c + 1;
-              if (s > 250) continue;
-              m[r + ':' + s] = 1;
+              if (solaEtiket.indexOf(t) >= 0 && c > 1 && pkBirlestirmeDaralt(bas, kap, r, c - 1)) {
+                sol[r + ':' + (c - 1)] = t;
+                sil[r + ':' + c] = 1;            /* etiket eski yerinde tekrar basilmaz */
+              } else if (PK_KONTROL_SATIR_ETIKETLER.indexOf(t) >= 0 && defNo > c + 1) {
+                /* Her kontrol sutunu kendi hucresinde yazilir (colspan yok). */
+                for (let s = c + 1; s < defNo; s++) {
+                  if (kap[r + ':' + s] || bas[r + ':' + s]) continue;
+                  if (!pkHucreBeyaz(pkHucreBul(ws, r, s))) continue;
+                  m[r + ':' + s] = 1;
+                }
+                continue;
+              }
+              const s = ilkBeyaz(r, c);
+              if (s) m[r + ':' + s] = 1;
             }
           }
-          return m;
+          return { hucre: m, sol: sol, sil: sil };
         }
       function pkOtoHarita(hucreler, bas, kap, ilk, sonBaslik, oto) {
       const h = {};
