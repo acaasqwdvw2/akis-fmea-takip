@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-d';
+    const PK_SABLON_VER = '2026-10-07-e';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4805,6 +4805,23 @@ ov.innerHTML = `<div class="fmea-modal">
        PK_BASLANGIC = ilk gorulen veri satiri sayisi, PK_LIMIT = guvenlik tavani. */
     const PK_BASLANGIC = 5;
     const PK_LIMIT = 60;
+    /* "No" (D, sutun 4) her formda/sayfada satir sirasina gore OTOMATIK
+       numaralanir (satir ekleme/silme/dolgu ya da gecmis duzeltmeler sonrasi
+       bile). "Takip No" (B, sutun 2) bos kalan satirlar icin ayni sira
+       numarasini alir: boylece her satirin Takip No'su farkli olur ve
+       tedarikci ile ASELSAN tarafinda BIREBIR ayni kalir (eslesir). Ilk veri
+       satiri tum sablonlarda Excel satiri 20'dir (sonBaslik=19). */
+    const PK_ILK_VERI = 20;
+    const PK_SABIT_SAYFALAR = { 'Günlük-1': 1, 'Günlük-2': 1, 'Haftalık': 1, 'Aylık': 1 };
+    function pkOtoSatirNo(r) {
+      return (r >= PK_ILK_VERI) ? String(r - PK_ILK_VERI + 1) : '';
+    }
+    function pkOtoSayfaDeger(r, c, dv, sayfa) {
+      if (!PK_SABIT_SAYFALAR[sayfa]) return dv;
+      if (c === 4) return pkOtoSatirNo(r);
+      if (c === 2 && !String(dv || '').trim()) return pkOtoSatirNo(r);
+      return dv;
+    }
     const PK_CACHE = {};
     const pkDurum = { anahtar: null, wb: null, sekme: 0 };
 
@@ -5296,7 +5313,7 @@ ov.innerHTML = `<div class="fmea-modal">
                Excel'de renkli (yazma izni olmayan) hucre SALT METIN olur. */
             const pkB = sheetKey + r + '!' + c;
             const ozetB = pkHucreMetniCoz(satir[c] || null);
-            const dvB = pkHucreDeger(depo, pkB, ozetB);
+            const dvB = pkOtoSayfaDeger(r, c, pkHucreDeger(depo, pkB, ozetB), ws.name);
             let bW = '';
             if (b[1] > 1) {
               let toplam = 0, varMi = false;
@@ -5361,7 +5378,7 @@ ov.innerHTML = `<div class="fmea-modal">
           const w = pkHucreDolgu(ws, c);
           const ozet = pkHucreMetniCoz(satir[c] || null);
           if (veri) {            const pk = sheetKey + r + '!' + c;
-            const dv = pkHucreDeger(depo, pk, ozet);
+            const dv = pkOtoSayfaDeger(r, c, pkHucreDeger(depo, pk, ozet), ws.name);
             const st = w ? ' style="min-width:' + w + '"' : '';
             if (!pkHucreBeyaz(satir[c] || null)) {
               /* Excel'de renkli hucre: giris izni yok, salt metin. */
@@ -6303,6 +6320,23 @@ ov.innerHTML = `<div class="fmea-modal">
             });
           });
         }
+        /* "No" otomatik siralama + bos "Takip No" dolgusu: her veri satirina
+           sira numarasi yazilir (indirilen Excel'de de ekrandaki gibi). */
+        wb.eachSheet(function (as) {
+          if (!PK_SABIT_SAYFALAR[as.name]) return;
+          for (let rr = PK_ILK_VERI; rr <= (as.rowCount || PK_ILK_VERI); rr++) {
+            const no = pkOtoSatirNo(rr);
+            if (!no) continue;
+            const noHucre = as.getCell(rr, 4);
+            const noVar = noHucre && noHucre.value !== null && noHucre.value !== undefined &&
+                          String(noHucre.value).trim() !== '';
+            if (!noVar || String(noHucre.value) !== no) { noHucre.value = no; yazilan++; }
+            const takHucre = as.getCell(rr, 2);
+            const takVar = takHucre && takHucre.value !== null && takHucre.value !== undefined &&
+                           String(takHucre.value).trim() !== '';
+            if (!takVar) { takHucre.value = no; yazilan++; }
+          }
+        });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
         const buf = await wb.xlsx.writeBuffer();
         let indir = buf;
