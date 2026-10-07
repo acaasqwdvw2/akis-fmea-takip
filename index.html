@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-e';
+    const PK_SABLON_VER = '2026-10-07-f';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -5469,20 +5469,27 @@ ov.innerHTML = `<div class="fmea-modal">
     };
     /* --- Cok dosya (Aselsan) veri aktarimi -----------------------------------
        ASELSAN formu tedarikci formunun ust duzey kayitlarindan beslenir:
-         ASELSAN Haftalık  <- tedarikci Günlük-1 (ve yansiyan Günlük-2)
+         ASELSAN Haftalık  <- tedarikci Günlük-1 (yansiyan Günlük-2) veya Haftalık
          ASELSAN Aylık     <- tedarikci Aylık (yoksa Haftalık)
-       sutunlar: KAYNAK_sutun -> HEDEF_sutun. Tedarikci J(10) "**Gerçekleştirilen
-       Kontrol Açıklaması" -> ASELSAN I(9); kimlik sutunlari (B..H) birebir.
-       Tik / X / N-A sonuclari, Miktar/Lot/Seri bandi ve Döf No/Denetçi
-       Açıklaması AKTARILMAZ.
+       Her kaynak icin ayri sutun haritasi (KAYNAK_sutun -> HEDEF_sutun) verilir.
+       Tedarikci J(10) "**Gerçekleştirilen Kontrol Açıklaması" -> ASELSAN I(9);
+       kimlik sutunlari (B..H) birebir. Haftalik/Aylik tik bandlari da birebir
+       aktarilir: Haftalık 12..15 -> 11..14, Aylık 12..23 -> 11..22. Gunluk tik
+       bandlari (13..27/28) haftaliga sigmadigi icin aktarilmaz; Miktar/Lot/Seri
+       bandi ile Döf No/Denetçi Açıklaması da aktarilmaz.
        Gorus modunda dolu kaynak degeri, ASELSAN hucresi bos oldugunda gorunur;
        indirmede kaynak degeri hedef sayfaya da yazilir. */
     const PK_AKTARIMLAR = {
       aselsan: [
-        { hedef: 'Haftalık', kaynaklar: ['Günlük-1', 'Günlük-2'],
-          sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } },
-        { hedef: 'Aylık', kaynaklar: ['Aylık', 'Haftalık'],
-          sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } }
+        { hedef: 'Haftalık', kaynaklar: [
+          { sayfa: 'Günlük-1', sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } },
+          { sayfa: 'Günlük-2', sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } },
+          { sayfa: 'Haftalık', sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9, 12: 11, 13: 12, 14: 13, 15: 14 } }
+        ] },
+        { hedef: 'Aylık', kaynaklar: [
+          { sayfa: 'Aylık', sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9, 12: 11, 13: 12, 14: 13, 15: 14, 16: 15, 17: 16, 18: 17, 19: 18, 20: 19, 21: 20, 22: 21, 23: 22 } },
+          { sayfa: 'Haftalık', sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9, 12: 11, 13: 12, 14: 13, 15: 14 } }
+        ] }
       ]
     };
     function pkAktarimEsle(anahtar, sayfa) {
@@ -5492,11 +5499,21 @@ ov.innerHTML = `<div class="fmea-modal">
       }
       return null;
     }
-    function pkAktarimInverse(cfg) {
+    function pkAktarimInverse(src) {
       const t = {};
-      if (!cfg) return t;
-      for (const k in cfg.sutunlar) t[cfg.sutunlar[k]] = Number(k);
+      if (!src) return t;
+      const m = src.sutunlar || src;
+      for (const k in m) t[m[k]] = Number(k);
       return t;
+    }
+    function pkAktarimKaynak(src) { return (typeof src === 'string') ? src : src.sayfa; }
+    function pkAktarimHarita(src) {
+      if (typeof src === 'string') return null;
+      return (src && src.sutunlar) ? src.sutunlar : null;
+    }
+    function pkAktarimSutun(src, kaynakC) {
+      const m = pkAktarimHarita(src);
+      return m ? m[kaynakC] : null;
     }
     /* Excel'de X imlemesi kullanilir; ekranda da ayni gorunur. */
     function pkListeSecenekleri(ws) {
@@ -5932,7 +5949,8 @@ ov.innerHTML = `<div class="fmea-modal">
           const cfg = pkAktarimEsle('aselsan', sf);
           if (cfg) {
             const kullanici = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
-            cfg.kaynaklar.forEach(function (ks) {
+            cfg.kaynaklar.forEach(function (kay) {
+              const ks = pkAktarimKaynak(kay);
               let s2 = null;
               try {
                 s2 = parseInt(localStorage.getItem('pkSatir::' + kullanici + '::tedarikci::' + ks) || '0', 10);
@@ -6090,13 +6108,12 @@ ov.innerHTML = `<div class="fmea-modal">
         const cfg = pkAktarimEsle('aselsan', p[1]);
         if (cfg) {
           const hedefC = parseInt(p[3], 10);
-          const ters = pkAktarimInverse(cfg);
-          if (Object.prototype.hasOwnProperty.call(ters, hedefC)) {
+          for (let i = 0; i < cfg.kaynaklar.length; i++) {
+            const ters = pkAktarimInverse(cfg.kaynaklar[i]);
+            if (!Object.prototype.hasOwnProperty.call(ters, hedefC)) continue;
             const kaynakC = ters[hedefC];
-            for (let i = 0; i < cfg.kaynaklar.length; i++) {
-              const aday = 'tedarikci!' + cfg.kaynaklar[i] + '!' + p[2] + '!' + kaynakC;
-              if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
-            }
+            const aday = 'tedarikci!' + pkAktarimKaynak(cfg.kaynaklar[i]) + '!' + p[2] + '!' + kaynakC;
+            if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
           }
         }
       }
@@ -6304,11 +6321,12 @@ ov.innerHTML = `<div class="fmea-modal">
           dizi.forEach(function (cfg) {
             const hws = wb.getWorksheet(cfg.hedef);
             if (!hws) return;
-            cfg.kaynaklar.forEach(function (ks) {
+            cfg.kaynaklar.forEach(function (kay) {
+              const ks = pkAktarimKaynak(kay);
               anahtarlar.forEach(function (k) {
                 const par = k.split('!');
                 if (par.length !== 4 || par[0] !== 'tedarikci' || par[1] !== ks) return;
-                const hedefC = cfg.sutunlar[par[3]];
+                const hedefC = pkAktarimSutun(kay, par[3]);
                 if (!hedefC) return;
                 const r = parseInt(par[2], 10);
                 if (!r) return;
