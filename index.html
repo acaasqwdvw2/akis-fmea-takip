@@ -120,6 +120,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* FMEA kaydindan otomatik gelen ust bilgi alanlari */
     .fmea-table td.pk-oto{background:#f2fbf4;color:#17402a}
     .fmea-table td.pk-oto .pk-oto-d{font-weight:700;color:#1d6b33}
+    /* Belge sayfasi (Kullanım Talimatı vb.): baslik/veri ayrismaz, textarea
+       yok. Tum satirlar birlestirmelerle cizilir, metinler satirbasi korur. */
+    .fmea-table.pk-belge td{white-space:pre-wrap;word-break:break-word;vertical-align:top;padding:2px 4px}
+    .pk-belge-ortam{position:relative}
+    .pk-belge-gorsel{position:absolute;pointer-events:none;display:block}
     /* Miktar / Lot No / Seri No ve Proses/Parça Kontrolü satirlari yariya
        indirilir. Birlestirilmis hucre (F15:I18, J15:K18, D15:E18) bu
        satirlari kapsadigi icin rowspan hucreleri de kucultulur. */
@@ -4781,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-b';
+    const PK_SABLON_VER = '2026-10-07-c';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -5055,10 +5060,118 @@ ov.innerHTML = `<div class="fmea-modal">
                gorunur: gorunur, ilk: ilk, son: son, sonBaslik: sonBaslik,
                baslikSutunlar: etiket ? etiket.sutunlar : null };
     }
+    /* --- Belge sayfasi renderi ----------------------------------------------
+       Kullanım Talimatı gibi "veri girilebilir form" OLMAYAN sayfalar icin:
+       tum satirlar birlestirmeleri korunarak, textarea olmadan cizilir.
+       ExcelJS'in okudugu gorseller (logo vb.) tablonun ustune absolute
+       konumlandirma ile biner. */
+    function pkBelgeHtml(ws, cozum) {
+      const { hucreler, kap, bas, gorunur, ilk, son } = cozum;
+      const govde = [];
+      const atla = {};
+      for (let r = ilk; r <= son; r++) {
+        if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
+        const satir = hucreler[r] || {};
+        let s = '<tr>';
+        for (let i = 0; i < gorunur.length; i++) {
+          const c = gorunur[i];
+          if (atla[r] && atla[r][c]) continue;
+          if (kap[r + ':' + c]) continue;
+          const b = bas[r + ':' + c];
+          let w = '';
+          if (b && b[1] > 1) {
+            let toplam = 0, varMi = false;
+            for (let j = 0; j < b[1]; j++) {
+              const p = pkHucreDolgu(ws, c + j);
+              if (p) { toplam += parseInt(p, 10); varMi = true; }
+            }
+            if (varMi) w = ' style="min-width:' + Math.max(30, toplam) + 'px"';
+          } else {
+            const p = pkHucreDolgu(ws, c);
+            if (p) w = ' style="min-width:' + p + '"';
+          }
+          const metin = b ? String(b[2] || '') : String(pkHucreMetniCoz(satir[c] || null) || '');
+          s += '<td data-st="' + r + '" data-sc="' + c + '"' +
+               (b && b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
+               (b && b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + w + '>' + esc(metin) + '</td>';
+          if (b && b[1] > 1) {
+            atla[r] = atla[r] || {};
+            for (let j = 1; j < b[1]; j++) atla[r][c + j] = 1;
+          }
+        }
+        s += '</tr>';
+        govde.push(s);
+      }
+      return '<div class="fmea-x"><div class="fmea-sctop"><div class="fmea-sctrack"></div></div>' +
+        '<div class="fmea-scroll"><div class="pk-belge-ortam">' + pkBelgeGorseller(ws) +
+        '<table class="fmea-table cptable pk-belge"><tbody>' + govde.join('') +
+        '</tbody></table></div></div>';
+    }
+
+    function pkBelgeGorseller(ws) {
+      if (!ws.getImages) return '';
+      let imler = null;
+      try { imler = ws.getImages(); } catch (e) { return ''; }
+      if (!imler || !imler.length) return '';
+      const wb = pkDurum.wb;
+      if (!wb || !wb.model || !Array.isArray(wb.model.media)) return '';
+      let c = '';
+      imler.forEach(function (im) {
+        const med = wb.model.media[im.imageId];
+        let ham = med && med.buffer;
+        if (!ham && med && typeof med.base64 === 'string') ham = med.base64;
+        if (!ham) return;
+        let b64 = '';
+        if (typeof ham === 'string') {
+          b64 = ham.indexOf('base64,') >= 0 ? ham.split('base64,')[1] : ham;
+        } else {
+          try {
+            const arr = (ham instanceof Uint8Array) ? ham : new Uint8Array(ham);
+            let ik = '';
+            const blok = 0x8000;
+            for (let i = 0; i < arr.length; i += blok) {
+              ik += String.fromCharCode.apply(null, arr.subarray(i, Math.min(arr.length, i + blok)));
+            }
+            b64 = btoa(ik);
+          } catch (e) { return; }
+        }
+        if (!b64) return;
+        const uz = String(med.extension || med.name || 'png').split('.').pop().toLowerCase();
+        const tl = (im.range && im.range.tl) || {};
+        const ext = (im.range && im.range.ext) || {};
+        c += '<img class="pk-belge-gorsel" data-st="' + ((tl.row || 0) + 1) + '"' +
+             ' data-sc="' + ((tl.col || 0) + 1) + '"' +
+             ' data-ox="' + Math.round((tl.colOff || 0) / 9525) + '"' +
+             ' data-oy="' + Math.round((tl.rowOff || 0) / 9525) + '"' +
+             ' src="data:image/' + uz + ';base64,' + b64 + '"' +
+             ' style="width:' + Math.max(1, Math.round((ext.width || 0) / 9525)) + 'px;' +
+             'height:' + Math.max(1, Math.round((ext.height || 0) / 9525)) + 'px"></img>';
+      });
+      return c;
+    }
+
+    function pkBelgeKonumlandir(ortam) {
+      if (!ortam || !ortam.querySelector) return;
+      const tablo = ortam.querySelector('table');
+      const imler = ortam.querySelectorAll('.pk-belge-gorsel');
+      for (let i = 0; i < imler.length; i++) {
+        const img = imler[i];
+        const h = tablo.querySelector('[data-st="' + img.getAttribute('data-st') +
+                                      '"][data-sc="' + img.getAttribute('data-sc') + '"]');
+        if (!h) { img.style.display = 'none'; continue; }
+        img.style.left = (h.offsetLeft + parseInt(img.getAttribute('data-ox') || '0', 10)) + 'px';
+        img.style.top = (h.offsetTop + parseInt(img.getAttribute('data-oy') || '0', 10)) + 'px';
+      }
+    }
+
     function pkIzgaraHtml(ws) {
       /* hucre haritasi / gorunur sutunlar / baslik-veri ayrimi ortak cozumleyicide */
       const cozum = pkSayfaCozum(ws);
       if (!cozum) return '<div class="pk-note">Bu sayfada okunabilir veri yok.</div>';
+      /* Belge sayfasi (Kullanım Talimatı vb.): baslik/veri ayrimi yok, tum
+         satirlar birlestirmeleriyle cizilir ve duzenlenmez (textarea'siz).
+         Form sayfalari PK_KUTULAR'dadir ve baslik-sutun taramasi olanaklidir. */
+      if (!PK_KUTULAR[ws.name] && !cozum.baslikSutunlar) return pkBelgeHtml(ws, cozum);
       const { hucreler, maxR, maxC, kap, bas, gorunur, ilk, son, sonBaslik } = cozum;
       const birlSayi = Object.keys(bas).length;
 
@@ -5337,6 +5450,37 @@ ov.innerHTML = `<div class="fmea-modal">
       'Haftalık':    [{ c1: 12, c2: 15, opts: 'U11:U13' }, { c1: 11, c2: 14, opts: 'T11:T13' }],
       'Aylık':       [{ c1: 12, c2: 23, opts: 'AC16:AC18' }, { c1: 11, c2: 22, opts: 'AB16:AB18' }]
     };
+    /* --- Cok dosya (Aselsan) veri aktarimi -----------------------------------
+       ASELSAN formu tedarikci formunun ust duzey kayitlarindan beslenir:
+         ASELSAN Haftalık  <- tedarikci Günlük-1 (ve yansiyan Günlük-2)
+         ASELSAN Aylık     <- tedarikci Aylık (yoksa Haftalık)
+       sutunlar: KAYNAK_sutun -> HEDEF_sutun. Tedarikci J(10) "**Gerçekleştirilen
+       Kontrol Açıklaması" -> ASELSAN I(9); kimlik sutunlari (B..H) birebir.
+       Tik / X / N-A sonuclari, Miktar/Lot/Seri bandi ve Döf No/Denetçi
+       Açıklaması AKTARILMAZ.
+       Gorus modunda dolu kaynak degeri, ASELSAN hucresi bos oldugunda gorunur;
+       indirmede kaynak degeri hedef sayfaya da yazilir. */
+    const PK_AKTARIMLAR = {
+      aselsan: [
+        { hedef: 'Haftalık', kaynaklar: ['Günlük-1', 'Günlük-2'],
+          sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } },
+        { hedef: 'Aylık', kaynaklar: ['Aylık', 'Haftalık'],
+          sutunlar: { 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 10: 9 } }
+      ]
+    };
+    function pkAktarimEsle(anahtar, sayfa) {
+      const dizi = PK_AKTARIMLAR && PK_AKTARIMLAR[anahtar];
+      for (let i = 0; dizi && i < dizi.length; i++) {
+        if (dizi[i].hedef === sayfa) return dizi[i];
+      }
+      return null;
+    }
+    function pkAktarimInverse(cfg) {
+      const t = {};
+      if (!cfg) return t;
+      for (const k in cfg.sutunlar) t[cfg.sutunlar[k]] = Number(k);
+      return t;
+    }
     /* Excel'de X imlemesi kullanilir; ekranda da ayni gorunur. */
     function pkListeSecenekleri(ws) {
       try {
@@ -5599,10 +5743,13 @@ ov.innerHTML = `<div class="fmea-modal">
     }
 
     /* --- "KONTROL SEC": Kontrol Plani'ndan satir bazinda secim ----------------
-       Secilen satirlar Proses Kontrol Formu'na aktarilir:
-         Takip No -> B, Kaynak Dokuman -> KP No (+ Siniflandirma),
-         No / Adi / Karakteristigi / Kriteri-Spesifikasyon / Yontemi /
-         Gerceklestirilen Kontrol Aciklamasi
+       Secilen satirlar YALNIZCA o an acik olan Proses Kontrol Formu sayfasina
+       yazilir:
+         Takip No -> B, Kaynak Dokuman -> KP No, No -> D, Adi -> E,
+         Karakteristigi -> F, Kriteri-Spesifikasyon -> G,
+         YONTEM (H) <- CP "Olçum / Degerlendirme Teknigi".
+       Ekipman No ve Gerceklestirilen Kontrol Aciklamasi elle girilir;
+       CP "Kontrol Yontemi / Kayit Yontemi" ve "Miktarı" aktarilmaz.
        Sutun adresleri Excel basliklarindan okunur (dosyaya gore degisebilir). */
     /* Kontrol Sec ekrani: satirlari isaretlenir, onaylaninca PK formuna yazilir. */
     function pkKontrolSec(anahtar) {
@@ -5659,12 +5806,10 @@ ov.innerHTML = `<div class="fmea-modal">
       ckBildir(n + ' satır Proses Kontrol Formu\'na aktarıldı.', 'oldu');
     }
     /* Secilen Kontrol Plani satirlarini PK formunun veri satirlarina yazar.
-       Ayni kontrol tablosu birden fazla sayfada yer alir (Tedarikci ve
-       Aselsan dosyalarinda "Günlük-1" ve "Günlük-2"). Kullanicinin istegi
-       uzerine secilen satirlar BU SAYFAYA ve ayni duzeni tasiyan diger
-       gunluk sayfalarina da yazilir; boylece "Günlük-2" sekmesi de ayni
-       tabloyu gosterir. Sayfa duzeni farkli olan sayfalar (Haftalik, Aylik)
-       atlanir: eslesme baslik satiri cozumleyicisi ile yapilir. */
+       Kullanici istegi: aktarim YALNIZCA o an acik olan sayfaya yazilir
+       (her sayfa ayri ayri doldurulur). Günlük-1'de yapilan is Günlük-2'ye
+       otomatik olarak miraslanir (pkMiras*) - iki gunluk sayfasi hep ayni
+       kalir; bu yuzden burada baska sayfalara kopyalama yapilmaz. */
     function pkKontrolAktar(anahtar, secili) {
       const key = anahtar || pkDurum.anahtar;
       if (!key || !pkDurum.wb) return 0;
@@ -5684,28 +5829,10 @@ ov.innerHTML = `<div class="fmea-modal">
       const depo = pkEditsYukle();
       const kpNo = kaynak.kpNo || '';
 
-      /* Hedef sayfalar: aktif sayfa + ayni denetim tablosunu tasiyan
-         diger gunluk sayfalari. "Günlük" onekli olmayan sayfalar (Kullanım
-         Talimatı, Sayfa2, Haftalık, Aylık) farkli duzendir, atlanir. */
-      const hedefler = [];
-      hedefler.push({ ws: ws, cozum: cozum, kolon: kolon });
-      try {
-        pkDurum.wb.eachSheet(function (s) {
-          if (s === ws || s.name === ws.name) return;
-          if (s.name.indexOf('Günlük') !== 0) return;
-          const cz = pkSayfaCozum(s);
-          if (!cz) return;
-          /* Veri tablosu ayni mi? "Takip No" ve "**Gerceklestirilen Kontrol
-             Aciklamasi" sutunlari eslesmiyorsa bu sayfa farkli bir tablodur. */
-          const st = cz.baslikSutunlar || pkBaslikSatiriTara(cz.hucreler, 1, cz.sonBaslik + 1);
-          if (!st) return;
-          const kl = st.sutunlar || st;
-          if (!kl.takip || !kl.kontrol) return;
-          hedefler.push({ ws: s, cozum: cz, kolon: kl });
-        });
-      } catch (e) {}
+      /* Hedef: yalnizca aktif sayfa. Diger sayfalara (Günlük-2, Haftalık,
+         Aylık) aktarim YAPILMAZ; Günlük-2'ye veri Günlük-1 mirasiyla gecer. */
+      const hedefler = [{ ws: ws, cozum: cozum, kolon: kolon }];
 
-      let yazilan = 0;
       hedefler.forEach(function (h) {
         const sheetKey = key + '!' + h.ws.name + '!';
         const bas = h.cozum.sonBaslik + 1;
@@ -5720,14 +5847,17 @@ ov.innerHTML = `<div class="fmea-modal">
             if (String(deger) === '') delete depo[pk];
             else depo[pk] = String(deger);
           };
-          /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi.
+          /* Sutun sutun esleme: Kontrol Plani basligi -> Kontrol Formu basligi
+             (baslik adlari DEGISTIRILMEZ, yalnizca deger tasinir).
              Kaynak Doküman'a yalnizca "Kontrol Planı No." (kpNo) gelir.
              Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
              sutunundan veri TASINMAZ (kullanici istegi).
              Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
              araliksiz/1'den baslamasa bile numara korunur.
-             YÖNTEM, EKIPMAN NO ve GERÇEKLEŞTİRİLEN KONTROL AÇIKLAMASI
-             formda ELLE girilir: bu üç alana aktarim yapilmaz. */
+             YONTEM sutununa CP'deki "Olçum / Degerlendirme Teknigi" gelir.
+             EKIPMAN NO ve GERCEKLESTIRILEN KONTROL ACIKLAMASI formda ELLE
+             girilir. CP'deki "Kontrol Yontemi / Kayit Yontemi" ve "Miktarı"
+             aktarilmaz (kullanici istegi). */
           const kaynakMetni = kpNo || '';
           yaz('takip', r.no || (sira + 1));
           yaz('kaynak', kaynakMetni);
@@ -5735,19 +5865,16 @@ ov.innerHTML = `<div class="fmea-modal">
           yaz('adi', r.adi);
           yaz('karak', r.karak || '');
           yaz('spes', r.spes);
+          yaz('yontem', r.olcum || '');
         });
-        yazilan++;
       });
 
       pkEditsYaz(depo);
-      /* Formu yeterli sayida satira buyut (aktif sayfa + hedef sayfalar). */
+      /* Formu secilen satir sayisi kadar buyut (yalnizca aktif sayfa). */
       const gerek = Math.max(pkSatirSayisi(), secili.length);
       try { localStorage.setItem(pkSatirAnahtari(), String(gerek - PK_BASLANGIC)); } catch (e) {}
       pkCiz(key);
       if (window.scheduleCloudSync) scheduleCloudSync(900);
-      if (yazilan > 1) {
-        ckBildir(secili.length + ' satır ' + yazilan + ' sayfaya aktarıldı.', 'oldu');
-      }
       return secili.length;
     }
 
@@ -5781,6 +5908,21 @@ ov.innerHTML = `<div class="fmea-modal">
         if (sf && sf.indexOf('Günlük') === 0 && sf !== 'Günlük-1') {
           const s1 = parseInt(localStorage.getItem(pkSatirAnahtari('Günlük-1')) || '0', 10);
           if (!isNaN(s1) && s1 > n) n = s1;
+        }
+        /* Cok dosya aktarimi: ASELSAN sayfasi, tedarikci kaynaklarinin satir
+           sayisi kadar satir gosterir. */
+        if (sf && pkDurum.anahtar === 'aselsan') {
+          const cfg = pkAktarimEsle('aselsan', sf);
+          if (cfg) {
+            const kullanici = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
+            cfg.kaynaklar.forEach(function (ks) {
+              let s2 = null;
+              try {
+                s2 = parseInt(localStorage.getItem('pkSatir::' + kullanici + '::tedarikci::' + ks) || '0', 10);
+              } catch (e) { s2 = null; }
+              if (!isNaN(s2) && s2 > n) n = s2;
+            });
+          }
         }
       } catch (e2) {}
       return Math.min(PK_LIMIT, PK_BASLANGIC + n);
@@ -5872,11 +6014,16 @@ ov.innerHTML = `<div class="fmea-modal">
        (Takip No, Kaynak, No, Adı, ... Miktar/Lot/Seri) ayni sutundadir.
        Okuma yonunde (Günlük-2 goruntulenirken) deger Günlük-1'den okunur;
        indirme yonünde Günlük-1 degeri Günlük-2'ye kopyalanir. */
-    /* Veri satirlari 20'den baslar (ust bilgi bandi 1-19). Tik/X/N-A sonuc
-       sutunlari yalnizca VERI satirlarinda miras disidir; ayni sutunlarin
-       band satirlarindaki giris alanlari (Miktar, Lot No, Seri No) veridir
-       ve Günlük-1'den aynen yansir. */
-    const PK_MIRAS_VERI_SATIRI = 20;
+    /* Miras DISI sutunlar (kullanici istegi): gun sonuc sutunlari (tik / X /
+       N-A) ve bu sutunlarin band satirlarindaki alanlari (Miktar, Lot No,
+       Seri No - "gunlerin uzerindeki veriler"); hemen saglarindaki Döf No ve
+       Denetçi Açıklaması da Günlük-2'ye gecmez. Geri kalan her sey (Takip No,
+       Kaynak, No, Adı, Karakteristigi, ... Denetim Ayı, Denetçi) yansir. */
+    function pkMirasKapali(c1, c2, c) {
+      /* c1-1: "Doğrulanan Numune / Miktar / Lot No / Seri No" band sutunu da
+         mirasa kapalidir (kullani istegi). c2+2: Döf No ve Denetçi Açıklaması. */
+      return c >= c1 - 1 && c <= c2 + 2;
+    }
     function pkMirasEsleme(anahtar, sayfa) {
       try {
         if (String(sayfa).indexOf('Günlük') !== 0 || sayfa === 'Günlük-1') return null;
@@ -5900,7 +6047,7 @@ ov.innerHTML = `<div class="fmea-modal">
         const c = parseInt(p[3], 10);
         const r = parseInt(p[2], 10);
         if (!(c > 0) || !(r > 0)) return null;
-        if (r >= PK_MIRAS_VERI_SATIRI && c >= e.hedefC1 && c <= e.hedefC2) return null;
+        if (pkMirasKapali(e.hedefC1, e.hedefC2, c)) return null;
         const k = (c > e.hedefC2) ? c - e.kaydirma : c;
         return p[0] + '!Günlük-1!' + p[2] + '!' + k;
       } catch (e2) { return null; }
@@ -5911,7 +6058,7 @@ ov.innerHTML = `<div class="fmea-modal">
       try {
         const e = pkMirasEsleme(anahtar, 'Günlük-2');
         if (!e || !(sutun > 0) || !(satir > 0)) return null;
-        if (satir >= PK_MIRAS_VERI_SATIRI && sutun >= e.kaynakC1 && sutun <= e.kaynakC2) return null;
+        if (pkMirasKapali(e.kaynakC1, e.kaynakC2, sutun)) return null;
         const h = (sutun > e.kaynakC2) ? sutun + e.kaydirma : sutun;
         return anahtar + '!Günlük-2!' + satir + '!' + h;
       } catch (e2) { return null; }
@@ -5920,6 +6067,22 @@ ov.innerHTML = `<div class="fmea-modal">
       if (Object.prototype.hasOwnProperty.call(depo, anahtar)) return depo[anahtar];
       const miras = pkMirasKaynak(anahtar);
       if (miras && Object.prototype.hasOwnProperty.call(depo, miras)) return depo[miras];
+      /* Cok dosya aktarimi: ASELSAN sayfasi tedarikci verisinden beslenir. */
+      const p = String(anahtar || '').split('!');
+      if (p.length === 4 && p[0] === 'aselsan') {
+        const cfg = pkAktarimEsle('aselsan', p[1]);
+        if (cfg) {
+          const hedefC = parseInt(p[3], 10);
+          const ters = pkAktarimInverse(cfg);
+          if (Object.prototype.hasOwnProperty.call(ters, hedefC)) {
+            const kaynakC = ters[hedefC];
+            for (let i = 0; i < cfg.kaynaklar.length; i++) {
+              const aday = 'tedarikci!' + cfg.kaynaklar[i] + '!' + p[2] + '!' + kaynakC;
+              if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
+            }
+          }
+        }
+      }
       return varsayilan;
     }
     function pkHucreYukle() {
@@ -5997,6 +6160,8 @@ ov.innerHTML = `<div class="fmea-modal">
       const bas = ov.querySelectorAll('.pk-tabs button');
       for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? 'on' : '');
       pkHucreYukle();
+      const bek = ov.querySelector('.pk-belge-ortam');
+      if (bek) pkBelgeKonumlandir(bek);
       fitTopScroll(ov);
     }
 
@@ -6079,17 +6244,15 @@ ov.innerHTML = `<div class="fmea-modal">
 
     async function pkDownloadDolu(key) {
       /* Kaydedilmis duzenlemeleri sablonun uzerine yazip indirir.
-         ExcelJS .xlsm yazarken VBA'yi koruyamaz; bu yuzden makrolu dosyada
-         yalnizca uyari verilir ve orijinal sablon indirilir. */
+         Makrolu (.xlsm) dosyalarda ExcelJS VBA'yi yazamaz; bu yuzden ExcelJS
+         ciktina orijinal dosyadaki xl/vbaProject.bin JSZip ile geri enjekte
+         edilir (workbook rels + [Content_Types] de guncellenir). */
       const cfg = PK_FILES[key];
       if (!cfg || !pkDurum.wb) return;
       const depo = pkEditsYukle();
       const anahtarlar = Object.keys(depo);
+      const makrolu = /\.xlsm$/i.test(cfg.dosya);
       if (!anahtarlar.length) { ckBildir('Önce formu doldurun.', 'hata'); return; }
-      if (/\.xlsm$/i.test(cfg.dosya)) {
-        ckBildir('Makrolu dosyada yazma desteklenmiyor; girilen veriler tarayıcınızda saklı.', 'hata');
-        return;
-      }
       try {
         const wb = pkDurum.wb;
         let yazilan = 0;
@@ -6103,9 +6266,9 @@ ov.innerHTML = `<div class="fmea-modal">
           ws.getCell(r, c).value = depo[k];
           yazilan++;
         });
-        /* Günlük-1'den miraslanan alanlar da sablona yazilir (tik/X/N-A
-           sutunlari haric); boylece indirilen dosyada Günlük-2 de goruntulendigi
-           gibi dolu olur. */
+        /* Günlük-1'den miraslanan alanlar da sablona yazilir (tik/X/N-A ve
+           Miktar/Lot/Seri bandi haric); boylece indirilen dosyada Günlük-2 de
+           goruntulendigi gibi dolu olur. */
         anahtarlar.forEach(function (k) {
           const parca = k.split('!');
           if (parca.length < 4 || parca[0] !== key || parca[1] !== 'Günlük-1') return;
@@ -6117,12 +6280,63 @@ ov.innerHTML = `<div class="fmea-modal">
           ws.getCell(parseInt(hp[2], 10), parseInt(hp[3], 10)).value = depo[k];
           yazilan++;
         });
+        /* ASELSAN indirmesi: tedarikci verisini ust duzey hedef sayfalara da
+           yaz (yalnizca hedefte yerel deger yoksa; Tik/Miktar bandi aktarilmaz). */
+        if (key === 'aselsan') {
+          const dizi = (PK_AKTARIMLAR && PK_AKTARIMLAR.aselsan) || [];
+          dizi.forEach(function (cfg) {
+            const hws = wb.getWorksheet(cfg.hedef);
+            if (!hws) return;
+            cfg.kaynaklar.forEach(function (ks) {
+              anahtarlar.forEach(function (k) {
+                const par = k.split('!');
+                if (par.length !== 4 || par[0] !== 'tedarikci' || par[1] !== ks) return;
+                const hedefC = cfg.sutunlar[par[3]];
+                if (!hedefC) return;
+                const r = parseInt(par[2], 10);
+                if (!r) return;
+                const yerel = key + '!' + cfg.hedef + '!' + par[2] + '!' + hedefC;
+                if (Object.prototype.hasOwnProperty.call(depo, yerel)) return;
+                hws.getCell(r, hedefC).value = depo[k];
+                yazilan++;
+              });
+            });
+          });
+        }
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
         const buf = await wb.xlsx.writeBuffer();
-        const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        let indir = buf;
+        if (makrolu && typeof window.JSZip !== 'undefined') {
+          const orij = await (await fetch(cfg.url)).arrayBuffer();
+          const zOrij = await window.JSZip.loadAsync(orij);
+          const vba = zOrij.file('xl/vbaProject.bin');
+          if (vba) {
+            const zCikti = await window.JSZip.loadAsync(buf);
+            zCikti.file('xl/vbaProject.bin', await vba.async('uint8array'));
+            let wbr = await zCikti.file('xl/_rels/workbook.xml.rels').async('string');
+            if (wbr.indexOf('vbaProject') === -1) {
+              wbr = wbr.replace('</Relationships>',
+                '<Relationship Id="rIdVba" Type="http://schemas.microsoft.com/office/2006/relationships/vbaProject" Target="vbaProject.bin"/></Relationships>');
+              zCikti.file('xl/_rels/workbook.xml.rels', wbr);
+            }
+            let ct = await zCikti.file('[Content_Types].xml').async('string');
+            ct = ct.replace(/spreadsheetml\.sheet\.main\+xml/g, 'spreadsheetml.sheet.macroEnabled.main+xml');
+            if (ct.indexOf('vbaProject') === -1) {
+              ct = ct.replace('</Types>',
+                '<Override PartName="/xl/vbaProject.bin" ContentType="application/vnd.ms-office.vbaProject"/></Types>');
+            }
+            zCikti.file('[Content_Types].xml', ct);
+            indir = await zCikti.generateAsync({ type: 'blob', mimeType: 'application/vnd.ms-excel.sheet.macroEnabled.main+xml' });
+          }
+        }
+        if (!indir) { ckBildir('Makro parçalarına ulaşılamadı.', 'hata'); return; }
+        const tip = makrolu
+          ? 'application/vnd.ms-excel.sheet.macroEnabled.main+xml'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const url = URL.createObjectURL(indir instanceof Blob ? indir : new Blob([indir], { type: tip }));
         const a = document.createElement('a');
         a.href = url;
-        a.download = cfg.dosya.replace(/\.xlsx$/i, '') + ' (doldurulmus).xlsx';
+        a.download = cfg.dosya.replace(/\.(xlsx|xlsm)$/i, '') + ' (doldurulmus).' + (makrolu ? 'xlsm' : 'xlsx');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
