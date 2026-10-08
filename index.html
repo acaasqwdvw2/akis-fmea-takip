@@ -4694,11 +4694,11 @@ let rows = '';
         procNum++;
         (n.altProsesler || []).forEach((sub, sIdx) => {
           const code = sub.code || '1.10';
-          const base = isParcaPrev
-            ? `<td class="gp">${takipNo}</td><td>${procNum}</td><td colspan="2" class="wf">${E(n.title != null ? n.title : '')}</td>` +
+          const baseOf = isParcaPrev
+            ? () => `<td class="gp">${takipNo}</td><td>${procNum}</td><td colspan="2" class="wf">${E(n.title != null ? n.title : '')}</td>` +
               `<td>${E(sub.code || '')}</td><td colspan="2" class="wf">${E(sub.title || '')}</td>` +
               `<td colspan="2" class="wf">${cellInp('sub', sIdx, -1, 'gerUrun', sub.gerUrun, 'Ürün gereksinimi')}</td><td colspan="2" class="wf">${cellInp('sub', sIdx, -1, 'gerProses', sub.gerProses, 'Proses gereksinimi')}</td>`
-            : `<td class="gp">${takipNo}</td><td>${E(sub.code || '')}</td><td colspan="2" class="wf">${E(sub.title || '')}</td>` +
+            : () => `<td class="gp">${takipNo}</td><td>${E(sub.code || '')}</td><td colspan="2" class="wf">${E(sub.title || '')}</td>` +
               `<td colspan="2" class="wf">${cellInp('sub', sIdx, -1, 'gerUrun', sub.gerUrun, 'Ürün gereksinimi')}</td><td colspan="2" class="wf">${cellInp('sub', sIdx, -1, 'gerProses', sub.gerProses, 'Proses gereksinimi')}</td>`;
           const tailOf = (h, i) => {
             const rpn1 = fmeaCalcRpn(h.s, h.o, h.d);
@@ -4724,7 +4724,7 @@ let rows = '';
               `<td colspan="2"></td><td colspan="2"></td><td></td><td></td><td></td><td colspan="2"></td></tr>`;
           if (sub.hatalar?.length) {
             sub.hatalar.forEach((h, i) => {
-              rows += `<tr>${base}` +
+              rows += `<tr>${baseOf()}` +
                 `<td colspan="2">${cellInp('hata', sIdx, i, 'tur', h.tur, 'Hata türü')}</td>` +
                 `<td colspan="2">${cellInp('hata', sIdx, i, 'etki', h.etki, 'Etkiler')}</td>` +
                 `<td>${cellPuan('siddet', 'hata', sIdx, i, 's', h.s, '1-10')}</td><td>${cellSel(sIdx, i, h.sinif)}</td>` +
@@ -4736,7 +4736,7 @@ let rows = '';
               takipNo++;
             });
           } else {
-            rows += `<tr>${base}` +
+            rows += `<tr>${baseOf()}` +
               `<td colspan="2">Hata Kaydı Yok</td>` +
               `<td colspan="2"></td><td></td><td></td>` +
               `<td colspan="2"></td><td colspan="2"></td><td></td>` +
@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-g';
+    const PK_SABLON_VER = '2026-10-07-h';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
