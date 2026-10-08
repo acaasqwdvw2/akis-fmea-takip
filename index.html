@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-f';
+    const PK_SABLON_VER = '2026-10-07-g';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4818,8 +4818,7 @@ ov.innerHTML = `<div class="fmea-modal">
     }
     function pkOtoSayfaDeger(r, c, dv, sayfa) {
       if (!PK_SABIT_SAYFALAR[sayfa]) return dv;
-      if (c === 4) return pkOtoSatirNo(r);
-      if (c === 2 && !String(dv || '').trim()) return pkOtoSatirNo(r);
+      if (c === 4 || c === 2) return pkOtoSatirNo(r);
       return dv;
     }
     const PK_CACHE = {};
@@ -5886,14 +5885,15 @@ ov.innerHTML = `<div class="fmea-modal">
              Kaynak Doküman'a yalnizca "Kontrol Planı No." (kpNo) gelir.
              Karakteristigi YALNIZCA karakteristik alanindan gelir; Siniflandirma
              sutunundan veri TASINMAZ (kullanici istegi).
-             Takip No, Kontrol Plani'ndaki OZGUN satir numarasidir (r.no): secim
-             araliksiz/1'den baslamasa bile numara korunur.
+             Takip No, secilen satirlarin SIRA numarasidir (1..N): satir
+             sayisi arttikca otomatik artar, kaynaktaki orijinal numara
+             kullanilmaz.
              YONTEM sutununa CP'deki "Olçum / Degerlendirme Teknigi" gelir.
              EKIPMAN NO ve GERCEKLESTIRILEN KONTROL ACIKLAMASI formda ELLE
              girilir. CP'deki "Kontrol Yontemi / Kayit Yontemi" ve "Miktarı"
              aktarilmaz (kullanici istegi). */
           const kaynakMetni = kpNo || '';
-          yaz('takip', r.no || (sira + 1));
+          yaz('takip', sira + 1);
           yaz('kaynak', kaynakMetni);
           yaz('no', r.code);
           yaz('adi', r.adi);
@@ -6002,6 +6002,17 @@ ov.innerHTML = `<div class="fmea-modal">
         } else {
           el.value = '';
           el.classList.remove('dolu');
+        }
+      });
+      /* Yeni satirin "No" ve "Takip No" hucresi sira numarasini HEMEN gosterir
+         (yeniden cizim beklenmez). */
+      yeniTr.querySelectorAll('textarea[data-pk]').forEach(function (el) {
+        const p = String(el.dataset.pk || '').split('!');
+        const st = parseInt(p[3], 10);
+        const rn = parseInt(p[2], 10);
+        if ((st === 2 || st === 4) && !isNaN(rn)) {
+          el.value = pkOtoSatirNo(rn);
+          try { fitCell(el); } catch (e) {}
         }
       });
       tablo.tBodies[0].appendChild(yeniTr);
@@ -6338,8 +6349,8 @@ ov.innerHTML = `<div class="fmea-modal">
             });
           });
         }
-        /* "No" otomatik siralama + bos "Takip No" dolgusu: her veri satirina
-           sira numarasi yazilir (indirilen Excel'de de ekrandaki gibi). */
+        /* "No" ve "Takip No" otomatik siralama: her veri satirina sira numarasi
+           yazilir (indirilen Excel'de de ekrandaki gibi). */
         wb.eachSheet(function (as) {
           if (!PK_SABIT_SAYFALAR[as.name]) return;
           for (let rr = PK_ILK_VERI; rr <= (as.rowCount || PK_ILK_VERI); rr++) {
@@ -6352,7 +6363,7 @@ ov.innerHTML = `<div class="fmea-modal">
             const takHucre = as.getCell(rr, 2);
             const takVar = takHucre && takHucre.value !== null && takHucre.value !== undefined &&
                            String(takHucre.value).trim() !== '';
-            if (!takVar) { takHucre.value = no; yazilan++; }
+            if (!takVar || String(takHucre.value) !== no) { takHucre.value = no; yazilan++; }
           }
         });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
