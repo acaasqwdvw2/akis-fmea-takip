@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-j';
+    const PK_SABLON_VER = '2026-10-09-k';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4817,11 +4817,32 @@ ov.innerHTML = `<div class="fmea-modal">
       return (r >= PK_ILK_VERI) ? String(r - PK_ILK_VERI + 1) : '';
     }
     /* "No" sütunu: dolu (elle girilen ya da CP/FMEA'den aktarilan 1.10 gibi)
-       deger korunur; bos hücrelere hiyerarsik 1.10, 1.20, ... serisi yazilir. */
-    function pkOtoProsesNo(r, dv) {
+       deger korunur; bos hücrelere pozisyona gore degil, son bilinen
+       numaranin devamina numara yazilir (7.10'dan sonra bos satir -> 7.20,
+       7.30...). Boylece gercek 7.10'un altinda "1.90" gibi uydurma seri
+       cikmaz. sayfa bazli ilerleyen iz (pkDurum._pn) render ve indirme
+       yollarinda ortaktir. */
+    function pkNoTaban(t) {
+      const n = parseFloat(t);
+      return isNaN(n) ? null : n;
+    }
+    function pkOtoProsesNo(r, dv, sayfa) {
       if (r < PK_ILK_VERI) return dv;
-      if (dv !== null && dv !== undefined && String(dv).trim() !== '') return dv;
+      const h = pkDurum._pn || (pkDurum._pn = { sayfa: '', no: null });
+      const s = (sayfa === null || sayfa === undefined) ? '' : String(sayfa);
+      if (h.sayfa !== s) { h.sayfa = s; h.no = null; }
+      const t = (dv === null || dv === undefined) ? '' : String(dv).trim();
+      if (t !== '') {
+        const tb = pkNoTaban(t);
+        if (tb !== null) h.no = tb;
+        return dv;
+      }
+      if (h.no !== null) {
+        h.no = Number((h.no + 0.1).toFixed(2));
+        return pkNoFormat(h.no);
+      }
       const sira = r - PK_ILK_VERI + 1;
+      h.no = 1 + sira / 10;
       return '1.' + (sira * 10);
     }
     function pkOtoSayfaDeger(r, c, dv, sayfa) {
@@ -5190,6 +5211,8 @@ ov.innerHTML = `<div class="fmea-modal">
     }
 
     function pkIzgaraHtml(ws) {
+      /* "No" otomatik serisi her sayfa ciziminde baslar (7.10 -> 7.20 devami). */
+      if (typeof pkDurum !== 'undefined') pkDurum._pn = { sayfa: '', no: null };
       /* hucre haritasi / gorunur sutunlar / baslik-veri ayrimi ortak cozumleyicide */
       const cozum = pkSayfaCozum(ws);
       if (!cozum) return '<div class="pk-note">Bu sayfada okunabilir veri yok.</div>';
@@ -5551,24 +5574,58 @@ ov.innerHTML = `<div class="fmea-modal">
       if (!pa && pb) return 1;
       return a.localeCompare(b, 'tr', { numeric: true });
     }
+    /* "No" sutunu bo\u015f sat\u0131rlar i\u00e7in otomatik 1.10,1.20 serisi
+       (her sayfa kendi sat\u0131r\u0131ndan sayd\u0131\u011f\u0131 i\u00e7in) ger\u00e7ek
+       7.10'un yan\u0131na "1.90" gibi uydurma numaralar d\u00fc\u015f\u00fcr\u00fcyordu.
+       Art\u0131k No'suz sat\u0131rlar en sona (Haftal\u0131k sonra Ayl\u0131k) eklenir ve
+       numaraland\u0131rma en son ger\u00e7ek numaradan devam eder: 7.10 -> 7.20, ... */
+    function pkNoFormat(x) {
+      let tam = Math.trunc(x);
+      let kes = Math.round((x - tam) * 100);
+      if (kes >= 100) { tam += 1; kes -= 100; }
+      return tam + '.' + String(kes).padStart(2, '0');
+    }
     function pkAylikBirlesik(depo) {
       const kac = (typeof pkDurum !== 'undefined' && pkDurum._pkABDepo === depo);
       if (kac) return pkDurum._pkABHavuz;
-      const once = {}, havuz = [];
+      const once = {}, gercek = [], bos = [];
       for (const k in depo) {
         const p = k.split('!');
         if (p.length !== 4 || p[0] !== 'tedarikci' ||
-            (p[1] !== 'Haftalık' && p[1] !== 'Aylık')) continue;
+            (p[1] !== 'Haftal\u0131k' && p[1] !== 'Ayl\u0131k')) continue;
         const r = parseInt(p[2], 10);
         if (!r) continue;
         const ok = p[1] + '!' + r;
         if (once[ok]) continue;
         once[ok] = 1;
         const noD = depo['tedarikci!' + p[1] + '!' + p[2] + '!4'];
-        const no = pkOtoProsesNo(r, noD || '');
-        havuz.push({ kaynak: p[1], satir: r, no: no });
+        const ham = (noD === null || noD === undefined) ? '' : String(noD).trim();
+        const kayit = { kaynak: p[1], satir: r };
+        if (ham) { kayit.no = ham; gercek.push(kayit); }
+        else bos.push(kayit);
       }
-      havuz.sort(function (x, y) { return pkNoCmp(x.no, y.no); });
+      gercek.sort(function (x, y) { return pkNoCmp(x.no, y.no); });
+      let taban = null;
+      for (let i = 0; i < gercek.length; i++) {
+        const n = parseFloat(gercek[i].no);
+        if (!isNaN(n) && (taban === null || n > taban)) taban = n;
+      }
+      const bos2 = bos.slice();
+      bos2.sort(function (x, y) {
+        const sx = x.kaynak === 'Haftal\u0131k' ? 0 : 1;
+        const sy = y.kaynak === 'Haftal\u0131k' ? 0 : 1;
+        return (sx - sy) || (x.satir - y.satir);
+      });
+      let nab = (taban === null) ? null : taban;
+      bos2.forEach(function (e) {
+        if (nab === null) {
+          e.no = pkOtoProsesNo(e.satir, '');
+        } else {
+          nab = Number((nab + 0.1).toFixed(2));
+          e.no = pkNoFormat(nab);
+        }
+      });
+      const havuz = gercek.concat(bos2);
       if (typeof pkDurum !== 'undefined') { pkDurum._pkABDepo = depo; pkDurum._pkABHavuz = havuz; }
       return havuz;
     }
@@ -6084,7 +6141,7 @@ ov.innerHTML = `<div class="fmea-modal">
         const st = parseInt(p[3], 10);
         const rn = parseInt(p[2], 10);
         if (st === 4 && !isNaN(rn)) {
-          el.value = pkOtoProsesNo(rn, null);
+          el.value = pkOtoProsesNo(rn, null, p[1]);
           try { fitCell(el); } catch (e) {}
         } else if (st === 2 && !isNaN(rn)) {
           el.value = pkOtoSatirNo(rn);
@@ -6521,10 +6578,8 @@ ov.innerHTML = `<div class="fmea-modal">
             const noHucre = as.getCell(rr, 4);
             const noDolu = noHucre && noHucre.value !== null && noHucre.value !== undefined &&
                            String(noHucre.value).trim() !== '';
-            if (!noDolu) {
-              const hno = pkOtoProsesNo(rr, null);
-              if (hno) { noHucre.value = hno; yazilan++; }
-            }
+            const noDeger = pkOtoProsesNo(rr, noDolu ? String(noHucre.value) : '', as.name);
+            if (!noDolu && noDeger) { noHucre.value = noDeger; yazilan++; }
             const tak = pkOtoSatirNo(rr);
             if (tak) {
               const takHucre = as.getCell(rr, 2);
