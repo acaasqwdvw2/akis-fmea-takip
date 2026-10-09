@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-09-k';
+    const PK_SABLON_VER = '2026-10-09-l';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -6120,6 +6120,7 @@ ov.innerHTML = `<div class="fmea-modal">
       const sonTr = rs[rs.length - 1];
       if (!sonTr.querySelector('[data-last="1"]')) return;
       const yeniTr = sonTr.cloneNode(true);
+      yeniTr.querySelectorAll('td.pk-sabit').forEach(function (td) { td.textContent = ''; });
       yeniTr.querySelectorAll('textarea[data-pk], select[data-pk]').forEach(function (el) {
         const p = String(el.dataset.pk || '').split('!');
         const r = parseInt(p[2], 10);
@@ -6242,11 +6243,13 @@ ov.innerHTML = `<div class="fmea-modal">
         return anahtar + '!Günlük-2!' + satir + '!' + h;
       } catch (e2) { return null; }
     }
-    /* Günlük-2 "**Gerçekleştirilen Kontrol Açıklaması" sütunu doğrudan
-       girilemez; değer yalnızca Günlük-1'den miraslanır (kullanıcı isteği).
-       Sütun numarası sayfanın kendi çözümünden (başlık etiketi) alınır;
-       bulunamazsa sabit 10 (J) kullanılır. Sonuç çalışma kitabı kimliğine
-       göre önbelleğe alınır (her hücrede yeniden taranmaz). */
+    /* Günlük-2 bilgi bloku salt okunurdur: "Takip No, Kaynak Doküman, No,
+       Adı, Karakteristiği, Kriteri/Spesifikasyon, Yöntemi, Ekipman No" ve
+       "**Gerçekleştirilen Kontrol Açıklaması" sütunları doğrudan girilemez;
+       değer yalnızca Günlük-1'den miraslanır (kullanıcı isteği). Son bilgi
+       sütunu sayfanın kendi çözümünden (başlık etiketi) alınır; bulunamazsa
+       sabit 10 (J) kullanılır. Sonuç çalışma kitabı kimliğine göre önbelleğe
+       alınır (her hücrede yeniden taranmaz). */
     let pkKilitKC = null;
     function pkKilitKontrolSutun(sayfa) {
       if (String(sayfa || '') !== 'Günlük-2') return -1;
@@ -6264,7 +6267,9 @@ ov.innerHTML = `<div class="fmea-modal">
       return pkKilitKC.sat;
     }
     function pkAciklamKilit(sayfa, sutun) {
-      return Number(sutun) === pkKilitKontrolSutun(sayfa);
+      if (String(sayfa || '') !== 'Günlük-2') return false;
+      const c = Number(sutun);
+      return c >= 2 && c <= pkKilitKontrolSutun('Günlük-2');
     }
     /* Kilitli (salt okunur) hücrelerde değer önce Günlük-1 mirasından alınır;
        Günlük-2'nin kendi (eski) kaydı yok sayılır. */
@@ -6487,7 +6492,7 @@ ov.innerHTML = `<div class="fmea-modal">
         anahtarlar.forEach(function (k) {
           const parca = k.split('!');
           if (parca.length < 4 || parca[0] !== key) return;
-          /* Kilitli (Günlük-2 "Gerçekleştirilen Kontrol Açıklaması") hücreler
+          /* Kilitli (Günlük-2 bilgi/kontrol) hücreler
              doğrudan yazılmaz; değer her zaman Günlük-1 mirasından gelir. */
           if (pkAciklamKilit(parca[1], parseInt(parca[3], 10))) return;
           const ws = wb.getWorksheet(parca[1]);
@@ -6532,7 +6537,7 @@ ov.innerHTML = `<div class="fmea-modal">
               anahtarlar.forEach(function (k) {
                 const par = k.split('!');
                 if (par.length !== 4 || par[0] !== 'tedarikci' || par[1] !== ks) return;
-                /* Kilitli kaynak hücreleri (Günlük-2 kontrol) aktarılmaz. */
+                /* Kilitli kaynak hücreleri (Günlük-2 bilgi/kontrol) aktarılmaz. */
                 if (pkAciklamKilit(par[1], parseInt(par[3], 10))) return;
                 const hedefC = pkAktarimSutun(kay, par[3]);
                 if (!hedefC) return;
