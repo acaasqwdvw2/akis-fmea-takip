@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-h';
+    const PK_SABLON_VER = '2026-10-07-i';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4816,9 +4816,18 @@ ov.innerHTML = `<div class="fmea-modal">
     function pkOtoSatirNo(r) {
       return (r >= PK_ILK_VERI) ? String(r - PK_ILK_VERI + 1) : '';
     }
+    /* "No" sütunu: dolu (elle girilen ya da CP/FMEA'den aktarilan 1.10 gibi)
+       deger korunur; bos hücrelere hiyerarsik 1.10, 1.20, ... serisi yazilir. */
+    function pkOtoProsesNo(r, dv) {
+      if (r < PK_ILK_VERI) return dv;
+      if (dv !== null && dv !== undefined && String(dv).trim() !== '') return dv;
+      const sira = r - PK_ILK_VERI + 1;
+      return '1.' + (sira * 10);
+    }
     function pkOtoSayfaDeger(r, c, dv, sayfa) {
       if (!PK_SABIT_SAYFALAR[sayfa]) return dv;
-      if (c === 4 || c === 2) return pkOtoSatirNo(r);
+      if (c === 2) return pkOtoSatirNo(r);
+      if (c === 4) return pkOtoProsesNo(r, dv);
       return dv;
     }
     const PK_CACHE = {};
@@ -5312,7 +5321,8 @@ ov.innerHTML = `<div class="fmea-modal">
                Excel'de renkli (yazma izni olmayan) hucre SALT METIN olur. */
             const pkB = sheetKey + r + '!' + c;
             const ozetB = pkHucreMetniCoz(satir[c] || null);
-            const dvB = pkOtoSayfaDeger(r, c, pkHucreDeger(depo, pkB, ozetB), ws.name);
+            const kilitB = pkAciklamKilit(ws.name, c);
+            const dvB = pkOtoSayfaDeger(r, c, kilitB ? pkHucreDegerKaynak(depo, pkB, ozetB) : pkHucreDeger(depo, pkB, ozetB), ws.name);
             let bW = '';
             if (b[1] > 1) {
               let toplam = 0, varMi = false;
@@ -5329,7 +5339,7 @@ ov.innerHTML = `<div class="fmea-modal">
                kaydirir ve "Dof No / Denetci Aciklamasi" basliklarinin alti
                bos (cercievesiz, veri girilemez) kalir. */
             const csB = b[1] > 1 ? ' colspan="' + b[1] + '"' : '';
-            if (!pkHucreBeyaz(satir[c] || null)) {
+            if (kilitB || !pkHucreBeyaz(satir[c] || null)) {
               s += '<td class="pk-sabit"' + csB + stB + '>' + esc(dvB) + '</td>';
             } else if (kutu && c >= kutu.c1 && c <= kutu.c2) {
               const opts = [''].concat(kutu.sec);
@@ -5377,9 +5387,10 @@ ov.innerHTML = `<div class="fmea-modal">
           const w = pkHucreDolgu(ws, c);
           const ozet = pkHucreMetniCoz(satir[c] || null);
           if (veri) {            const pk = sheetKey + r + '!' + c;
-            const dv = pkOtoSayfaDeger(r, c, pkHucreDeger(depo, pk, ozet), ws.name);
+            const kilitV = pkAciklamKilit(ws.name, c);
+            const dv = pkOtoSayfaDeger(r, c, kilitV ? pkHucreDegerKaynak(depo, pk, ozet) : pkHucreDeger(depo, pk, ozet), ws.name);
             const st = w ? ' style="min-width:' + w + '"' : '';
-            if (!pkHucreBeyaz(satir[c] || null)) {
+            if (kilitV || !pkHucreBeyaz(satir[c] || null)) {
               /* Excel'de renkli hucre: giris izni yok, salt metin. */
               s += '<td class="pk-sabit"' + st + '>' + esc(dv) + '</td>';
             } else if (kutu && c >= kutu.c1 && c <= kutu.c2) {
@@ -6010,7 +6021,10 @@ ov.innerHTML = `<div class="fmea-modal">
         const p = String(el.dataset.pk || '').split('!');
         const st = parseInt(p[3], 10);
         const rn = parseInt(p[2], 10);
-        if ((st === 2 || st === 4) && !isNaN(rn)) {
+        if (st === 4 && !isNaN(rn)) {
+          el.value = pkOtoProsesNo(rn, null);
+          try { fitCell(el); } catch (e) {}
+        } else if (st === 2 && !isNaN(rn)) {
           el.value = pkOtoSatirNo(rn);
           try { fitCell(el); } catch (e) {}
         }
@@ -6109,6 +6123,37 @@ ov.innerHTML = `<div class="fmea-modal">
         return anahtar + '!Günlük-2!' + satir + '!' + h;
       } catch (e2) { return null; }
     }
+    /* Günlük-2 "**Gerçekleştirilen Kontrol Açıklaması" sütunu doğrudan
+       girilemez; değer yalnızca Günlük-1'den miraslanır (kullanıcı isteği).
+       Sütun numarası sayfanın kendi çözümünden (başlık etiketi) alınır;
+       bulunamazsa sabit 10 (J) kullanılır. Sonuç çalışma kitabı kimliğine
+       göre önbelleğe alınır (her hücrede yeniden taranmaz). */
+    let pkKilitKC = null;
+    function pkKilitKontrolSutun(sayfa) {
+      if (String(sayfa || '') !== 'Günlük-2') return -1;
+      if (!pkKilitKC || pkKilitKC.wb !== pkDurum.wb) {
+        let sat = 10;
+        try {
+          const ws = pkDurum.wb && pkDurum.wb.getWorksheet('Günlük-2');
+          if (ws) {
+            const cz = pkSayfaCozum(ws);
+            if (cz && cz.baslikSutunlar && cz.baslikSutunlar.kontrol) sat = cz.baslikSutunlar.kontrol;
+          }
+        } catch (e) { /* sabit varsayilan */ }
+        pkKilitKC = { wb: pkDurum.wb, sat: sat };
+      }
+      return pkKilitKC.sat;
+    }
+    function pkAciklamKilit(sayfa, sutun) {
+      return Number(sutun) === pkKilitKontrolSutun(sayfa);
+    }
+    /* Kilitli (salt okunur) hücrelerde değer önce Günlük-1 mirasından alınır;
+       Günlük-2'nin kendi (eski) kaydı yok sayılır. */
+    function pkHucreDegerKaynak(depo, anahtar, varsayilan) {
+      const miras = pkMirasKaynak(anahtar);
+      if (miras && Object.prototype.hasOwnProperty.call(depo, miras)) return depo[miras];
+      return pkHucreDeger(depo, anahtar, varsayilan);
+    }
     function pkHucreDeger(depo, anahtar, varsayilan) {
       if (Object.prototype.hasOwnProperty.call(depo, anahtar)) return depo[anahtar];
       const miras = pkMirasKaynak(anahtar);
@@ -6123,7 +6168,11 @@ ov.innerHTML = `<div class="fmea-modal">
             const ters = pkAktarimInverse(cfg.kaynaklar[i]);
             if (!Object.prototype.hasOwnProperty.call(ters, hedefC)) continue;
             const kaynakC = ters[hedefC];
-            const aday = 'tedarikci!' + pkAktarimKaynak(cfg.kaynaklar[i]) + '!' + p[2] + '!' + kaynakC;
+            const ks = pkAktarimKaynak(cfg.kaynaklar[i]);
+            /* Kilitli kaynak hücreleri (Günlük-2 kontrol) yok sayılır:
+               değer yalnızca Günlük-1'den gelir. */
+            if (pkAciklamKilit(ks, kaynakC)) continue;
+            const aday = 'tedarikci!' + ks + '!' + p[2] + '!' + kaynakC;
             if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
           }
         }
@@ -6304,6 +6353,9 @@ ov.innerHTML = `<div class="fmea-modal">
         anahtarlar.forEach(function (k) {
           const parca = k.split('!');
           if (parca.length < 4 || parca[0] !== key) return;
+          /* Kilitli (Günlük-2 "Gerçekleştirilen Kontrol Açıklaması") hücreler
+             doğrudan yazılmaz; değer her zaman Günlük-1 mirasından gelir. */
+          if (pkAciklamKilit(parca[1], parseInt(parca[3], 10))) return;
           const ws = wb.getWorksheet(parca[1]);
           if (!ws) return;
           const r = parseInt(parca[2], 10), c = parseInt(parca[3], 10);
@@ -6318,8 +6370,11 @@ ov.innerHTML = `<div class="fmea-modal">
           const parca = k.split('!');
           if (parca.length < 4 || parca[0] !== key || parca[1] !== 'Günlük-1') return;
           const hedef = pkMirasHedef(parca[0], parseInt(parca[2], 10), parseInt(parca[3], 10));
-          if (!hedef || Object.prototype.hasOwnProperty.call(depo, hedef)) return;
+          if (!hedef) return;
           const hp = hedef.split('!');
+          /* Kilitli hedefe kullanıcının eski (doğrudan) kaydı olsa bile Günlük-1
+             değeri yazılır. */
+          if (!pkAciklamKilit(hp[1], parseInt(hp[3], 10)) && Object.prototype.hasOwnProperty.call(depo, hedef)) return;
           const ws = wb.getWorksheet(hp[1]);
           if (!ws) return;
           ws.getCell(parseInt(hp[2], 10), parseInt(hp[3], 10)).value = depo[k];
@@ -6332,38 +6387,51 @@ ov.innerHTML = `<div class="fmea-modal">
           dizi.forEach(function (cfg) {
             const hws = wb.getWorksheet(cfg.hedef);
             if (!hws) return;
+            /* Görünümle aynı öncelik: bir hedef hücreyi İLK dolu kaynak yazar;
+               sonraki kaynaklar (ör. Günlük-2, Haftalık) onu ezmez. */
+            const yazilanHedef = {};
             cfg.kaynaklar.forEach(function (kay) {
               const ks = pkAktarimKaynak(kay);
               anahtarlar.forEach(function (k) {
                 const par = k.split('!');
                 if (par.length !== 4 || par[0] !== 'tedarikci' || par[1] !== ks) return;
+                /* Kilitli kaynak hücreleri (Günlük-2 kontrol) aktarılmaz. */
+                if (pkAciklamKilit(par[1], parseInt(par[3], 10))) return;
                 const hedefC = pkAktarimSutun(kay, par[3]);
                 if (!hedefC) return;
                 const r = parseInt(par[2], 10);
                 if (!r) return;
                 const yerel = key + '!' + cfg.hedef + '!' + par[2] + '!' + hedefC;
                 if (Object.prototype.hasOwnProperty.call(depo, yerel)) return;
+                const ana = cfg.hedef + '!' + par[2] + '!' + hedefC;
+                if (yazilanHedef[ana]) return;
+                yazilanHedef[ana] = 1;
                 hws.getCell(r, hedefC).value = depo[k];
                 yazilan++;
               });
             });
           });
         }
-        /* "No" ve "Takip No" otomatik siralama: her veri satirina sira numarasi
-           yazilir (indirilen Excel'de de ekrandaki gibi). */
+        /* "No" (boşsa hiyerarşik 1.10, 1.20...; dolu değer korunur) ve
+           "Takip No" (her veri satırına sıra) yazılır (indirilen Excel'de de
+           ekrandaki gibi). */
         wb.eachSheet(function (as) {
           if (!PK_SABIT_SAYFALAR[as.name]) return;
           for (let rr = PK_ILK_VERI; rr <= (as.rowCount || PK_ILK_VERI); rr++) {
-            const no = pkOtoSatirNo(rr);
-            if (!no) continue;
             const noHucre = as.getCell(rr, 4);
-            const noVar = noHucre && noHucre.value !== null && noHucre.value !== undefined &&
-                          String(noHucre.value).trim() !== '';
-            if (!noVar || String(noHucre.value) !== no) { noHucre.value = no; yazilan++; }
-            const takHucre = as.getCell(rr, 2);
-            const takVar = takHucre && takHucre.value !== null && takHucre.value !== undefined &&
-                           String(takHucre.value).trim() !== '';
-            if (!takVar || String(takHucre.value) !== no) { takHucre.value = no; yazilan++; }
+            const noDolu = noHucre && noHucre.value !== null && noHucre.value !== undefined &&
+                           String(noHucre.value).trim() !== '';
+            if (!noDolu) {
+              const hno = pkOtoProsesNo(rr, null);
+              if (hno) { noHucre.value = hno; yazilan++; }
+            }
+            const tak = pkOtoSatirNo(rr);
+            if (tak) {
+              const takHucre = as.getCell(rr, 2);
+              const takVar = takHucre && takHucre.value !== null && takHucre.value !== undefined &&
+                             String(takHucre.value).trim() !== '';
+              if (!takVar || String(takHucre.value) !== tak) { takHucre.value = tak; yazilan++; }
+            }
           }
         });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
