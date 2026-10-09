@@ -546,6 +546,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .ck-gf-et.tiklanir:hover{opacity:.72}
   .ck-gf-not{font-size:11px;color:#9aa5b8;margin-top:8px}
   .ck-gf-bos{font-size:12px;color:#9aa5b8;text-align:center;padding:22px 0}
+  /* ===== ZAMAN SERİSİ ÇİZGİ GRAFİKLERİ (FMEA + Aksiyon takibi) ===== */
+  .ck-cl-tuval{width:100%;max-width:520px;height:auto;display:block;margin:0 auto}
+  .ck-cl-izgi{stroke:#eef2f6;stroke-width:1}
+  .ck-cl-eksen{stroke:#d5dee7;stroke-width:1}
+  .ck-cl-yetiket{font-size:9px;fill:#9aa5b8}
+  .ck-cl-xetiket{font-size:9px;fill:#9aa5b8}
+  .ck-cl-cizgi{fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;animation:ckGfGir .6s ease both}
+  .ck-cl-nokta{stroke-width:1.6}
+  .ck-cl-lejlar{display:flex;flex-wrap:wrap;justify-content:center}
+  .ck-cl-lej{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#5b7076;margin:8px 12px 0 0}
+  .ck-cl-lej i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  .ck-cl-lej b{color:#16275f}
+  @media (prefers-reduced-motion:reduce){.ck-cl-cizgi{animation:none}}
     @media (max-width:700px){
       .ck-uyari{padding:11px 12px;gap:10px;border-radius:10px}
       .ck-uyari-ico{width:30px;height:30px;border-radius:8px}
@@ -2089,10 +2102,124 @@ let nodes = [], selected = null;
       '<text class="ck-gf-orta-y" x="' + CK_GF_CX + '" y="' + (toplam > 0 ? 87 : 93) + '">AKSİYON</text>' +
       '</svg>';
   }
-  /* Yan lejant kaldirildi: adet + yuzde artik grafik USTUNDE (ckGfUstEtiket).
-     Renk/ad/sayi/yuzde siniflari da bu yuzden kaldirildi. */
-  /* ===== DONUT: FMEA durumu (Tamamlanan / Devam Eden + bekleyen, red) =====
-     kaynak: her kullanicinin proje durum sayaclari (mutlak birbirini dislamaz) */
+  /* ===== ZAMAN SERİSİ ÇİZGİ GRAFİKLERİ =====
+     Admin kokpitindeki iki durum grafigi (FMEA + Aksiyon) artik pasta/donut degil,
+     haftalik zaman serisi cizgi grafigidir. Veri kaynagi kayitlarin GERCEK zaman
+     damgalaridir (FMEA: onayZaman/updatedAt; Aksiyon: hedef ve gerceklesen tarihi). */
+  var CK_CL_W = 340, CK_CL_H = 172;
+  var CK_CL_L = 30, CK_CL_R = 8, CK_CL_T = 12, CK_CL_B = 26;
+  var CK_CL_HAFTA = 7 * 86400000;
+  function ckHaftaBaslangic(ms) {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // hafta Pazartesi baslar
+    return d.getTime();
+  }
+  function ckTarihEtiket(ms) {
+    const d = new Date(ms), p = function (x) { return (x < 10 ? '0' : '') + x; };
+    return p(d.getDate()) + '.' + p(d.getMonth() + 1);
+  }
+  /* Tum tarihleri kapsayan haftalik kovalar (en fazla 12, en yenisi sonda) */
+  function ckKovalar(tarihler) {
+    const ms = (tarihler || []).filter(function (x) { return x > 0; });
+    if (!ms.length) return [];
+    const min = ckHaftaBaslangic(Math.min.apply(null, ms));
+    const max = ckHaftaBaslangic(Math.max.apply(null, ms));
+    const out = [];
+    for (let t = min; t <= max; t += CK_CL_HAFTA) out.push(t);
+    return out.length > 12 ? out.slice(-12) : out;
+  }
+  function ckKovaSay(kova, tarihler) {
+    const say = kova.map(function () { return 0; });
+    (tarihler || []).forEach(function (ms) {
+      if (!(ms > 0)) return;
+      const i = kova.indexOf(ckHaftaBaslangic(ms));
+      if (i >= 0) say[i]++;
+    });
+    return say;
+  }
+  function ckNiceMax(v) {
+    const adim = [1, 2, 3, 4, 5, 8, 10, 15, 20, 30, 50, 100, 200, 500, 1000];
+    v = Math.max(1, Math.ceil(v));
+    for (let i = 0; i < adim.length; i++) if (v <= adim[i]) return adim[i];
+    return Math.ceil(v / 1000) * 1000;
+  }
+  /* Saf SVG cok serili cizgi grafik */
+  function ckCizgiGrafik(seriler, etiketler) {
+    const x0 = CK_CL_L, x1 = CK_CL_W - CK_CL_R, y0 = CK_CL_T, y1 = CK_CL_H - CK_CL_B;
+    const n = etiketler.length;
+    const maxD = Math.max(1, seriler.reduce(function (a, s) {
+      return Math.max(a, Math.max.apply(null, s.degerler.concat([0])));
+    }, 0));
+    const ymax = ckNiceMax(maxD);
+    const px = function (i) { return n <= 1 ? (x0 + x1) / 2 : x0 + (x1 - x0) * i / (n - 1); };
+    const py = function (v) { return y1 - (y1 - y0) * (Math.max(0, v) / ymax); };
+    let s = '';
+    [0, 0.5, 1].forEach(function (f) {
+      const v = Math.round(ymax * f), yy = py(v).toFixed(1);
+      s += '<line class="ck-cl-izgi" x1="' + x0 + '" y1="' + yy + '" x2="' + x1 + '" y2="' + yy + '"/>';
+      s += '<text class="ck-cl-yetiket" x="' + (x0 - 4) + '" y="' + (Number(yy) + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    });
+    const atla = n > 8 ? Math.ceil(n / 6) : 1;
+    etiketler.forEach(function (et, i) {
+      if (i % atla !== 0 && i !== n - 1) return;
+      s += '<text class="ck-cl-xetiket" x="' + px(i).toFixed(1) + '" y="' + (y1 + 15) + '" text-anchor="middle">' + esc(et) + '</text>';
+    });
+    s += '<line class="ck-cl-eksen" x1="' + x0 + '" y1="' + y1 + '" x2="' + x1 + '" y2="' + y1 + '"/>';
+    seriler.forEach(function (se) {
+      const pts = se.degerler.map(function (v, i) { return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ');
+      s += '<polyline class="ck-cl-cizgi" points="' + pts + '" stroke="' + se.renk + '"/>';
+      se.degerler.forEach(function (v, i) {
+        s += '<circle class="ck-cl-nokta" cx="' + px(i).toFixed(1) + '" cy="' + py(v).toFixed(1) + '" r="2.6" fill="#fff" stroke="' + se.renk + '"><title>' +
+          esc(se.ad + ' · ' + etiketler[i] + ': ' + ckSayiFmt(v)) + '</title></circle>';
+      });
+    });
+    return '<svg class="ck-cl-tuval" viewBox="0 0 ' + CK_CL_W + ' ' + CK_CL_H + '" role="img" aria-label="zaman serisi grafiği">' + s + '</svg>';
+  }
+  function ckLejant(seriler) {
+    return '<div class="ck-cl-lejlar">' + seriler.map(function (se) {
+      const top = se.degerler.reduce(function (a, b) { return a + b; }, 0);
+      return '<span class="ck-cl-lej"><i style="background:' + se.renk + '"></i>' + esc(se.ad) + ' <b>' + ckSayiFmt(top) + '</b></span>';
+    }).join('') + '</div>';
+  }
+  /* FMEA kayitlarinin zaman damgalarini duruma gore toplar */
+  function ckZamanSeriFmea() {
+    const store = window.__ckSatir || {};
+    const g = { onayli: [], bekliyor: [], red: [], taslak: [] };
+    Object.keys(store).forEach(function (uid) {
+      const r = store[uid] || {};
+      (r.projler || []).forEach(function (p) {
+        const ham = p.ham || {};
+        const ms = ckZamanMs(ham.onayZaman) || ckZamanMs(p.zaman) || 0;
+        const dd = p.durum || 'taslak';
+        (g[dd] ? g[dd] : g.taslak).push(ms);
+      });
+    });
+    return g;
+  }
+  /* Aksiyonlari hedef / gerceklesen tarihlerine gore toplar */
+  function ckZamanSeriAksiyon() {
+    const store = window.__ckSatir || {};
+    const hedef = [], gercek = [];
+    Object.keys(store).forEach(function (uid) {
+      const r = store[uid] || {};
+      (r.projler || []).forEach(function (p) {
+        const ham = p.ham || {};
+        (ham.nodes || []).forEach(function (n) {
+          ((n && n.altProsesler) || []).forEach(function (sub) {
+            ((sub && sub.hatalar) || []).forEach(function (h) {
+              const hd = ckTarihCoz(ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']));
+              const gr = ckTarihCoz(ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']));
+              if (hd) hedef.push(hd.getTime());
+              if (gr) gercek.push(gr.getTime());
+            });
+          });
+        });
+      });
+    });
+    return { hedef: hedef, gercek: gercek };
+  }
+  /* ===== FMEA TAKİBİ (haftalık çizgi grafik) ===== */
   function ckGrafikKartiFmea() {
     const R = window.__ckRows || [];
     const t = R.reduce(function (a, r) {
@@ -2100,53 +2227,47 @@ let nodes = [], selected = null;
       return a;
     }, { onayli: 0, bekleyen: 0, red: 0, aktif: 0 });
     const toplam = t.onayli + t.bekleyen + t.red + t.aktif;
+    const g = ckZamanSeriFmea();
+    const kova = ckKovalar([].concat(g.onayli, g.bekliyor, g.red, g.taslak));
     const seri = [
-      { ad: 'Tamamlanan', d: t.onayli, renk: '#1e8449', tip: 'filtre', hedef: 'onayli' },
-      { ad: 'Devam Eden', d: t.aktif, renk: '#b9770e', tip: 'filtre', hedef: 'taslak' },
-      { ad: 'Onay Bekleyen', d: t.bekleyen, renk: '#2e5aac', tip: 'filtre', hedef: 'bekleyen' },
-      { ad: 'Reddedilen', d: t.red, renk: '#c0392b', tip: 'filtre', hedef: 'red' }
+      { ad: 'Onaylanan', renk: '#1e8449', degerler: ckKovaSay(kova, g.onayli) },
+      { ad: 'Onay Bekleyen', renk: '#2e5aac', degerler: ckKovaSay(kova, g.bekliyor) },
+      { ad: 'Devam Eden', renk: '#b9770e', degerler: ckKovaSay(kova, g.taslak) },
+      { ad: 'Reddedilen', renk: '#c0392b', degerler: ckKovaSay(kova, g.red) }
     ];
-    const not = 'Tamamlanan = onaylı FMEA · Devam Eden = taslak · Toplam: ' + ckSayiFmt(toplam) + ' FMEA';
+    const cizim = kova.length
+      ? '<div class="ck-gf-ic">' + ckCizgiGrafik(seri, kova.map(ckTarihEtiket)) + '</div>' + ckLejant(seri)
+      : '<div class="ck-gf-bos">' + (toplam > 0 ? 'FMEA kayıtlarının tarih bilgisi yok.' : 'Gösterilecek FMEA yok.') + '</div>';
+    const not = 'Haftalık FMEA takibi (hafta başlangıcı gg.aa) · Onaylanan = onaylı FMEA · Toplam: ' + ckSayiFmt(toplam) + ' FMEA';
     return '<div class="ck-ek-kart ck-gf-kart"><div class="ck-ek-baslik">FMEA DURUMU' +
       '<span class="ck-ek-adet">' + ckSayiFmt(toplam) + '</span></div>' +
-      (toplam > 0
-        ? '<div class="ck-gf-ic">' + ckGrafikDonut(seri, toplam, 'FMEA') + '</div>'
-        : '<div class="ck-gf-bos">Gösterilecek FMEA yok.</div>') +
-      '<div class="ck-gf-not">' + esc(not) + '</div></div>';
+      cizim + '<div class="ck-gf-not">' + esc(not) + '</div></div>';
   }
-  /* ===== PASTA: aksiyon durumu (satır bazında, birbirini dışlar) =====
-     Toplam hata = Tamamlanan + Gecikmiş + Devam Eden + Aksiyonsuz */
+  /* ===== AKSİYON TAKİBİ (haftalık çizgi grafik) =====
+     Iki seri: Hedef Tamamlama Tarihi (plan) ve Gerçekleşen Tarih (fiili). */
   function ckGrafikKartiAksiyon() {
     const R = window.__ckRows || [];
-    /* Satir metrikleri DUZ tasinir (r.hata, r.aksiyonTamam ...). Eski kod
-       r.m diyordu; o alan satirlarda yok -> tum sayilar 0 -> grafik BOS
-       gorunuyordu. Test/sahte satirlarda m icinde olabilir: ikisini de oku. */
     const t = R.reduce(function (a, r) {
       const m = r.m || r;
-      a.hata += m.hata || 0;
       a.tamam += m.aksiyonTamam || 0;
       a.gecikmis += m.aksiyonGecikmis || 0;
       a.aksiyonlu += m.aksiyonlu || 0;
-      a.aksiyonsuz += m.aksiyonsuz || 0;
       return a;
-    }, { hata: 0, tamam: 0, gecikmis: 0, aksiyonlu: 0, aksiyonsuz: 0 });
-    /* "Devam Eden" = aksiyonu var, ne gerçekleşmiş ne gecikmiş */
-    const devam = Math.max(0, t.aksiyonlu - t.tamam - t.gecikmis);
-    /* Pasta yalniz AKSIYONU OLAN satirlari gosterir; taban "Aksiyon Belirlenmis"
-       (t.aksiyonlu). Aksiyonsuz satirlar bir durum DEGIL, bu yuzden "Aksiyon Yok"
-       dilimi ve toplam hata sayisi pastaya dahil edilmez. */
-    const toplam = t.aksiyonlu || (t.tamam + t.gecikmis + devam);
+    }, { tamam: 0, gecikmis: 0, aksiyonlu: 0 });
+    const zs = ckZamanSeriAksiyon();
+    const kova = ckKovalar([].concat(zs.hedef, zs.gercek));
     const seri = [
-      { ad: 'Tamamlanan', d: t.tamam, renk: '#1e8449', tip: 'tablo', hedef: '' },
-      { ad: 'Gecikmiş', d: t.gecikmis, renk: '#c0392b', tip: 'gecikmis', hedef: '' },
-      { ad: 'Devam Eden', d: devam, renk: '#2e5aac', tip: 'tablo', hedef: '' }
+      { ad: 'Hedeflenen', renk: '#2e5aac', degerler: ckKovaSay(kova, zs.hedef) },
+      { ad: 'Gerçekleşen', renk: '#1e8449', degerler: ckKovaSay(kova, zs.gercek) }
     ];
+    const cizim = kova.length
+      ? '<div class="ck-gf-ic">' + ckCizgiGrafik(seri, kova.map(ckTarihEtiket)) + '</div>' + ckLejant(seri)
+      : '<div class="ck-gf-bos">' + (t.aksiyonlu > 0 ? 'Aksiyonların hedef/gerçekleşen tarihi girilmemiş.' : 'Aksiyonu olan hata satırı yok.') + '</div>';
+    const not = 'Haftalık aksiyon takibi (hafta başlangıcı gg.aa) · Toplam ' + ckSayiFmt(t.aksiyonlu) +
+      ' aksiyonlu hata · Gerçekleşen: ' + ckSayiFmt(t.tamam) + ' · Gecikmiş: ' + ckSayiFmt(t.gecikmis);
     return '<div class="ck-ek-kart ck-gf-kart"><div class="ck-ek-baslik">AKSİYON DURUMU' +
-      '<span class="ck-ek-adet">' + ckSayiFmt(toplam) + '</span></div>' +
-      (toplam > 0
-        ? '<div class="ck-gf-ic">' + ckGrafikPasta(seri, toplam) + '</div>'
-        : '<div class="ck-gf-bos">Aksiyonu olan hata satırı yok.</div>') +
-      '<div class="ck-gf-not">Toplam ' + ckSayiFmt(toplam) + ' aksiyonlu hata satırı · Devam Eden = aksiyonu var, hedef tarihi geçmedi.</div></div>';
+      '<span class="ck-ek-adet">' + ckSayiFmt(t.aksiyonlu) + '</span></div>' +
+      cizim + '<div class="ck-gf-not">' + esc(not) + '</div></div>';
   }
   function ckEkCiz() {
       const kutu = document.getElementById('ckEk');
