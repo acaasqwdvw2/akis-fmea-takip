@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-07-i';
+    const PK_SABLON_VER = '2026-10-07-j';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -5362,6 +5362,19 @@ ov.innerHTML = `<div class="fmea-modal">
             continue;
           }
           if (b) {
+            const anaB = r + ':' + c;
+            if (!veri && elleUst.hucre[anaB]) {
+              /* Beyaz birlestirilmis ust bilgi alani (Denetim Yili / Denetci
+                 Adi degerinin 2 genislikteki kutusu): veri hucresi gibi elle
+                 duzenlenir, deger birlestirmenin sol ust hucresinde tutulur. */
+              const pkB = sheetKey + r + '!' + c;
+              const ozetB = pkHucreMetniCoz(satir[c] || null);
+              s += '<td class="pkd" colspan="' + b[1] + '">' +
+                   '<textarea rows="1" data-pk="' + esc(pkB) + '" data-orig="' + esc(ozetB) +
+                   '" oninput="pkEditCell(this);fitCell(this)">' +
+                   esc(pkHucreDeger(depo, pkB, ozetB)) + '</textarea></td>';
+              continue;
+            }
             const baslikSinifi = !veri && b[1] > 2 ? ' class="pkm"' : (!veri ? ' class="pkh"' : '');
             /* Ust bilgi alanlari Excel'de birlestirilmis hucrede olabilir
                (F13:G13 "Parça Stok No / ...", B13:C13 "Proses Kontrolü"). */
@@ -5525,6 +5538,49 @@ ov.innerHTML = `<div class="fmea-modal">
       const m = pkAktarimHarita(src);
       return m ? m[kaynakC] : null;
     }
+    /* --- Aylik birlesik aktarim ----------------------------------------------
+       Kullanici istegi: tedarikci Haftalik + Aylik listeleri ALT ALTA toplanir,
+       "No" (Proses No) degerine gore siralanir ve aselsan Aylik'a yazilir
+       (satir N -> aselsan Aylik satir N degil; sirali havuz -> satir 20+). */
+    function pkNoCmp(a, b) {
+      a = String(a === null || a === undefined ? '' : a);
+      b = String(b === null || b === undefined ? '' : b);
+      const pa = a.match(/^1\.(\d+)$/), pb = b.match(/^1\.(\d+)$/);
+      if (pa && pb) return parseInt(pa[1], 10) - parseInt(pb[1], 10);
+      if (pa && !pb) return -1;
+      if (!pa && pb) return 1;
+      return a.localeCompare(b, 'tr', { numeric: true });
+    }
+    function pkAylikBirlesik(depo) {
+      const kac = (typeof pkDurum !== 'undefined' && pkDurum._pkABDepo === depo);
+      if (kac) return pkDurum._pkABHavuz;
+      const once = {}, havuz = [];
+      for (const k in depo) {
+        const p = k.split('!');
+        if (p.length !== 4 || p[0] !== 'tedarikci' ||
+            (p[1] !== 'Haftalık' && p[1] !== 'Aylık')) continue;
+        const r = parseInt(p[2], 10);
+        if (!r) continue;
+        const ok = p[1] + '!' + r;
+        if (once[ok]) continue;
+        once[ok] = 1;
+        const noD = depo['tedarikci!' + p[1] + '!' + p[2] + '!4'];
+        const no = pkOtoProsesNo(r, noD || '');
+        havuz.push({ kaynak: p[1], satir: r, no: no });
+      }
+      havuz.sort(function (x, y) { return pkNoCmp(x.no, y.no); });
+      if (typeof pkDurum !== 'undefined') { pkDurum._pkABDepo = depo; pkDurum._pkABHavuz = havuz; }
+      return havuz;
+    }
+    /* aselsan Aylik hedef sutunu -> tedarikci kaynak sutunu (kaynak sayfasina
+       gore: Haftalik gunlari 12..15, Aylik gunlari 12..23). */
+    function pkBirlesikSutun(kaynak, hedefC) {
+      if (hedefC >= 2 && hedefC <= 9) return hedefC === 9 ? 10 : hedefC;
+      if (hedefC >= 11 && hedefC <= 22) return (hedefC <= 14 || kaynak === 'Aylık') ? hedefC + 1 : null;
+      if (hedefC === 23) return kaynak === 'Haftalık' ? 16 : 24;
+      if (hedefC === 24) return kaynak === 'Haftalık' ? 17 : 25;
+      return null;
+    }
     /* Excel'de X imlemesi kullanilir; ekranda da ayni gorunur. */
     function pkListeSecenekleri(ws) {
       try {
@@ -5670,14 +5726,20 @@ ov.innerHTML = `<div class="fmea-modal">
           const sol = {};
           const sil = {};
           const solaEtiket = (ws && PK_UST_ETIKET_SOLA[ws.name]) || [];
-          /* Etiketin sagindaki ilk beyaz + birlestirme disi hucre. */
+          /* Etiketin sagindaki ilk beyaz veya birlestirilmis beyaz hucre.
+             Birlestirilmis beyaz bolge (Denetim Yili / Denetci Adi degerinin
+             2 genislikteki kutusu) deger alanidir; genisligiyle donulur. */
           const ilkBeyaz = function (r, c) {
             for (let i = 1; i <= 12; i++) {
               const s = c + i;
               if (s > 250) return 0;
+              const b0 = bas[r + ':' + s];
+              if (b0) {
+                if (!pkHucreBeyaz(pkHucreBul(ws, r, s))) continue;   /* etiket blogu */
+                return { s: s, g: Math.max(1, b0[1]) };
+              }
               if (kap[r + ':' + s]) continue;                  /* birlestirme ici */
-              if (bas[r + ':' + s]) continue;                 /* baslik blogu */
-              if (pkHucreBeyaz(pkHucreBul(ws, r, s))) return s;
+              if (pkHucreBeyaz(pkHucreBul(ws, r, s))) return { s: s, g: 1 };
             }
             return 0;
           };
@@ -5707,8 +5769,8 @@ ov.innerHTML = `<div class="fmea-modal">
                 }
                 continue;
               }
-              const s = ilkBeyaz(r, c);
-              if (s) m[r + ':' + s] = 1;
+              const hb = ilkBeyaz(r, c);
+              if (hb) m[r + ':' + hb.s] = hb.g;
             }
           }
           return { hucre: m, sol: sol, sil: sil };
@@ -6161,6 +6223,21 @@ ov.innerHTML = `<div class="fmea-modal">
       /* Cok dosya aktarimi: ASELSAN sayfasi tedarikci verisinden beslenir. */
       const p = String(anahtar || '').split('!');
       if (p.length === 4 && p[0] === 'aselsan') {
+        /* Aylık hedef: tedarikçi Haftalık + Aylık alt alta, Proses No'ya göre
+           sıralı havuzdan beslenir (kullanıcı isteği). */
+        if (p[1] === 'Aylık') {
+          const havuz = pkAylikBirlesik(depo);
+          const idx = parseInt(p[2], 10) - PK_ILK_VERI;
+          if (idx >= 0 && idx < havuz.length) {
+            const e = havuz[idx];
+            const srcC = pkBirlesikSutun(e.kaynak, parseInt(p[3], 10));
+            if (srcC !== null) {
+              const aday = 'tedarikci!' + e.kaynak + '!' + e.satir + '!' + srcC;
+              if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
+            }
+          }
+          return varsayilan;
+        }
         const cfg = pkAktarimEsle('aselsan', p[1]);
         if (cfg) {
           const hedefC = parseInt(p[3], 10);
@@ -6385,6 +6462,9 @@ ov.innerHTML = `<div class="fmea-modal">
         if (key === 'aselsan') {
           const dizi = (PK_AKTARIMLAR && PK_AKTARIMLAR.aselsan) || [];
           dizi.forEach(function (cfg) {
+            /* Aylık hedef artık satır-satır değil; tedarikçi Haftalık + Aylık
+               alt alta, Proses No'ya göre sıralı havuzdan yazılır (aşağıda). */
+            if (cfg.hedef === 'Aylık') return;
             const hws = wb.getWorksheet(cfg.hedef);
             if (!hws) return;
             /* Görünümle aynı öncelik: bir hedef hücreyi İLK dolu kaynak yazar;
@@ -6411,6 +6491,26 @@ ov.innerHTML = `<div class="fmea-modal">
               });
             });
           });
+          /* Aylık birleşik: sıralı havuz -> aselsan Aylık satır 20+. */
+          const ahws = wb.getWorksheet('Aylık');
+          if (ahws) {
+            const havuz = pkAylikBirlesik(depo);
+            const sinir = (ahws.rowCount || PK_ILK_VERI) - PK_ILK_VERI + 1;
+            for (let i = 0; i < havuz.length && i < sinir; i++) {
+              const e = havuz[i];
+              const rr = PK_ILK_VERI + i;
+              for (let hc = 3; hc <= 24; hc++) {
+                const srcC = pkBirlesikSutun(e.kaynak, hc);
+                if (srcC === null) continue;
+                const skey = 'tedarikci!' + e.kaynak + '!' + e.satir + '!' + srcC;
+                if (!Object.prototype.hasOwnProperty.call(depo, skey)) continue;
+                const yerel = 'aselsan!Aylık!' + rr + '!' + hc;
+                if (Object.prototype.hasOwnProperty.call(depo, yerel)) continue;
+                ahws.getCell(rr, hc).value = depo[skey];
+                yazilan++;
+              }
+            }
+          }
         }
         /* "No" (boşsa hiyerarşik 1.10, 1.20...; dolu değer korunur) ve
            "Takip No" (her veri satırına sıra) yazılır (indirilen Excel'de de
