@@ -4786,7 +4786,7 @@ ov.innerHTML = `<div class="fmea-modal">
        Tarayici HTTP onbellegi "force-cache" ile tutuldugu icin (sabit surum
        basina bir kez indirilip onbellege alinir) surum degismedikce eski
        sablon ekrana gelmeye devam eder. */
-    const PK_SABLON_VER = '2026-10-09-l';
+    const PK_SABLON_VER = '2026-10-09-m';
     const PK_FILES = {
       tedarikci: {
         url: 'tedarikci-proses-kontrol-formu.xlsx?v=' + PK_SABLON_VER,
@@ -4848,7 +4848,10 @@ ov.innerHTML = `<div class="fmea-modal">
     function pkOtoSayfaDeger(r, c, dv, sayfa) {
       if (!PK_SABIT_SAYFALAR[sayfa]) return dv;
       if (c === 2) return pkOtoSatirNo(r);
-      if (c === 4) return pkOtoProsesNo(r, dv);
+      /* sayfa adi verilir: No izi sayfa bazinda ilerler; ekran ile indirme
+         ayni numarayi uretsin (once sayfa adi olmadan ortak iz kullaniliyordu,
+         sayfa degisince 8.20 / 7.20 karisikligi cikiyordu). */
+      if (c === 4) return pkOtoProsesNo(r, dv, sayfa);
       return dv;
     }
     const PK_CACHE = {};
@@ -5574,11 +5577,10 @@ ov.innerHTML = `<div class="fmea-modal">
       if (!pa && pb) return 1;
       return a.localeCompare(b, 'tr', { numeric: true });
     }
-    /* "No" sutunu bo\u015f sat\u0131rlar i\u00e7in otomatik 1.10,1.20 serisi
-       (her sayfa kendi sat\u0131r\u0131ndan sayd\u0131\u011f\u0131 i\u00e7in) ger\u00e7ek
-       7.10'un yan\u0131na "1.90" gibi uydurma numaralar d\u00fc\u015f\u00fcr\u00fcyordu.
-       Art\u0131k No'suz sat\u0131rlar en sona (Haftal\u0131k sonra Ayl\u0131k) eklenir ve
-       numaraland\u0131rma en son ger\u00e7ek numaradan devam eder: 7.10 -> 7.20, ... */
+    /* "No" sutunu: dolu deger korunur, bos satirlar son bilinen numaranin
+       devamina numaralandirilir (7.10 -> 7.20, ...). Bu, ekranda
+       pkOtoProsesNo ile uretilen numarayla birebir ayni kuraldir; boylece
+       birlesik havuzda da (aselsan Aylik) ekran ve indirme uyusur. */
     function pkNoFormat(x) {
       let tam = Math.trunc(x);
       let kes = Math.round((x - tam) * 100);
@@ -5588,44 +5590,64 @@ ov.innerHTML = `<div class="fmea-modal">
     function pkAylikBirlesik(depo) {
       const kac = (typeof pkDurum !== 'undefined' && pkDurum._pkABDepo === depo);
       if (kac) return pkDurum._pkABHavuz;
-      const once = {}, gercek = [], bos = [];
+      /* Havuza yalnizca GERCEK veri satirlari (r >= PK_ILK_VERI) girer.
+         Ust bilgi bandi duzenlemeleri (satir < 20: Denetim Ayi, Denetci,
+         Miktar/Lot/Seri) fantom satir olusturup ekran ve havuz yerini
+         yiyordu; artik havuza alinmaz. */
+      const satirlar = { 'Haftal\u0131k': [], 'Ayl\u0131k': [] };
+      const once = {};
       for (const k in depo) {
         const p = k.split('!');
         if (p.length !== 4 || p[0] !== 'tedarikci' ||
             (p[1] !== 'Haftal\u0131k' && p[1] !== 'Ayl\u0131k')) continue;
         const r = parseInt(p[2], 10);
-        if (!r) continue;
+        if (!r || r < PK_ILK_VERI) continue;
         const ok = p[1] + '!' + r;
         if (once[ok]) continue;
         once[ok] = 1;
-        const noD = depo['tedarikci!' + p[1] + '!' + p[2] + '!4'];
-        const ham = (noD === null || noD === undefined) ? '' : String(noD).trim();
-        const kayit = { kaynak: p[1], satir: r };
-        if (ham) { kayit.no = ham; gercek.push(kayit); }
-        else bos.push(kayit);
+        satirlar[p[1]].push(r);
       }
-      gercek.sort(function (x, y) { return pkNoCmp(x.no, y.no); });
-      let taban = null;
-      for (let i = 0; i < gercek.length; i++) {
-        const n = parseFloat(gercek[i].no);
-        if (!isNaN(n) && (taban === null || n > taban)) taban = n;
+      /* Her kaynak kendi satirlari uzerinde artan sirada pkOtoProsesNo
+         mantigiyla numaralandirilir: dolu No korunur, bos satir son bilinen
+         numaranin devami, hic No yoksa pozisyonel 1.x0. Boylece havuz No'su
+         (=e.no) ekranda ve indirmede birebir ayni degeri tasir; eski "global
+         tabandan devam" mantigi tedarikci ekraniyla uyusmuyordu (7.20 vs 8.20). */
+      const havuz = [];
+      const kaynaklar = ['Haftal\u0131k', 'Ayl\u0131k'];
+      for (let ki = 0; ki < kaynaklar.length; ki++) {
+        const ks = kaynaklar[ki];
+        const liste = satirlar[ks].sort(function (a, b) { return a - b; });
+        let iz = null;
+        for (let i = 0; i < liste.length; i++) {
+          const r = liste[i];
+          const noD = depo['tedarikci!' + ks + '!' + r + '!4'];
+          const ham = (noD === null || noD === undefined) ? '' : String(noD).trim();
+          let no;
+          if (ham) {
+            no = ham;
+            const tb = pkNoTaban(ham);
+            if (tb !== null) iz = tb;
+          } else if (iz !== null) {
+            iz = Number((iz + 0.1).toFixed(2));
+            no = pkNoFormat(iz);
+          } else {
+            const sira = r - PK_ILK_VERI + 1;
+            iz = 1 + sira / 10;
+            no = '1.' + String(sira * 10);
+          }
+          havuz.push({ kaynak: ks, satir: r, no: no });
+        }
       }
-      const bos2 = bos.slice();
-      bos2.sort(function (x, y) {
+      /* Proses No'ya gore sirala; esit No'larda Haftalik once, sonra satir:
+         siralama her calistirmada ayni olsun. */
+      havuz.sort(function (x, y) {
+        const f = pkNoCmp(x.no, y.no);
+        if (f) return f;
         const sx = x.kaynak === 'Haftal\u0131k' ? 0 : 1;
         const sy = y.kaynak === 'Haftal\u0131k' ? 0 : 1;
-        return (sx - sy) || (x.satir - y.satir);
+        if (sx !== sy) return sx - sy;
+        return x.satir - y.satir;
       });
-      let nab = (taban === null) ? null : taban;
-      bos2.forEach(function (e) {
-        if (nab === null) {
-          e.no = pkOtoProsesNo(e.satir, '');
-        } else {
-          nab = Number((nab + 0.1).toFixed(2));
-          e.no = pkNoFormat(nab);
-        }
-      });
-      const havuz = gercek.concat(bos2);
       if (typeof pkDurum !== 'undefined') { pkDurum._pkABDepo = depo; pkDurum._pkABHavuz = havuz; }
       return havuz;
     }
@@ -6060,6 +6082,7 @@ ov.innerHTML = `<div class="fmea-modal">
     }
     function pkSatirSayisi() {
       let n = 0;
+      let havuzUz = 0;
       try {
         const s = parseInt(localStorage.getItem(pkSatirAnahtari()) || '0', 10);
         n = (isNaN(s) || s < 0) ? 0 : s;
@@ -6088,9 +6111,16 @@ ov.innerHTML = `<div class="fmea-modal">
               if (!isNaN(s2) && s2 > n) n = s2;
             });
           }
+          /* ASELSAN Aylik: birlesik havuzun TAMAMI ekranda kaplamali. Havuz
+             kaynak satir sayilarindan fazla olabildigi icin kapasite havuz
+             uzunlugundan az olamaz (eksik satir gorunmesin) ve PK_LIMIT ile
+             sinirlanmaz. */
+          if (sf === 'Aylık') {
+            try { havuzUz = pkAylikBirlesik(pkEditsYukle()).length; } catch (e3) { havuzUz = 0; }
+          }
         }
       } catch (e2) {}
-      return Math.min(PK_LIMIT, PK_BASLANGIC + n);
+      return Math.max(Math.min(PK_LIMIT, PK_BASLANGIC + n), PK_BASLANGIC + havuzUz);
     }
     function pkSatirArtir() {
       const y = Math.min(PK_LIMIT, pkSatirSayisi() + 1);
@@ -6279,11 +6309,15 @@ ov.innerHTML = `<div class="fmea-modal">
       return pkHucreDeger(depo, anahtar, varsayilan);
     }
     function pkHucreDeger(depo, anahtar, varsayilan) {
+      const p = String(anahtar || '').split('!');
+      /* Takip No (sutun 2) her zaman sira numarasidir: ekranda pkOtoSayfaDeger,
+         indirmede otomatik dongu yazar. Depodaki ozel deger gosterilmez;
+         boylece ekran ile indirilen Excel birebir ayni olur. */
+      if (p.length === 4 && p[3] === '2') return varsayilan;
       if (Object.prototype.hasOwnProperty.call(depo, anahtar)) return depo[anahtar];
       const miras = pkMirasKaynak(anahtar);
       if (miras && Object.prototype.hasOwnProperty.call(depo, miras)) return depo[miras];
       /* Cok dosya aktarimi: ASELSAN sayfasi tedarikci verisinden beslenir. */
-      const p = String(anahtar || '').split('!');
       if (p.length === 4 && p[0] === 'aselsan') {
         /* Aylık hedef: tedarikçi Haftalık + Aylık alt alta, Proses No'ya göre
            sıralı havuzdan beslenir (kullanıcı isteği). */
@@ -6292,7 +6326,11 @@ ov.innerHTML = `<div class="fmea-modal">
           const idx = parseInt(p[2], 10) - PK_ILK_VERI;
           if (idx >= 0 && idx < havuz.length) {
             const e = havuz[idx];
-            const srcC = pkBirlesikSutun(e.kaynak, parseInt(p[3], 10));
+            const hedefC = parseInt(p[3], 10);
+            /* Proses No (sutun 4): havuz numarasi (e.no) yazilir - hem ekranda
+               hem indirmede ayni; tedarikci ekraniyla da ayni seri. */
+            if (hedefC === 4) return e.no;
+            const srcC = pkBirlesikSutun(e.kaynak, hedefC);
             if (srcC !== null) {
               const aday = 'tedarikci!' + e.kaynak + '!' + e.satir + '!' + srcC;
               if (Object.prototype.hasOwnProperty.call(depo, aday)) return depo[aday];
@@ -6553,21 +6591,28 @@ ov.innerHTML = `<div class="fmea-modal">
               });
             });
           });
-          /* Aylık birleşik: sıralı havuz -> aselsan Aylık satır 20+. */
+          /* Aylık birleşik: sıralı havuz -> aselsan Aylık satır 20+. Tüm havuz
+             yazılır (şablon satır sayısıyla sınırlanmaz; ExcelJS satırı büyütür). */
           const ahws = wb.getWorksheet('Aylık');
           if (ahws) {
             const havuz = pkAylikBirlesik(depo);
-            const sinir = (ahws.rowCount || PK_ILK_VERI) - PK_ILK_VERI + 1;
-            for (let i = 0; i < havuz.length && i < sinir; i++) {
+            for (let i = 0; i < havuz.length; i++) {
               const e = havuz[i];
               const rr = PK_ILK_VERI + i;
               for (let hc = 3; hc <= 24; hc++) {
+                const yerel = 'aselsan!Aylık!' + rr + '!' + hc;
+                if (Object.prototype.hasOwnProperty.call(depo, yerel)) continue;
+                if (hc === 4) {
+                  /* Proses No her satirda havuz numarasi (e.no): kaynakta No
+                     olmasa da yazilir, ekrandaki degerle birebir ayni olur. */
+                  ahws.getCell(rr, hc).value = e.no;
+                  yazilan++;
+                  continue;
+                }
                 const srcC = pkBirlesikSutun(e.kaynak, hc);
                 if (srcC === null) continue;
                 const skey = 'tedarikci!' + e.kaynak + '!' + e.satir + '!' + srcC;
                 if (!Object.prototype.hasOwnProperty.call(depo, skey)) continue;
-                const yerel = 'aselsan!Aylık!' + rr + '!' + hc;
-                if (Object.prototype.hasOwnProperty.call(depo, yerel)) continue;
                 ahws.getCell(rr, hc).value = depo[skey];
                 yazilan++;
               }
