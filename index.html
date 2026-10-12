@@ -853,12 +853,43 @@ let nodes = [], selected = null;
       currentKey = 'proses_fmea_current_v31' + s;
     }
     function kpKey() { return KP_BASE + scopeOf(cloudUser ? cloudUser.id : null); }
-    // Kontrol Plani duzenlemelerini guvenle okur. DIKKAT: "kp" degiskeni global degil,
-    // cloudPayload() icinde yerel bir deger olarak tanimliydi; disaridan erisim
-    // ReferenceError veriyordu. Bu yuzden her zaman bu yardimci kullanilir.
+    /* --- KONTROL PLANI: PROJE (TEDARIKCI) BAZLI DEPO ---------------------------
+       ONEMLI: kpEdits gecmiste YALNIZCA alt-proses koduna gore tutuluyordu; ayni
+       kodlar (1.10, 1.20...) her tedarikcide tekrar ettigi icin plan tum
+       tedarikcilerde ayni gorunuyordu. Artik depo proje adina gore ic ice
+       saklanir: { "<proje>": { "<kod>": { karak, spes, ... } } }.
+       Eski (flat) kayitlar okunurken aktif projeye tasinir (geriye uyumlu). */
+    function kpRowNesne(v) {
+      return !!(v && typeof v === 'object' &&
+        ('karak' in v || 'spes' in v || 'sinif' in v || 'olcum' in v ||
+         'kontrol' in v || 'miktar' in v || 'siklik' in v ||
+         'kayitSorumlu' in v || 'reaksiyon' in v));
+    }
+    function aktifProjeAd() { try { ensureCurrentProject(); } catch (e) {} return String(currentProject || '').trim(); }
+    try { window.__aktifProjeAd = aktifProjeAd; } catch (e) {}
+    // Tum projeleri iceren ham depo (nested). Gerekirse flat -> nested migrasyonu yapar.
+    function kpTumu() {
+      let raw = {};
+      try { raw = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) { raw = {}; }
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+      const ks = Object.keys(raw);
+      if (ks.length && ks.some(function (k) { return kpRowNesne(raw[k]); })) {
+        const sarmal = {}; sarmal[aktifProjeAd()] = raw;
+        try { localStorage.setItem(kpKey(), JSON.stringify(sarmal)); } catch (e) {}
+        return sarmal;
+      }
+      return raw;
+    }
+    function kpYazBucket(bucket) {
+      const tum = kpTumu();
+      tum[aktifProjeAd()] = bucket || {};
+      try { localStorage.setItem(kpKey(), JSON.stringify(tum)); } catch (e) {}
+    }
+    // Aktif projenin Kontrol Plani duzenlemelerini okur.
     function kpYuku() {
-      try { const v = JSON.parse(localStorage.getItem(kpKey()) || '{}'); return (v && typeof v === 'object') ? v : {}; }
-      catch (e) { return {}; }
+      const tum = kpTumu();
+      const b = tum[aktifProjeAd()];
+      return (b && typeof b === 'object') ? b : {};
     }
     function nameFromEmail(e) { return String(e || '').split('@')[0] || ''; }
     function loadLocalScope() {
@@ -1078,8 +1109,7 @@ let nodes = [], selected = null;
     }
 
     function cloudPayload() {
-      let kp = {};
-      try { kp = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) { kp = {}; }
+      let kp = kpTumu();   // proje bazli ic ice depo (flat ise otomatik migrate edilir)
       /* CANLI PROJE YAZIMI (kritik): kullanici ayni projede calisirken duzenlemeler
          dunya (nodes) uzerinde olur; projects[] kaydi ise yalnizca proje degistirilirken
          (selectProject/newProject/rename) tazelenir. Admin kokpidi projects[*].nodes
@@ -1107,8 +1137,9 @@ let nodes = [], selected = null;
         kpEdits: kp,
         pkEdits: (function () {
           /* Proses Kontrol Formu hucre duzenlemeleri: Excel sablonu degismez,
-             girilen veri kullaniciya ozel burada saklanir (kpEdits ile ayni kalip). */
-          try { return JSON.parse(localStorage.getItem(pkEditsKey()) || '{}'); } catch (e) { return {}; }
+             girilen veri proje/tedarikci bazli ic ice saklanir:
+             { "<proje>": { "<dosya>!<sayfa>!<satir>!<sutun>": "..." } } */
+          try { return pkEditsTumu(); } catch (e) { return {}; }
         })(),
         // degisiklik kaydi: admin "Son Islemler" akisinda "ne degisti" olarak gosterilir
         degisiklikLog: ckLog.slice(0, CK_LOG_LIMIT),
@@ -1355,9 +1386,11 @@ let nodes = [], selected = null;
         }
         if (d.kpEdits) {
           try { localStorage.setItem(kpKey(), JSON.stringify(d.kpEdits)); } catch (e) {}
+          kpTumu();      // eski (flat) kayitlari proje bazli yapiya tasi
         }
         if (d.pkEdits) {
           try { localStorage.setItem(pkEditsKey(), JSON.stringify(d.pkEdits)); } catch (e) {}
+          pkEditsTumu(); // eski (flat) kayitlari proje bazli yapiya tasi
         }
         // degisiklik kaydi buluttan geri alinir (yeni cihazda akis bos gorunmesin)
         if (d.degisiklikLog) ckLogYukle(d);
@@ -1674,9 +1707,16 @@ let nodes = [], selected = null;
       /* Kontrol Plani "Reaksiyon Plani" alanlari FMEA satirinda degil, ayri depoda tutulur.
          Aksiyonlar oraya girilmis olabilir; raporlanir (FMEA sayacina karismaz). */
       if (kpEdits && typeof kpEdits === 'object') {
+        const cpVar = function (v) {
+          return !!(v && typeof v === 'object' &&
+            ckAlan(v, ['reaksiyon', 'reaksiyonPlani', 'aksiyon', 'alinanAksiyon']));
+        };
         Object.keys(kpEdits).forEach(function (kk) {
           const v = kpEdits[kk];
-          if (v && typeof v === 'object' && ckAlan(v, ['reaksiyon', 'reaksiyonPlani', 'aksiyon', 'alinanAksiyon'])) m.cpReaksiyon++;
+          if (!v || typeof v !== 'object') return;
+          if (cpVar(v)) { m.cpReaksiyon++; return; }  // eski (flat) bicim
+          // yeni bicim: once proje adi, icinde kod -> satir
+          Object.keys(v).forEach(function (k2) { if (cpVar(v[k2])) m.cpReaksiyon++; });
         });
       }
       return m;
@@ -4438,7 +4478,9 @@ return metin + '(otomatik öneri)';
     function cpEditCell(el) {
       const code = el.dataset.code, k = el.dataset.k;
       if (!code) return;
-      const store = (window.__cpEdits = window.__cpEdits || {});
+      /* Duzenlemeler AKTIF PROJENIN (tedarikcinin) deposuna yazilir; boylece
+         tedarikciler ayni hucre/kodu paylasmaz. */
+      const store = kpYuku();
       store[code] = store[code] || {};
       const eski = store[code][k];
       store[code][k] = el.value;
@@ -4446,8 +4488,9 @@ return metin + '(otomatik öneri)';
         ckLogEkle('kp', 'Kontrol planı güncellendi (' + (k || 'sütun') + '): ' + String(code),
           'kp|' + (currentProject || '') + '|' + code + '|' + k);
       }
+      window.__cpEdits = store;
       fitCell(el);
-      try { localStorage.setItem(kpKey(), JSON.stringify(store)); } catch (e) {}
+      kpYazBucket(store);
       scheduleCloudSync();
     }
 
@@ -6320,20 +6363,47 @@ ov.innerHTML = `<div class="fmea-modal">
       pkSonSatirIsaretle();
     }
 
-    /* --- duzenlenebilir hucre deposu (FMEA / kpEdits mantigi) ---
-       Anahtar: <dosya>!<sayfa>!<satir>!<sutun>. Deger: kullanici metni.
+    /* --- duzenlenebilir hucre deposu (Excel Proses Kontrol Formu) ---
+       Hucre anahtari: <dosya>!<sayfa>!<satir>!<sutun>. Deger: kullanici metni.
+       ONEMLI: veri PROJE/TEDARIKCI bazli tutulur; ayni kullanici farkli tedarikci
+       actiginda ayni hucreler birbirini ezmez:
+         { "<proje>": { "<dosya>!<sayfa>!<satir>!<sutun>": "..." } }.
        Once localStorage, sonra bulut (fmea_user_data.data.pkEdits). */
     function pkEditsKey() {
       return 'pkEdits::' + ((typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon');
     }
-    function pkEditsYukle() {
+    // Aktif proje adi (ana kapsamdaki aktifProjeAd ile; ayri IIFE riskine karsi korumali).
+    function pkAktifProjeAd() {
       try {
-        const d = JSON.parse(localStorage.getItem(pkEditsKey()) || '{}');
-        return (d && typeof d === 'object') ? d : {};
-      } catch (e) { return {}; }
+        if (typeof aktifProjeAd === 'function') return aktifProjeAd();
+        if (window.__aktifProjeAd) return String(window.__aktifProjeAd() || '').trim();
+      } catch (e) {}
+      return '';
     }
-    function pkEditsYaz(deger) {
-      try { localStorage.setItem(pkEditsKey(), JSON.stringify(deger || {})); } catch (e) {}
+    // Tum projeleri iceren ham depo (nested). Gerekirse flat -> nested migrasyonu yapar.
+    function pkEditsTumu() {
+      let raw = {};
+      try { raw = JSON.parse(localStorage.getItem(pkEditsKey()) || '{}'); } catch (e) { raw = {}; }
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
+      const ks = Object.keys(raw);
+      if (ks.length && ks.some(function (k) { return String(k).indexOf('!') >= 0; })) {
+        const sarmal = {}; sarmal[pkAktifProjeAd()] = raw;
+        try { localStorage.setItem(pkEditsKey(), JSON.stringify(sarmal)); } catch (e) {}
+        return sarmal;
+      }
+      return raw;
+    }
+    function pkEditsYazTumu(tum) { try { localStorage.setItem(pkEditsKey(), JSON.stringify(tum || {})); } catch (e) {} }
+    // Aktif projenin Proses Kontrol Formu hucre duzenlemelerini okur.
+    function pkEditsYukle() {
+      const tum = pkEditsTumu();
+      const b = tum[pkAktifProjeAd()];
+      return (b && typeof b === 'object') ? b : {};
+    }
+    function pkEditsYaz(bucket) {
+      const tum = pkEditsTumu();
+      tum[pkAktifProjeAd()] = bucket || {};
+      pkEditsYazTumu(tum);
     }
     function pkEditCell(el) {
       const k = el.dataset.pk;
@@ -6880,8 +6950,7 @@ ov.innerHTML = `<div class="fmea-modal">
 
       const rows = [];
       const seen = {};
-      let cpStore = {};
-      try { cpStore = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) {}
+      const cpStore = kpYuku();   // aktif projenin kontrol plani
       nodes.forEach(n => {
         if (n.type !== 'process') return;
         (n.altProsesler || []).forEach(sub => {
@@ -7519,8 +7588,7 @@ const pBase = () => {
             setCell(16, 9, M('fmeaRevNo'), true);
             const cpRows = [];
             const seenCp = {};
-            let cpStoreData = {};
-            try { cpStoreData = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) {}
+            const cpStoreData = kpYuku();   // aktif projenin kontrol plani
             nodes.forEach(nc => {
               if (nc.type !== 'process') return;
               (nc.altProsesler || []).forEach(subcp => {

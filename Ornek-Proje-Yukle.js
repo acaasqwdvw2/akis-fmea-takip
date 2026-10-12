@@ -159,7 +159,10 @@
     localStorage.setItem(K_SATIR, JSON.stringify(nodes));
     localStorage.setItem(K_META, JSON.stringify(fmeaMeta));
     localStorage.setItem(K_CUR, PROJE_ADI);
-    localStorage.setItem(K_KP, JSON.stringify(kpEdits));
+    /* Kontrol Plani artik PROJE/TEDARIKCI bazli saklanir: { "<proje>": { kod: {...} } }.
+       Boylece her tedarikcinin kontrol plani birbirinden bagimsiz olur. */
+    var kpSarmal = {}; kpSarmal[PROJE_ADI] = kpEdits;
+    localStorage.setItem(K_KP, JSON.stringify(kpSarmal));
     var liste;
     try { liste = JSON.parse(localStorage.getItem(K_PROJ) || '[]'); } catch (e) { liste = []; }
     if (!Array.isArray(liste)) liste = [];
