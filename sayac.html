@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CDK / MEOS Kalite Göstergeleri</title>
+<style>
+  :root{
+    --navy:#183347;
+    --gray:#607383;
+    --accent:#B64C35;
+    --rowlight:#E8EEF2;
+    --rowlighter:#F3F6F8;
+    --bg:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10202c;
+      --rowlighter:#182d3c;
+      --rowlight:#1f3446;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10202c;
+    --rowlighter:#182d3c;
+    --rowlight:#1f3446;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:Calibri, "Segoe UI", Arial, sans-serif;
+    color:var(--navy);
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding-left:20px;
+    padding-right:20px;
+  }
+  h1{
+    font-size:clamp(20px,3vw,30px);
+    text-align:center;
+    margin:32px 0 4px;
+    letter-spacing:0.5px;
+  }
+  p.sub{
+    color:var(--gray);
+    text-align:center;
+    margin:0 0 28px;
+    font-style:italic;
+    font-size:14px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:18px;
+    width:100%;
+    max-width:1000px;
+  }
+  .card{
+    background:var(--rowlighter);
+    border:1px solid var(--rowlight);
+    border-radius:14px;
+    padding:22px 18px;
+    text-align:center;
+  }
+  .num{
+    font-size:clamp(36px,6vw,52px);
+    font-weight:700;
+    color:var(--accent);
+    line-height:1.1;
+    font-variant-numeric:tabular-nums;
+  }
+  .label{
+    margin-top:6px;
+    font-size:14px;
+    font-weight:600;
+    color:var(--navy);
+  }
+  .frac{
+    margin-top:2px;
+    font-size:12px;
+    color:var(--gray);
+  }
+  footer{
+    margin:32px 0 20px;
+    font-size:11px;
+    color:var(--gray);
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+  <h1>CDK / MEOS Denetim Sonuçları — Ocak–Eylül 2026</h1>
+  <p class="sub">Önleyici yaklaşım, sürdürülebilir kalitenin temelidir.<br>Daha güçlü yarınlar için geleceği bugünden güvence altına alıyoruz.</p>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>Sayılar sayfa yüklenince otomatik sayarak hedef değerine ulaşır.</footer>
+
+<script>
+const stats = [
+  { label:"Talep Bazında İade Oranı", target:2.33, decimals:2, suffix:"%", frac:"33 / 1.414" },
+  { label:"Ürün Adeti Bazında İade Oranı", target:1.46, decimals:2, suffix:"%", frac:"435 / 29.725" },
+  { label:"Talep Bazında Uygunsuzluk Oranı", target:7.64, decimals:2, suffix:"%", frac:"108 / 1.414" },
+  { label:"Ürün Adeti Bazında Uygunsuzluk Oranı", target:3.20, decimals:2, suffix:"%", frac:"950 / 29.725" },
+];
+
+const grid = document.getElementById("grid");
+stats.forEach((s, i) => {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="num" id="num-${i}">0${s.suffix}</div>
+    <div class="label">${s.label}</div>
+    <div class="frac">${s.frac}</div>
+  `;
+  grid.appendChild(card);
+});
+
+function animate(el, target, decimals, suffix, duration){
+  const start = performance.now();
+  function tick(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const val = target * eased;
+    el.textContent = val.toLocaleString("tr-TR", {minimumFractionDigits:decimals, maximumFractionDigits:decimals}) + suffix;
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener("load", () => {
+  stats.forEach((s, i) => {
+    const el = document.getElementById("num-" + i);
+    setTimeout(() => animate(el, s.target, s.decimals, s.suffix, 1400), i * 150);
+  });
+});
+</script>
+</body>
+</html>
