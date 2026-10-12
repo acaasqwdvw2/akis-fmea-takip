@@ -5035,6 +5035,17 @@ ov.innerHTML = `<div class="fmea-modal">
     }
     const PK_CACHE = {};
     const pkDurum = { anahtar: null, wb: null, sekme: 0 };
+    /* Onbellek anahtari PROJE bazlidir: ayni tedarikci dosyasi her tedarikci
+       icin ayri ExcelJS kopyasi olarak onbellege alinir. Boylece bir
+       tedarikcide yapilan doldurma/indirme digerine SIZMAZ. */
+    function pkCacheKey(key) {
+      let prj = '';
+      try {
+        if (typeof pkAktifProjeAd === 'function') prj = pkAktifProjeAd();
+        else if (window.__aktifProjeAd) prj = String(window.__aktifProjeAd() || '');
+      } catch (e) {}
+      return key + '::' + (prj || '');
+    }
 
     function pkHucreMetni(h) {
       if (!h) return '';
@@ -6591,7 +6602,7 @@ ov.innerHTML = `<div class="fmea-modal">
         /* Indirme sirasinda gelen veriler bellekteki calisma kitabina yazilir;
            o kitabi atip dosyadan temiz sablonu yeniden yukleriz. Aksi halde
            eski degerler ekranda kalirdi. */
-        if (key) { delete PK_CACHE[key]; pkDurum.wb = null; }
+        if (key) { delete PK_CACHE[pkCacheKey(key)]; pkDurum.wb = null; }
         if (window.scheduleCloudSync) scheduleCloudSync(600);
         if (key) {
           await openProsesKontrolFormu(key);
@@ -6676,13 +6687,14 @@ ov.innerHTML = `<div class="fmea-modal">
       ov.querySelector('.pk-slot').innerHTML = '<div class="pk-note">Yükleniyor…</div>';
       try {
         if (typeof ExcelJS === 'undefined') throw new Error('ExcelJS kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.');
-        let wb = PK_CACHE[key];
+        const ck = pkCacheKey(key);
+        let wb = PK_CACHE[ck];
         if (!wb) {
           const res = await fetch(cfg.url, { cache: 'force-cache' });
           if (!res.ok) throw new Error(cfg.url + ' bulunamadı (HTTP ' + res.status + ')');
           wb = new ExcelJS.Workbook();
           await wb.xlsx.load(await res.arrayBuffer());
-          PK_CACHE[key] = wb;
+          PK_CACHE[ck] = wb;
         }
         pkDurum.wb = wb;
         pkDurum.sekme = 0;
@@ -6731,7 +6743,14 @@ ov.innerHTML = `<div class="fmea-modal">
       const makrolu = /\.xlsm$/i.test(cfg.dosya);
       if (!anahtarlar.length) { ckBildir('Önce formu doldurun.', 'hata'); return; }
       try {
-        const wb = pkDurum.wb;
+        /* TAZE kopya: onbellekteki sablon kitabi UZERINE YAZILMAZ. Aksi halde
+           yazilan degerler PK_CACHE'te kalip baska tedarikcide gorunurdu
+           (tedarikci-1'de doldurulan hucre tedarikci-2'de cikiyordu). */
+        const orijRes = await fetch(cfg.url, { cache: 'force-cache' });
+        if (!orijRes.ok) throw new Error(cfg.url + ' bulunamadı (HTTP ' + orijRes.status + ')');
+        const orijBuf = await orijRes.arrayBuffer();
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(orijBuf);
         let yazilan = 0;
         anahtarlar.forEach(function (k) {
           const parca = k.split('!');
@@ -6849,7 +6868,7 @@ ov.innerHTML = `<div class="fmea-modal">
         const buf = await wb.xlsx.writeBuffer();
         let indir = buf;
         if (makrolu && typeof window.JSZip !== 'undefined') {
-          const orij = await (await fetch(cfg.url)).arrayBuffer();
+          const orij = orijBuf;
           const zOrij = await window.JSZip.loadAsync(orij);
           const vba = zOrij.file('xl/vbaProject.bin');
           if (vba) {
