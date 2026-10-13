@@ -6581,6 +6581,8 @@ ov.innerHTML = `<div class="fmea-modal">
    bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). */
 /* Tum fmea-table larda son satir data-last isaretlenir; bos satir yoksa
    bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). */
+/* Tum fmea-table larda son satir data-last isaretlenir; bos satir yoksa
+   bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). */
 function pkSonSatirIsaretle(kapsam) {
   const kaps = kapsam || document;
   const tablolar = kaps.querySelectorAll(".fmea-table");
@@ -6603,12 +6605,11 @@ function pkSonSatirIsaretle(kapsam) {
         if (el.tagName === "TEXTAREA") { el.value = ""; try { fitCell(el); } catch (e) {} }
         else { el.value = ""; el.classList.remove("dolu"); }
       });
+      // Bos satirin No/Takip No hucrelerine deger YAZMA (sadece kullanici tetiklediginde pkSatirEkle yazmali)
       yeniTr.querySelectorAll("textarea[data-pk]").forEach(function (el) {
-        const p = String(el.dataset.pk || "").split("!");
-        const st = parseInt(p[3], 10);
-        const rn = parseInt(p[2], 10);
-        if (st === 4 && !isNaN(rn)) { el.value = pkOtoProsesNo(rn, null, p[1]); try { fitCell(el); } catch (e) {} }
-        else if (st === 2 && !isNaN(rn)) { el.value = pkOtoSatirNo(rn); try { fitCell(el); } catch (e) {} }
+        el.removeAttribute("data-last");
+        if (el.tagName === "TEXTAREA") { el.value = ""; try { fitCell(el); } catch (e) {} }
+        else { el.value = ""; el.classList.remove("dolu"); }
       });
       tbl.appendChild(yeniTr);
     }
@@ -6617,6 +6618,9 @@ function pkSonSatirIsaretle(kapsam) {
     if (rs2.length) rs2[rs2.length - 1].querySelectorAll("textarea[data-pk], textarea[data-n], select[data-pk], select[data-code]").forEach(function (el) { el.setAttribute("data-last", "1"); });
   });
 }
+
+/* Eski pkSonSatirIsaretle (parametresiz) - geriye donuk uyumluluk */
+function pkSonSatirIsaretle() { pkSonSatirIsaretle(document); }
 
 /* Eski pkSonSatirIsaretle (parametresiz) - geriye donuk uyumluluk */
 function pkSonSatirIsaretle() { pkSonSatirIsaretle(document); }
