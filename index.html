@@ -347,7 +347,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #userName:empty{display:none}
     #userName::before{content:"Hesap: ";font-weight:400;opacity:.8}
 #userBar button{margin-left:8px;background:#e8eff0;color:#33484d;border-radius:6px;cursor:pointer;font-weight:700}
-  </style>
+  
+.stk{--bg:#f4f6f9;--card:#fff;--tx:#1c2433;--mut:#667085;--bd:#d9dfe9;--ok:#16a34a;--okb:#dcfce7;--run:#2563eb;--runb:#dbeafe;--bad:#dc2626;--badb:#fee2e2;--wait:#98a2b3;--waitb:#eef0f4;--hd:#1f3b6e;
+ font:13.5px/1.4 system-ui,"Segoe UI",Roboto,sans-serif;color:var(--tx);background:var(--bg);padding:12px;border-radius:12px;margin:auto;
+ display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:460px;overflow:hidden}
+@media(prefers-color-scheme:dark){.stk{--bg:#10141c;--card:#1a2030;--tx:#e7ebf3;--mut:#9aa4b8;--bd:#2f3850;--okb:#12341f;--runb:#16294d;--badb:#3d1717;--waitb:#262d3f;--hd:#2a4a86}}
+.stk,.stk *{box-sizing:border-box}.stk>*{flex:none}
+.stk h1{font-size:18px;margin:0}.stk .mut{color:var(--mut);font-size:12px}
+.stk .top{display:flex;gap:10px 16px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:8px}.stk .bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.stk .bar input[type=search]{padding:6px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--card);width:190px}
+.stk button,.stk select,.stk input{font:inherit;color:var(--tx)}
+.stk button{padding:6px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--card);cursor:pointer}.stk button.p{background:var(--run);border-color:var(--run);color:#fff}
+.stk .sumw{display:grid;grid-template-columns:.9fr .9fr 1.4fr 2fr;gap:8px;margin-bottom:8px}
+@media(max-width:1100px){.stk .sumw{grid-template-columns:1fr 1fr}}@media(max-width:600px){.stk .sumw{grid-template-columns:1fr}}
+.stk .box{display:flex;flex-direction:column;min-width:0;min-height:96px}.stk .box .nums{margin:auto 0;justify-content:space-around}
+.stk .lt{display:flex;gap:12px;align-items:center;flex:1}.stk .big{font-size:30px;font-weight:700;line-height:1;text-align:center}.stk .big span{display:block;font-size:11px;color:var(--mut);font-weight:400}.stk .big.bad{color:var(--bad)}
+.stk .ll{flex:1;max-height:78px;overflow:auto;font-size:12.5px}.stk .ll div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--bd);padding:1px 0}.stk .ll i{color:var(--mut);font-style:normal;font-size:11px}.stk .ll b{color:var(--bad)}.stk .sumw.off{display:none}
+.stk .box{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px 9px}
+.stk .box h3{margin:0 0 5px;font-size:12px;color:var(--mut);font-weight:600}
+.stk .nums{display:flex;gap:14px}.stk .nums div{text-align:center}.stk .nums b{display:block;font-size:18px;line-height:1.1}.stk .nums span{font-size:11px;color:var(--mut)}
+.stk table.m{border-collapse:collapse;font-size:12.5px}.stk table.m td,.stk table.m th{border:1px solid var(--bd);padding:1px 5px;text-align:center;font-size:12px}
+.stk table.m td:first-child{white-space:nowrap;text-align:left}.stk .box{overflow-x:auto}.stk table.m input{width:32px;text-align:center;border:0;background:transparent}
+.stk .scroll{flex:1 1 auto!important;min-height:0;overflow:auto;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+.stk table.t{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;min-width:1584px;font-size:12px}
+.stk table.t th{background:var(--hd);color:#fff;font-weight:600;font-size:11px;line-height:1.2;height:30px;padding:2px 4px;border-right:1px solid rgba(255,255,255,.25);position:sticky;z-index:3;text-align:center}
+.stk table.t tr.h1 th{top:0}.stk table.t tr.h2 th{top:34px}.stk table.t tr.h1 th{height:34px;white-space:normal}.stk table.t tr.h1 th[colspan]{border-bottom:1px solid rgba(255,255,255,.35)}
+.stk table.t td{height:42px;position:relative;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);padding:2px 3px;vertical-align:middle;background-color:var(--card)}
+.stk table.t tr:nth-child(even) td{background-image:linear-gradient(rgba(120,140,180,.07),rgba(120,140,180,.07))}
+.stk table.t input,.stk table.t select{width:100%;border:1px solid transparent;background:transparent;padding:4px 5px;border-radius:6px;font-size:11.5px;padding:3px 2px;min-width:0}
+.stk table.t input[type=date]::-webkit-calendar-picker-indicator{display:none}.stk table.t input[type=date]{cursor:pointer}
+.stk table.t select{appearance:none;-webkit-appearance:none;text-overflow:ellipsis;cursor:pointer;padding:3px 12px 3px 4px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5'><path d='M0 0l4 5 4-5z' fill='%23888'/></svg>");background-repeat:no-repeat;background-position:right 3px center}
+.stk table.t input:hover,.stk table.t select:hover,.stk table.t input:focus,.stk table.t select:focus{border-color:var(--run);background-color:var(--card)}
+.stk table.t select.v-ok{background-color:var(--okb);color:var(--ok);font-weight:600}.stk select.v-run{background-color:var(--runb);color:var(--run);font-weight:600}
+.stk select.v-bad{background-color:var(--badb);color:var(--bad);font-weight:600}.stk select.v-wait{background-color:var(--waitb);color:var(--mut)}
+.stk td.nm{text-align:center;color:var(--mut);font-weight:700}.stk td.late input{color:var(--bad);font-weight:700;background:var(--badb);margin-bottom:10px}
+.stk .gun{position:absolute;left:0;right:0;bottom:1px;color:var(--bad);font-size:10px;line-height:11px;font-weight:700;text-align:center;pointer-events:none}
+.stk .del{border:0;background:none;color:var(--wait);cursor:pointer;padding:2px 6px}.stk .del:hover{color:var(--bad)}
+.stk tr.hid{display:none}
+@media(min-width:900px){.stk table.t td:nth-child(-n+3){position:sticky;z-index:2}.stk table.t td:nth-child(1){left:0}.stk table.t td:nth-child(2){left:28px}.stk table.t td:nth-child(3){left:126px;box-shadow:2px 0 0 var(--bd)}.stk table.t th.s1{left:0;z-index:5}.stk table.t th.s2{left:28px;z-index:5}.stk table.t th.s3{left:126px;z-index:5}}
+
+</style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <body>
@@ -831,7 +869,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <button class="primary" onclick="stYenile()">Yenile</button>
       </div>
     </div>
-    <div id="stBody"></div>
+    <div id="stBody">
+    <div class="stk">
+ <div class="top">
+  <div><h1>ASELSAN GLOBAL FMEA SÜREÇLERİ TAKİP ÇİZELGESİ</h1><div class="mut" id="saved">Değişiklikler bu tarayıcıda otomatik saklanır</div></div>
+  <div class="bar">
+   <input type="search" id="q" placeholder="Firma / sorumlu / açıklama ara…">
+   <button id="add">+ Satır ekle</button>
+   <button type="button" onclick="document.getElementById('xin').click()">📂 Excel'den yükle</button><input type="file" id="xin" accept=".xlsx,.xls" hidden>
+   <button class="p" id="xout">📊 Excel indir</button><button id="reset" title="Başlangıç verisine dön">Sıfırla</button>
+  </div>
+ </div>
+ <div class="scroll"><table class="t"><colgroup><col style="width:28px"><col style="width:98px"><col style="width:112px"><col style="width:112px"><col style="width:90px"><col style="width:90px"><col style="width:90px"><col style="width:108px"><col style="width:104px"><col style="width:100px"><col style="width:90px"><col style="width:100px"><col style="width:90px"><col style="width:100px"><col style="width:138px"><col><col style="width:24px"></colgroup><thead>
+  <tr class="h1"><th rowspan="2" class="s1">No</th><th rowspan="2" class="s2">Birim</th><th rowspan="2" class="s3">Tedarikçi Firma</th><th rowspan="2">Çalışma Kapsamı</th><th colspan="4">FMEA</th><th rowspan="2">FMEA Akış Formatı</th><th rowspan="2">Kalite Kontrol Planı</th><th colspan="2">Proses Kontrol Formu Denetçi</th><th colspan="2">Proses Kontrol Formu Tedarikçi</th><th rowspan="2">FMEA Sorumlusu</th><th rowspan="2">Açıklama</th><th rowspan="2"></th></tr>
+  <tr class="h2"><th>Başlangıç Tarihi</th><th>Hedef Tarih</th><th>Tamamlanma Tarihi</th><th>Güncel Durum</th><th>Başlangıç Tarihi</th><th>Durumu</th><th>Başlangıç Tarihi</th><th>Durumu</th></tr>
+ </thead><tbody id="tb"></tbody></table></div>
+</div>
+<datalist id="dlB"></datalist><datalist id="dlS"></datalist>
+    </div>
   </div>
   
   <div class="toolbar">
@@ -1685,100 +1740,10 @@ let nodes = [], selected = null;
     function openSurecTakipPage() {
       switchAdminView('surec');
     }
-    function stEsc(v) {
-      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    function stOverrideOku() {
-      try { return JSON.parse(localStorage.getItem('surecTakipOverride') || '{}') || {}; } catch (e) { return {}; }
-    }
+    /* Tablo/duzenleme mantigi sayfa sonundaki .stk betiginde tanimlanir
+       (window.stkTabloCiz). Sekmeye gecince icerik tazelenir. */
     function stYenile() {
-      if (typeof cloudIsAdmin === 'undefined' || !cloudIsAdmin) return;
-      /* Kokpit verisi henuz yuklenmediyse once onu cek (async), sonra ciz */
-      if (!window.__ckTedarikci && typeof ckYenile === 'function') {
-        var body = document.getElementById('stBody');
-        if (body) body.innerHTML = '<p class="ck-none">Veriler y\u00fckleniyor\u2026</p>';
-        try {
-          var p = ckYenile();
-          if (p && typeof p.then === 'function') { p.then(function () { renderStBody(); }); return; }
-        } catch (e) {}
-      }
-      renderStBody();
-    }
-    function stKaydet() {
-      var overrides = {};
-      document.querySelectorAll('#stBody tr[data-stkey]').forEach(function (tr) {
-        var key = tr.getAttribute('data-stkey');
-        var o = {};
-        tr.querySelectorAll('[data-stalan]').forEach(function (el) {
-          o[el.getAttribute('data-stalan')] = el.value;
-        });
-        overrides[key] = o;
-      });
-      try { localStorage.setItem('surecTakipOverride', JSON.stringify(overrides)); } catch (e) {}
-      renderStBody();
-    }
-    function renderStBody() {
-      var stBody = document.getElementById('stBody');
-      if (!stBody) return;
-      var tedarikciler = window.__ckTedarikci || [];
-      var overrides = stOverrideOku();
-      // Kolon tanimlari (anahtar, baslik)
-      var cols = [
-        ['birim', 'Birim'],
-        ['kapsam', '\u00c7al\u0131\u015fma Kapsam\u0131'],
-        ['baslangic', 'FMEA Ba\u015flang\u0131\u00e7'],
-        ['hedef', 'FMEA Hedef'],
-        ['tamamlanma', 'FMEA Tamamlanma'],
-        ['durum', 'FMEA G\u00fcncel Durum'],
-        ['format', 'FMEA Ak\u0131\u015f Format\u0131'],
-        ['kontrol', 'Kalite Kontrol Plan\u0131'],
-        ['pkfDenetci', 'PKF Denet\u00e7i'],
-        ['pkfTedarikci', 'PKF Tedarik\u00e7i'],
-        ['aciklama', 'A\u00e7\u0131klama']
-      ];
-      var inp = 'style="width:100%;box-sizing:border-box;border:1px solid #cfcfcf;border-radius:4px;padding:3px 5px;font-size:12px;background:#fff"';
-      var html = '';
-      html += '<div class="st-bar"><span class="ck-sub">' + tedarikciler.length + ' tedarik\u00e7i \u00b7 veriler kullan\u0131c\u0131 kay\u0131tlar\u0131ndan otomatik \u00fcretilir</span>';
-      html += '<button class="primary" onclick="stKaydet()">Kaydet</button></div>';
-      html += '<div class="fmea-table"><table><thead><tr>';
-      html += '<th>No</th><th>Tedarik\u00e7i Firma</th>';
-      cols.forEach(function (c) { html += '<th>' + c[1] + '</th>'; });
-      html += '<th>FMEA</th><th>Sorumlu</th><th>Son G\u00fcncelleme</th>';
-      html += '</tr></thead><tbody>';
-      if (!tedarikciler.length) {
-        html += '<tr><td colspan="' + (cols.length + 5) + '">Kay\u0131tl\u0131 tedarik\u00e7i verisi bulunamad\u0131. \u00d6nce Y\u00f6netici Kokpiti > Yenile.</td></tr>';
-      }
-      tedarikciler.forEach(function (t, i) {
-        var ad = String(t.ad || 'Bilinmiyor');
-        var key = ad.toLowerCase();
-        var ov = overrides[key] || {};
-        var oto = {
-          birim: 'Elektronik',
-          kapsam: 'Tedarik\u00e7i Geli\u015ftirme',
-          baslangic: '',
-          hedef: '',
-          tamamlanma: '',
-          durum: t.fmea ? (t.devam ? 'Devam Ediyor' : 'Tamamland\u0131') : 'Ba\u015flanmad\u0131',
-          format: '',
-          kontrol: '',
-          pkfDenetci: '',
-          pkfTedarikci: '',
-          aciklama: ''
-        };
-        html += '<tr data-stkey="' + stEsc(key) + '">';
-        html += '<td>' + (i + 1) + '</td>';
-        html += '<td>' + stEsc(ad) + '</td>';
-        cols.forEach(function (c) {
-          var val = (ov[c[0]] !== undefined && ov[c[0]] !== '') ? ov[c[0]] : oto[c[0]];
-          html += '<td><input ' + inp + ' data-stalan="' + c[0] + '" value="' + stEsc(val) + '"></td>';
-        });
-        html += '<td>' + (t.fmea || 0) + '</td>';
-        html += '<td>' + stEsc(Object.keys(t.kisiler || {}).join(', ') || t.kisi || '') + '</td>';
-        html += '<td>' + stEsc(t.guncelleme || '') + '</td>';
-        html += '</tr>';
-      });
-      html += '</tbody></table></div>';
-      stBody.innerHTML = html;
+      try { if (window.stkTabloCiz) window.stkTabloCiz(); if (window.stkFit) window.stkFit(); } catch (e) {}
     }
     // ================= YÖNETİCİ KOKPİTİ =================
     // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
@@ -8265,6 +8230,76 @@ function download(d, n, t) {
     else logoTasi();
     window.addEventListener('load', logoTasi);
   })();
+  </script>
+  <script>
+  /* Admin Surec Takip Cizelgesi (surec_takip (1).html tabanli, ozet kutulari haric) */
+  (function () {
+
+/* Başlangıç verisi aşağıda; kullanıcı değişiklikleri tarayıcıda (localStorage) saklanır. Kendi verinizi vermek için window.FMEA_DATA = {rows:[...], pkf:[...]} tanımlayın. */
+const SRC = window.FMEA_DATA || {"rows": [{"no": 1, "birim": "Elektronik", "firma": "EMS", "kapsam": "Tedarikçi Geliştirme", "bas": "2026-05-04", "hedef": "2026-06-05", "tamam": "2026-06-05", "durum": "Tamamlandı", "akis": "Akışa Uygun", "kkp": "Tamamlandı", "pkfDbas": null, "pkfD": "Uygulanıyor", "pkfTbas": null, "pkfT": "Uygulanıyor", "sorumlu": "ONUR ŞEREF", "aciklama": null}, {"no": 2, "birim": "Mekanik", "firma": "Özben Savunma", "kapsam": "FMEA", "bas": "2026-01-29", "hedef": "2026-07-20", "tamam": "2026-07-20", "durum": "Devam ediyor", "akis": "Akışa Uygun Değil", "kkp": "Tamamlandı", "pkfDbas": null, "pkfD": "Uygulanıyor", "pkfTbas": null, "pkfT": "Uygulanıyor", "sorumlu": "UTKU BOZKURT", "aciklama": null}, {"no": 3, "birim": "Mekanik", "firma": "Asiltürk", "kapsam": "FMEA", "bas": "2026-02-01", "hedef": "2026-07-16", "tamam": "2026-07-16", "durum": "Devam ediyor", "akis": "Akışa Uygun Değil", "kkp": "Tamamlandı", "pkfDbas": null, "pkfD": "Uygulanıyor", "pkfTbas": null, "pkfT": "Uygulanıyor", "sorumlu": "ÇAĞRI KESKİN", "aciklama": "20/07 haftasında checklistler uygulandı.30.07 tarihinde yeni formata aktarılıp devam edilecektir."}, {"no": 4, "birim": "Yüzey İşlem", "firma": "Asiltürk", "kapsam": "FMEA", "bas": "2026-04-06", "hedef": "2026-08-03", "tamam": null, "durum": "Devam ediyor", "akis": "Akışa Uygun Değil", "kkp": null, "pkfDbas": null, "pkfD": "Uygulanmıyor", "pkfTbas": null, "pkfT": "Uygulanmıyor", "sorumlu": "Melis Yağmur DELİCE", "aciklama": "Hat onayları alınmadığı için proses kontrol formu aktif değil."}, {"no": 5, "birim": "Yüzey İşlem", "firma": "Ermet", "kapsam": "FMEA", "bas": "2026-07-06", "hedef": "2026-08-03", "tamam": null, "durum": "Devam ediyor", "akis": "Akışa Uygun Değil", "kkp": null, "pkfDbas": null, "pkfD": "Uygulanıyor", "pkfTbas": null, "pkfT": "Uygulanmıyor", "sorumlu": "Melis Yağmur DELİCE", "aciklama": null}, {"no": 6, "birim": "Elektronik", "firma": "Connecto", "kapsam": "FMEA", "bas": "2026-09-04", "hedef": null, "tamam": null, "durum": "Devam ediyor", "akis": "Akışa Uygun Değil", "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "ONUR ŞEREF", "aciklama": null}, {"no": 7, "birim": "Elektronik", "firma": "Teknolus", "kapsam": "Tedarikçi Geliştirme", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "İpek Müftüoğlu", "aciklama": "30.09.2026 Çarşamba öğleden sonra için toplantı planlanacak."}, {"no": 8, "birim": "Elektronik", "firma": "AB Mikronano", "kapsam": "Tedarikçi Geliştirme", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "İpek Müftüoğlu", "aciklama": "Kasım için başlangıç bekleniyor."}, {"no": 9, "birim": "Yüzey İşlem", "firma": "Hidromekanik", "kapsam": "Tedarikçi Geliştirme", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Melis Yağmur DELİCE", "aciklama": "Tedarikçi geliştirme eğitimi verildi. Başlangıç toplantısı yapıldı, takvim oluşturuldu. FMEA' ya başlanacak."}, {"no": 10, "birim": "Elektronik", "firma": "Megart", "kapsam": "FMEA", "bas": null, "hedef": "2026-10-01", "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "İpek Müftüoğlu", "aciklama": null}, {"no": 11, "birim": "Yüzey İşlem", "firma": "Tonart", "kapsam": "Tedarikçi Geliştirme", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Ceren BİÇER", "aciklama": "Tedarikçi geliştirme eğitimi verildi, takvim/plan oluşturuldu, FMEA ' ya başlanacak."}, {"no": 12, "birim": "Yüzey İşlem", "firma": "EST", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Tuğçe SAĞLAM", "aciklama": "FMEA eğitimi verildi. İptal edildi."}, {"no": 13, "birim": "Yüzey İşlem", "firma": "Teknoklass", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Merve USLU TURHANLAR", "aciklama": "Sahada FMEA gerçekleştirildi, maddeler eklenecek fmea revize edilecek."}, {"no": 14, "birim": "Mekanik", "firma": "Kaleli", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Merve DEMİR", "aciklama": null}, {"no": 15, "birim": "Mekanik", "firma": "Gora", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Mustafa Yurtoğlu", "aciklama": null}, {"no": 16, "birim": "Mekanik", "firma": "Eng", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Yaşar Çetinkol", "aciklama": null}, {"no": 17, "birim": "Mekanik", "firma": "Volo", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Songül Akbudak", "aciklama": null}, {"no": 18, "birim": "Yüzey İşlem", "firma": "Mega", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Tuğçe Sağlam Ovalı", "aciklama": null}, {"no": 19, "birim": "Mekanik", "firma": "Sinerji", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Ahmet Pugur", "aciklama": null}, {"no": 20, "birim": "Mekanik", "firma": "Pres-iş", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Yusuf Mete Gürler", "aciklama": null}, {"no": 21, "birim": "Mekanik", "firma": "Impro", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Derya Sayılganoğlu", "aciklama": null}, {"no": 22, "birim": "Mekanik", "firma": "Öz-san", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Utku Bozkurt", "aciklama": null}, {"no": 23, "birim": "Mekanik", "firma": "Burakcan", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Çağrı Keskin", "aciklama": null}, {"no": 24, "birim": "Elektronik", "firma": "Aselsan Malatya", "kapsam": "FMEA", "bas": null, "hedef": null, "tamam": null, "durum": null, "akis": null, "kkp": null, "pkfDbas": null, "pkfD": null, "pkfTbas": null, "pkfT": null, "sorumlu": "Onur Şeref", "aciklama": null}], "pkf": [{"ad": "Aselsan Global", "uygunsuz": [null, null, 3], "eksik": [0, null, null]}, {"ad": "Tedarikçi", "uygunsuz": [null, null, 2], "eksik": [1, null, null]}], "ozet": {"fmea": [14, 4], "tg": [12, 2], "gecikme": 4}};
+const $ = id => document.getElementById(id), KEY = 'fmea_surec_takip_v2';
+const LIST = { kapsam: ['Tedarikçi Geliştirme', 'FMEA'], durum: ['Tamamlandı', 'Devam ediyor', 'Hedef tarih geçmiş', 'Planlama yapılmamış'], akis: ['Akışa Uygun', 'Akışa Uygun Değil'], pkf: ['Uygulanıyor', 'Uygulanmıyor', 'Devreye alınmamış'] };
+const COLS = [['birim','text'],['firma','text'],['kapsam','sel','kapsam'],['bas','date'],['hedef','date'],['tamam','date'],['durum','sel','durum'],['akis','sel','akis'],['kkp','sel','durum'],['pkfDbas','date'],['pkfD','sel','pkf'],['pkfTbas','date'],['pkfT','sel','pkf'],['sorumlu','text'],['aciklama','text']];
+const SHORT = { 'Akışa Uygun':'Uygun', 'Akışa Uygun Değil':'Uygun Değil', 'Tedarikçi Geliştirme':'Ted. Geliştirme', 'Hedef tarih geçmiş':'Hedef geçmiş', 'Planlama yapılmamış':'Plan yok', 'Devreye alınmamış':'Devrede değil' };
+const TONE = { 'Tamamlandı':'ok','Uygulanıyor':'ok','Akışa Uygun':'ok','Devam ediyor':'run','Hedef tarih geçmiş':'bad','Uygulanmıyor':'bad','Akışa Uygun Değil':'bad','Planlama yapılmamış':'wait','Devreye alınmamış':'wait' };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const TODAY = (() => { const q = new URLSearchParams(location.search).get('tarih'); const d = q ? new Date(q + 'T00:00:00') : new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })();
+let S; try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+if (!S || !S.rows) S = { rows: clone(SRC.rows) };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); $('saved').textContent = 'Kaydedildi ' + new Date().toLocaleTimeString('tr-TR'); } catch (e) {} };
+const lateDays = r => (r.durum !== 'Tamamlandı' && r.hedef && new Date(r.hedef + 'T00:00:00') < TODAY) ? Math.round((TODAY - new Date(r.hedef + 'T00:00:00')) / 864e5) : 0;
+
+function cell(r, i, c) {
+  const [k, t, l] = c, v = r[k] ?? '';
+  if (t === 'sel') { const o = LIST[l].slice(); if (v && !o.includes(v)) o.push(v);
+    return `<td><select data-i="${i}" data-k="${k}" title="${esc(v)}" class="${TONE[v] ? 'v-' + TONE[v] : ''}"><option value=""></option>${o.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(SHORT[x] || x)}</option>`).join('')}</select></td>`; }
+  if (t === 'date') return `<td class="${k === 'hedef' && lateDays(r) ? 'late' : ''}"><input type="date" data-i="${i}" data-k="${k}" value="${esc(v)}">${k === 'hedef' && lateDays(r) ? `<span class="gun">${lateDays(r)} gün gecikti</span>` : ''}</td>`;
+  return `<td><input type="text" data-i="${i}" data-k="${k}" value="${esc(v)}" ${k === 'birim' ? 'list="dlB"' : k === 'sorumlu' ? 'list="dlS"' : ''}></td>`;
+}
+function rows() {
+  $('tb').innerHTML = S.rows.map((r, i) => `<tr data-i="${i}"><td class="nm">${i + 1}</td>${COLS.slice(0, 3).map(c => cell(r, i, c)).join('')}${COLS.slice(3).map(c => cell(r, i, c)).join('')}<td><button class="del" data-del="${i}" title="Satırı sil">✕</button></td></tr>`).join('');
+  const u = f => [...new Set(S.rows.map(f).filter(Boolean))];
+  $('dlB').innerHTML = u(r => r.birim).map(x => `<option value="${esc(x)}">`).join(''); $('dlS').innerHTML = u(r => r.sorumlu).map(x => `<option value="${esc(x)}">`).join('');
+  filter();
+}
+function filter() { const q = $('q').value.toLocaleLowerCase('tr'); document.querySelectorAll('#tb tr').forEach(tr => { const r = S.rows[tr.dataset.i]; tr.classList.toggle('hid', !!q && !(`${r.firma} ${r.sorumlu} ${r.aciklama} ${r.birim}`.toLocaleLowerCase('tr').includes(q))); }); }
+$('tb').addEventListener('change', e => { const t = e.target, i = t.dataset.i; if (i == null) return; S.rows[i][t.dataset.k] = t.value || null; save();
+  if (t.tagName === 'SELECT') { t.className = TONE[t.value] ? 'v-' + TONE[t.value] : ''; t.title = t.value; }
+  if (['hedef', 'durum'].includes(t.dataset.k)) { const tr = t.closest('tr'), nt = document.createElement('tbody'); nt.innerHTML = `<tr>${cell(S.rows[i], i, COLS[4])}</tr>`; const old = tr.children[COLS.findIndex(c => c[0] === 'hedef') + 1]; old.replaceWith(nt.firstChild.firstChild); }
+   });
+$('tb').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b && confirm('Bu satır silinsin mi?')) { S.rows.splice(+b.dataset.del, 1); save(); rows(); } });
+$('tb').addEventListener('click', e => { if (e.target.type === 'date' && e.target.showPicker) { try { e.target.showPicker(); } catch (x) {} } });
+const MINW = 1584;
+function fit() { const sc = document.querySelector('.scroll'), tb = document.querySelector('table.t'); tb.style.zoom = 1; const s = Math.min(1, (sc.clientWidth - 20) / MINW); tb.style.zoom = s >= 0.68 ? s : 1; }
+addEventListener('resize', fit);
+$('add').onclick = () => { S.rows.push({ birim:null, firma:'', kapsam:null }); save(); rows(); const sc = document.querySelector('.scroll'); sc.scrollTop = sc.scrollHeight; };
+$('q').oninput = filter;
+$('reset').onclick = () => { if (confirm('Tüm değişiklikler silinip başlangıç verisine dönülsün mü?')) { S = { rows: clone(SRC.rows) }; save(); rows(); } };
+
+// ---- Excel içe / dışa aktarım (SheetJS)
+const iso = v => { if (v == null || v === '') return null; if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
+  const s = String(v).trim(); let m; if (m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/)) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; if (m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)) return m[0]; return null; };
+const str = v => { if (v == null) return null; const s = String(v).trim(); return s || null; };
+$('xin').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (typeof XLSX === 'undefined') return alert('Excel kütüphanesi yüklenemedi (internet bağlantısı gerekli).');
+  const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }), ws = wb.Sheets['Takip Çizelgesi'] || wb.Sheets[wb.SheetNames[0]], a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+  const h = a.findIndex(r => str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı.');
+  const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!str(x[2])) continue;
+    out.push({ birim:str(x[1]), firma:str(x[2]), kapsam:str(x[3]), bas:iso(x[4]), hedef:iso(x[5]), tamam:iso(x[6]), durum:str(x[7]), akis:str(x[8]), kkp:str(x[9]), pkfDbas:iso(x[10]), pkfD:str(x[11]), pkfTbas:iso(x[12]), pkfT:str(x[13]), sorumlu:str(x[14]), aciklama:str(x[15]) }); }
+  if (!out.length) return alert('Veri satırı bulunamadı.'); S.rows = out;
+  save(); rows(); };
+$('xout').onclick = () => { const H1 = ['No','Birim','Tedarikçi Firma','Çalışma Kapsamı','FMEA','','','','FMEA Akış Formatı','Kalite Kontrol Planı','Proses Kontrol Formu Denetçi','','Proses Kontrol Formu Tedarikçi','','FMEA Sorumlusu','Açıklama'],
+  H2 = ['','','','','Başlangıç Tarihi','Hedef Tarih','Tamamlanma Tarihi','Güncel Durum','','','Başlangıç Tarihi','Durumu','Başlangıç Tarihi','Durumu','',''];
+  const dt = s => s ? new Date(s + 'T12:00:00Z') : null, aoa = [['', '', 'ASELSAN GLOBAL FMEA SÜREÇLERİ TAKİP ÇİZELGESİ'], H1, H2, ...S.rows.map((r, i) => [i + 1, r.birim, r.firma, r.kapsam, dt(r.bas), dt(r.hedef), dt(r.tamam), r.durum, r.akis, r.kkp, dt(r.pkfDbas), r.pkfD, dt(r.pkfTbas), r.pkfT, r.sorumlu, r.aciklama])];
+  if (typeof XLSX === 'undefined') { const csv = aoa.slice(1).map(r => r.map(v => `"${(v instanceof Date ? v.toISOString().slice(0, 10) : v ?? '').toString().replace(/"/g, '""')}"`).join(';')).join('\n'), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' })); a.download = 'FMEA_surec_takip.csv'; a.click(); return; }
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true, dateNF: 'dd\\.mm\\.yyyy' }), M = (r1, c1, r2, c2) => ({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
+  ws['!merges'] = [M(0,2,0,15), M(1,0,2,0), M(1,1,2,1), M(1,2,2,2), M(1,3,2,3), M(1,4,1,7), M(1,8,2,8), M(1,9,2,9), M(1,10,1,11), M(1,12,1,13), M(1,14,2,14), M(1,15,2,15)];
+  ws['!cols'] = [6,14,22,20,14,14,16,16,18,18,14,14,14,14,22,50].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Takip Çizelgesi'); XLSX.writeFile(wb, 'ASELSAN_GLOBAL_FMEA_SURECLERI_TAKIP_CIZELGESI.xlsx', { cellDates: true }); };
+window.stkTabloCiz = rows; window.stkFit = fit;
+rows(); fit();
+
+})();
   </script>
 </body>
 </html>
