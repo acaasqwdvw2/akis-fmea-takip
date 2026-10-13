@@ -4598,15 +4598,15 @@ return metin + '(otomatik öneri)';
       const n = nodes.find(x => x.id === el.dataset.n);
       if (!n) return;
       const lvl = el.dataset.lvl, sIdx = +el.dataset.s, hIdx = +el.dataset.h, k = el.dataset.k, v = el.value;
-      if (lvl === 'node') { ckAkisAlanLog('proses', k, n[k], v); n[k] = v; }
+      const isLast = el.getAttribute("data-last") === "1";
+      const tbl = el.closest("table.fmea-table");
+      if (lvl === "node") { ckAkisAlanLog("proses", k, n[k], v); n[k] = v; }
       else if (lvl === 'sub') {
         const sub = n.altProsesler[sIdx];
         if (!sub) return;
         ckAkisAlanLog('akis', k, sub[k], v);
         sub[k] = v;
       } else {
-        const sub = n.altProsesler[sIdx];
-        if (!sub) return;
         let h = sub.hatalar && sub.hatalar[hIdx];
         if (!h) {
           if (hIdx < 0) return;
@@ -4643,9 +4643,8 @@ return metin + '(otomatik öneri)';
     function cpEditCell(el) {
       const code = el.dataset.code, k = el.dataset.k;
       if (!code) return;
-      /* Duzenlemeler AKTIF PROJENIN (tedarikcinin) deposuna yazilir; boylece
-         tedarikciler ayni hucre/kodu paylasmaz. */
-      const store = kpYuku();
+      const isLast = el.getAttribute("data-last") === "1";
+      const tbl = el.closest("table.fmea-table");
       store[code] = store[code] || {};
       const eski = store[code][k];
       store[code][k] = el.value;
@@ -4935,7 +4934,29 @@ return metin + '(otomatik öneri)';
       return entries;
     }
 
-    function showFmeaPreview() {
+        function fmeaBosSatir(isParca) {
+      const tailEmpty = isParca
+        ? "<td colspan=\"2\"></td><td colspan=\"2\"></td><td colspan=\"2\"></td>" +
+          "<td colspan=\"2\"></td><td colspan=\"2\"></td><td></td><td></td><td></td><td></td></tr>"
+        : "<td colspan=\"2\"></td><td colspan=\"2\"></td><td colspan=\"2\"></td>" +
+          "<td colspan=\"2\"></td><td colspan=\"2\"></td><td></td><td></td><td></td><td colspan=\"2\"></td></tr>";
+      const baseEmpty = isParca
+        ? "<td class=\"gp\"></td><td></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>"
+        : "<td class=\"gp\"></td><td colspan=\"3\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>" +
+          "<td colspan=\"2\" class=\"wf\"></td><td colspan=\"2\" class=\"wf\"></td>";
+      return "<tr>" + baseEmpty + tailEmpty + "</tr>";
+    }
+
+function showFmeaPreview() {
       if (!nodes.length) {
         alert('Görüntülenecek FMEA verisi yok. Önce akış oluşturun.');
         return;
@@ -5105,14 +5126,14 @@ ov.innerHTML = `<div class="fmea-modal">
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
           <div class="fmeta">${metaHtml}</div>
-          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table">${thead}<tbody>${rows}</tbody></table></div></div>
+          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table">${thead}<tbody>${rows}${fmeaBosSatir(isParcaPrev)}</tbody></table></div></div>
         </div>
       </div>`;
       ov.classList.add('open');
       ov.querySelectorAll('textarea').forEach(t => fitCell(t));
       fitTopScroll(ov);
       freezeFmeaHead(ov);
-      setTimeout(() => fitTopScroll(ov), 50);
+      setTimeout(() => { fitTopScroll(ov); pkSonSatirIsaretle(document.getElementById("fmeaOverlay")); }, 0);
     }
 
     function closeFmeaPreview() {
@@ -6122,7 +6143,7 @@ ov.innerHTML = `<div class="fmea-modal">
       pkEditsYaz(depo);
       const say = document.getElementById('pkEditsSay');
       if (say) say.textContent = Object.keys(depo).length ? Object.keys(depo).length + ' düzenleme kayıtlı' : 'Henüz düzenleme yok';
-      if (el.getAttribute('data-last') === '1') pkSatirEkle();
+      if (el.getAttribute('data-last') === '1') { const tbl = el.closest("table.fmea-table"); pkSatirEkle(tbl); }
       if (window.scheduleCloudSync) scheduleCloudSync(1200);
     }
     /* FMEA meta alanindan otomatik gelen baslik degerleri. Excel'deki bos
@@ -6554,62 +6575,98 @@ ov.innerHTML = `<div class="fmea-modal">
       try { localStorage.setItem(pkSatirAnahtari(), String(y - PK_BASLANGIC)); } catch (e) {}
       return y;
     }
-    /* Tablodaki son veri satirini isaretle; son satira yazilunca yeni satir acilir. */
-    function pkSonSatirIsaretle() {
-      const tablo = document.querySelector('#pkOverlay .fmea-table');
-      if (!tablo || !tablo.tBodies[0]) return;
-      const rs = tablo.tBodies[0].rows;
-      for (let i = 0; i < rs.length; i++) {
-        const hucreler = rs[i].querySelectorAll('textarea[data-pk], select[data-pk]');
-        if (!hucreler.length) continue;
-        const sonMu = (i === rs.length - 1);
-        hucreler.forEach(function (el) {
-          if (sonMu) el.setAttribute('data-last', '1'); else el.removeAttribute('data-last');
-        });
-      }
+    /* Tum fmea-table larda son satir data-last isaretlenir; bos satir yoksa
+   bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). *\/
+/* Tum fmea-table larda son satir data-last isaretlenir; bos satir yoksa
+   bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). */
+/* Tum fmea-table larda son satir data-last isaretlenir; bos satir yoksa
+   bir tane eklenir. Her tablo icin cagrilabilir (pkOverlay, FMEA, CP). */
+function pkSonSatirIsaretle(kapsam) {
+  const kaps = kapsam || document;
+  const tablolar = kaps.querySelectorAll(".fmea-table");
+  tablolar.forEach(function (tablo) {
+    const rs = tablo.tBodies[0]?.rows;
+    if (!rs || !rs.length) return;
+    let sonVeriIdx = -1;
+    for (let i = rs.length - 1; i >= 0; i--) {
+      const tr = rs[i];
+      const ta = tr.querySelector("textarea[data-pk], textarea[data-n], select[data-pk], select[data-code]");
+      if (ta && (ta.value || "").trim()) { sonVeriIdx = i; break; }
     }
-    /* Son satirda veri girildi: tabloya yeni bos satir ekle (focus korunur). */
-    function pkSatirEkle() {
-      const tablo = document.querySelector('#pkOverlay .fmea-table');
-      if (!tablo || !tablo.tBodies[0]) return;
-      const rs = tablo.tBodies[0].rows;
-      if (!rs.length) return;
+    if (sonVeriIdx === rs.length - 1) {
+      const tbl = rs[0].parentElement;
       const sonTr = rs[rs.length - 1];
-      if (!sonTr.querySelector('[data-last="1"]')) return;
       const yeniTr = sonTr.cloneNode(true);
-      yeniTr.querySelectorAll('td.pk-sabit').forEach(function (td) { td.textContent = ''; });
-      yeniTr.querySelectorAll('textarea[data-pk], select[data-pk]').forEach(function (el) {
-        const p = String(el.dataset.pk || '').split('!');
-        const r = parseInt(p[2], 10);
-        if (!isNaN(r)) p[2] = String(r + 1);
-        el.dataset.pk = p.join('!');
-        el.removeAttribute('data-last');
-        if (el.tagName === 'TEXTAREA') {
-          el.value = '';
-          try { fitCell(el); } catch (e) {}
-        } else {
-          el.value = '';
-          el.classList.remove('dolu');
-        }
+      yeniTr.querySelectorAll("td.pk-sabit, td.cpp, td.gp, td.wp, td.wf").forEach(function (td) { td.textContent = ""; });
+      yeniTr.querySelectorAll("textarea[data-pk], textarea[data-n], select[data-pk], select[data-code]").forEach(function (el) {
+        el.removeAttribute("data-last");
+        if (el.tagName === "TEXTAREA") { el.value = ""; try { fitCell(el); } catch (e) {} }
+        else { el.value = ""; el.classList.remove("dolu"); }
       });
-      /* Yeni satirin "No" ve "Takip No" hucresi sira numarasini HEMEN gosterir
-         (yeniden cizim beklenmez). */
-      yeniTr.querySelectorAll('textarea[data-pk]').forEach(function (el) {
-        const p = String(el.dataset.pk || '').split('!');
+      yeniTr.querySelectorAll("textarea[data-pk]").forEach(function (el) {
+        const p = String(el.dataset.pk || "").split("!");
         const st = parseInt(p[3], 10);
         const rn = parseInt(p[2], 10);
-        if (st === 4 && !isNaN(rn)) {
-          el.value = pkOtoProsesNo(rn, null, p[1]);
-          try { fitCell(el); } catch (e) {}
-        } else if (st === 2 && !isNaN(rn)) {
-          el.value = pkOtoSatirNo(rn);
-          try { fitCell(el); } catch (e) {}
-        }
+        if (st === 4 && !isNaN(rn)) { el.value = pkOtoProsesNo(rn, null, p[1]); try { fitCell(el); } catch (e) {} }
+        else if (st === 2 && !isNaN(rn)) { el.value = pkOtoSatirNo(rn); try { fitCell(el); } catch (e) {} }
       });
-      tablo.tBodies[0].appendChild(yeniTr);
-      pkSatirArtir();
-      pkSonSatirIsaretle();
+      tbl.appendChild(yeniTr);
     }
+    const rs2 = tablo.tBodies[0].rows;
+    rs2.forEach(function (tr) { tr.querySelectorAll("[data-last]").forEach(function (el) { el.removeAttribute("data-last"); }); });
+    if (rs2.length) rs2[rs2.length - 1].querySelectorAll("textarea[data-pk], textarea[data-n], select[data-pk], select[data-code]").forEach(function (el) { el.setAttribute("data-last", "1"); });
+  });
+}
+
+/* Eski pkSonSatirIsaretle (parametresiz) - geriye donuk uyumluluk */
+function pkSonSatirIsaretle() { pkSonSatirIsaretle(document); }
+/* Eski pkSonSatirIsaretle (parametresiz) - geriye donuk uyumluluk */
+function pkSonSatirIsaretle() { pkSonSatirIsaretle(document); }
+
+/* Eski pkSonSatirIsaretle (parametresiz) - geriye donuk uyumluluk */
+function pkSonSatirIsaretle() { pkSonSatirIsaretle(document); }
+/* Son satirda veri girildi: tabloya yeni bos satir ekle (focus korunur).
+   Genel yardımcı: herhangi bir fmea-table icin calisir (Proses Kontrol, FMEA, KP). */
+function pkSatirEkle(tablo) {
+  const tbl = tablo || document.querySelector(".fmea-table");
+  if (!tbl || !tbl.tBodies[0]) return;
+  const rs = tbl.tBodies[0].rows;
+  if (!rs.length) return;
+  const sonTr = rs[rs.length - 1];
+  if (!sonTr.querySelector("[data-last=\"1\"]")) return;
+  const yeniTr = sonTr.cloneNode(true);
+  yeniTr.querySelectorAll("td.pk-sabit, td.cpp, td.gp, td.wp, td.wf").forEach(function (td) { td.textContent = ""; });
+  yeniTr.querySelectorAll("textarea[data-pk], textarea[data-n], select[data-pk], select[data-code]").forEach(function (el) {
+    const p = String(el.dataset.pk || el.dataset.code || "").split("!");
+    const r = parseInt(p[2], 10);
+    if (!isNaN(r)) p[2] = String(r + 1);
+    if (el.dataset.pk) el.dataset.pk = p.join("!");
+    else if (el.dataset.code) el.dataset.code = p[0] + "!" + p[1] + "!" + p[2] + "!" + p[3];
+    el.removeAttribute("data-last");
+    if (el.tagName === "TEXTAREA") {
+      el.value = "";
+      try { fitCell(el); } catch (e) {}
+    } else {
+      el.value = "";
+    el.classList.remove("dolu");
+    }
+  });
+  yeniTr.querySelectorAll("textarea[data-pk]").forEach(function (el) {
+    const p = String(el.dataset.pk || "").split("!");
+    const st = parseInt(p[3], 10);
+    const rn = parseInt(p[2], 10);
+    if (st === 4 && !isNaN(rn)) {
+      el.value = pkOtoProsesNo(rn, null, p[1]);
+      try { fitCell(el); } catch (e) {}
+    } else if (st === 2 && !isNaN(rn)) {
+      el.value = pkOtoSatirNo(rn);
+      try { fitCell(el); } catch (e) {}
+    }
+  });
+  tbl.tBodies[0].appendChild(yeniTr);
+  pkSatirArtir();
+  pkSonSatirIsaretle();
+}
 
     /* --- duzenlenebilir hucre deposu (Excel Proses Kontrol Formu) ---
        Hucre anahtari: <dosya>!<sayfa>!<satir>!<sutun>. Deger: kullanici metni.
@@ -6666,7 +6723,7 @@ ov.innerHTML = `<div class="fmea-modal">
       else depo[k] = v;
       pkEditsYaz(depo);
       el.classList.toggle('pkd-dolu', v.trim() !== '');
-      if (el.getAttribute('data-last') === '1') pkSatirEkle();
+      if (el.getAttribute('data-last') === '1') { const tbl = el.closest("table.fmea-table"); pkSatirEkle(tbl); }
       if (window.scheduleCloudSync) scheduleCloudSync(1200);
     }
     /* --- Günlük-1 -> Günlük-2 mirası ---------------------------------------
@@ -6884,26 +6941,27 @@ ov.innerHTML = `<div class="fmea-modal">
       pkCiz(key);
     }
 
-    function pkCiz(key) {
+        function pkCiz(key) {
       const cfg = PK_FILES[key];
-      const ov = document.getElementById('pkOverlay');
+      const ov = document.getElementById("pkOverlay");
       if (!cfg || !ov || !pkDurum.wb || pkDurum.anahtar !== key) return;
       const gorunur = [];
       pkDurum.wb.eachSheet(function (ws) {
-        if (ws.state === 'visible' || !ws.state) gorunur.push(ws);
+        if (ws.state === "visible" || !ws.state) gorunur.push(ws);
       });
       const ws = gorunur[pkDurum.sekme];
       if (!ws) return;
-      ov.querySelector('.pk-title').textContent = cfg.ad + ' — Doldurulabilir Form';
-      ov.querySelector('.pk-slot').innerHTML = pkSekmeler(key, pkDurum.wb) + pkIzgaraHtml(ws);
-      const bas = ov.querySelectorAll('.pk-tabs button');
-      for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? 'on' : '');
+      if (typeof pkDurum !== "undefined") pkDurum._pn = { sayfa: "", no: null };
+      ov.querySelector(".pk-title").textContent = cfg.ad + " — Doldurulabilir Form";
+      ov.querySelector(".pk-slot").innerHTML = pkSekmeler(key, pkDurum.wb) + pkIzgaraHtml(ws);
+      const bas = ov.querySelectorAll(".pk-tabs button");
+      for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? "on" : "");
       pkHucreYukle();
-      const bek = ov.querySelector('.pk-belge-ortam');
+      const bek = ov.querySelector(".pk-belge-ortam");
       if (bek) pkBelgeKonumlandir(bek);
       fitTopScroll(ov);
+      pkSonSatirIsaretle();
     }
-
     function pkEnsureOverlay() {
       let ov = document.getElementById('pkOverlay');
       if (ov) return ov;
@@ -7250,7 +7308,28 @@ ov.innerHTML = `<div class="fmea-modal">
       if (e.key === 'Escape') { closeFmeaPreview(); closeControlPlanPreview(); closeProsesKontrolFormu(); }
     });
 
-    function showControlPlanPreview() {
+        function cpBosSatir() {
+      return "<tr>" +
+        "<td class=\"cpp\"></td>" +
+        "<td class=\"cpp\"></td>" +
+        "<td colspan=\"2\" class=\"wp\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "</tr>";
+      }
+
+function showControlPlanPreview() {
       if (!nodes.length) {
         alert('Görüntülenecek Kontrol Planı verisi yok. Önce akış oluşturun.');
         return;
@@ -7363,14 +7442,35 @@ const cpMetaDef = isParcaCP
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
-          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}<tbody>${trs}</tbody></table></div></div>
+          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}    function cpBosSatir() {
+      return "<tr>" +
+        "<td class=\"cpp\"></td>" +
+        "<td class=\"cpp\"></td>" +
+        "<td colspan=\"2\" class=\"wp\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"3\"></td>" +
+        "<td colspan=\"2\"></td>" +
+        "</tr>";
+      }
+
+          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}<tbody>${trs}${cpBosSatir()}</tbody></table></div></div>
         </div>
       </div>`;
-      ov.classList.add('open');
-      ov.querySelectorAll('textarea').forEach(t => fitCell(t));
+      ov.classList.add("open");
+      ov.querySelectorAll("textarea").forEach(t => fitCell(t));
       fitTopScroll(ov);
       freezeFmeaHead(ov);
-      setTimeout(() => fitTopScroll(ov), 50);
+      setTimeout(() => { fitTopScroll(ov); pkSonSatirIsaretle(ov); }, 50);
     }
 
     async function exportEditableExcel() {
