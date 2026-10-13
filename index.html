@@ -7811,8 +7811,6 @@ const pBase = () => {
           });
           const emptyRow = wsFmea.getRow(dataRow);
           emptyRow.height = 30;
-          P_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
-          P_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
           for (let c = 2; c <= 42; c++) { wsFmea.getCell(dataRow, c).value = ''; }
           dataRow++;
         } else {
@@ -7836,8 +7834,6 @@ const pBase = () => {
             const baseRow = () => {
               const row = wsFmea.getRow(dataRow);
               row.height = 30;
-              DATA_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
-              DATA_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
               put(2, takipNo, true, false, true);
               put(3, code, false, true);
               put(4, sub.title, false);
@@ -7879,8 +7875,6 @@ const pBase = () => {
         });
           const emptyRow = wsFmea.getRow(dataRow);
           emptyRow.height = 30;
-          DATA_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
-          DATA_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
           for (let c = 2; c <= 40; c++) { wsFmea.getCell(dataRow, c).value = ''; }
           dataRow++;
         }
@@ -7938,8 +7932,8 @@ const pBase = () => {
                 }
               }
             }
-            cpRows.forEach((r) => {
-              setCell(cpRow, 2, cpRows.indexOf(r) + 1, true);
+            cpRows.forEach((r, idx) => {
+              setCell(cpRow, 2, idx + 1, true);
               setCell(cpRow, 3, r.code, false);
               setCell(cpRow, 4, r.adi, false);
               setCell(cpRow, 6, r.karak, false);
