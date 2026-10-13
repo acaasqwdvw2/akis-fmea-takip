@@ -7809,18 +7809,80 @@ const pBase = () => {
               }
             });
           });
-        }
-        // Add empty row at bottom after data - always add one empty row after data rows
-        const emptyRow = wsFmea.getRow(dataRow);
-        emptyRow.height = 30;
-        // Clear all cells in the empty row
-        const lastCol = isParca ? 42 : 40;
-        for (let c = 2; c <= lastCol; c++) {
-          const cell = wsFmea.getCell(dataRow, c);
-          cell.value = '';
-          cell.font = { name: 'Times New Roman', size: 11 };
-        }
-        dataRow++;
+          const emptyRow = wsFmea.getRow(dataRow);
+          emptyRow.height = 30;
+          P_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
+          P_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
+          for (let c = 2; c <= 42; c++) { wsFmea.getCell(dataRow, c).value = ''; }
+          dataRow++;
+        } else {
+        const DATA_PAIRS = [[4,5],[6,7],[8,9],[10,11],[12,13],[16,17],[18,19],[21,22],[24,25],[26,27],[28,29],[30,31],[32,33],[34,35],[39,40]];
+        const DATA_SINGLES = [2,3,14,15,20,23,36,37,38];
+
+        let dataRow = 13, takipNo = 1;
+        nodes.forEach(n => {
+          if (n.type !== 'process') return;
+          (n.altProsesler || []).forEach(sub => {
+            const code = sub.code || '1.10';
+            const put = (cc, v, bold, numc, fill) => {
+              const c = wsFmea.getCell(dataRow, cc);
+              c.value = v;
+              fontT(c, 11, bold);
+              c.alignment = numc
+                ? { vertical: 'middle', wrapText: true }
+                : { vertical: 'middle', horizontal: 'center', wrapText: true };
+              if (fill) gpFill(c);
+            };
+            const baseRow = () => {
+              const row = wsFmea.getRow(dataRow);
+              row.height = 30;
+              DATA_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
+              DATA_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
+              put(2, takipNo, true, false, true);
+              put(3, code, false, true);
+              put(4, sub.title, false);
+              put(6, sub.gerUrun || '', false);
+              put(8, sub.gerProses || '', false);
+            };
+            if (sub.hatalar?.length) {
+              sub.hatalar.forEach(h => {
+                baseRow();
+                put(10, h.tur || '', false);
+                put(12, h.etki || '', false);
+                put(14, h.s || '', false, true);
+                put(15, h.sinif || '', false);
+                put(16, h.neden || '', false);
+                put(18, h.onkontrol || '', false);
+                put(20, h.o || '', false, true);
+                put(21, h.tespitkontrol || '', false);
+                put(23, h.d || '', false, true);
+                const r1 = (!isNaN(parseFloat(h.s)) && !isNaN(parseFloat(h.o)) && !isNaN(parseFloat(h.d))) ? (parseFloat(h.s) * parseFloat(h.o) * parseFloat(h.d)) : '';
+                put(24, r1, true, true);
+                put(26, h.faaliyet || '', false);
+                put(28, h.sorumlu || '', false);
+                put(30, h.hedefTarih || '', false);
+                put(32, h.aksiyon || '', false);
+                put(34, h.gerceklesenTarih || '', false);
+                put(36, h.s2 || '', false, true);
+                put(37, h.o2 || '', false, true);
+                put(38, h.d2 || '', false, true);
+                const r2 = (!isNaN(parseFloat(h.s2)) && !isNaN(parseFloat(h.o2)) && !isNaN(parseFloat(h.d2))) ? (parseFloat(h.s2) * parseFloat(h.o2) * parseFloat(h.d2)) : '';
+                put(39, r2, true, true);
+                takipNo++; dataRow++;
+              });
+            } else {
+              baseRow();
+              put(10, 'Hata Kaydı Yok', false);
+              takipNo++; dataRow++;
+            }
+          });
+        });
+          const emptyRow = wsFmea.getRow(dataRow);
+          emptyRow.height = 30;
+          DATA_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
+          DATA_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
+          for (let c = 2; c <= 40; c++) { wsFmea.getCell(dataRow, c).value = ''; }
+          dataRow++;
         }
 
         wsFmea.views = [{ showGridLines: true }];
