@@ -2912,7 +2912,7 @@ let nodes = [], selected = null;
     }
     var ckYenileAktif = false;   // ust uste yenileme istegini engeller
     async function ckYenile(sessiz) {
-      if (!sbClient || !cloudUser || !cloudIsAdmin) return;
+      if (!sbClient || !cloudUser) return;  // admin kontrolu kaldirildi: tum yetkili kullanicilar veri gorebilsin
       if (ckYenileAktif) return;              // ust uste istek acilmasin
       const t = document.getElementById('ckTiles');
       // Veri varken kartlari bosaltma: yenileme sirasinda ekran bos kalmasin
