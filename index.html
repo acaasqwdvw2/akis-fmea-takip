@@ -766,6 +766,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div id="ckTiles"></div>
     <div id="ckEk"></div>
     <div id="ckBody"></div>
+    <!-- Süreç Takip bölümü -->
+    <div id="surecTakip">
+      <div class="panel-head" style="padding:10px 15px;border-bottom:1px solid #dce4e6;">
+        <h2 style="margin:0;font-size:15px;color:#26343a;">Süreç Takip</h2>
+        <div style="float:right;color:#6b7d82;font-size:11px;">Otomatik güncelleme: <span id="stAutoRefresh">Aktif</span></div>
+      </div>
+      <div style="padding:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;">
+          <div class="cnt-card" style="background:#324b52;">
+            <span class="cnt-num" id="stProsesSayaci">0</span>
+            <span class="cnt-label">Proses Adımı</span>
+          </div>
+          <div class="cnt-card" style="background:#324b52;">
+            <span class="cnt-num" id="stIslemSayaci">0</span>
+            <span class="cnt-label">İşlem</span>
+          </div>
+          <div class="cnt-card" style="background:#324b52;">
+            <span class="cnt-num" id="stHataSayaci">0</span>
+            <span class="cnt-label">Hata</span>
+          </div>
+          <div class="cnt-card" style="background:#324b52;">
+            <span class="cnt-num" id="stProjeSayaci">0</span>
+            <span class="cnt-label">Aktif Proje</span>
+          </div>
+        </div>
+        <div id="stProcessList" style="max-height:300px;overflow:auto;border:1px solid #dce4e6;border-radius:6px;padding:8px;">
+          <div style="font-size:12px;color:#6b7d82;">Process verisi yükleniyor...</div>
+        </div>
+      </div>
+    </div>
   </div>
   <!-- KOKPIT KART POP-UP: tum kartlar icin ortak pencere -->
   <div id="ckPop" onclick="if(event.target===this) ckPopKapat()">
@@ -788,7 +818,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
     </div>
     <div id="onayFmeaList"></div>
-<div id="adminList"></div>
+    <div id="adminList"></div>
   </div>
   <div id="stPage" style="display:none">
     <div class="ck-head">
@@ -803,7 +833,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     </div>
     <div id="stBody"></div>
   </div>
-   
+  
   <div class="toolbar">
     <button class="light" onclick="toggleFmeaMeta(true)">FMEA Başlık Bilgileri</button>
     <button class="excel-btn" style="background:#3a7ca5" onclick="showFmeaPreview()">FMEA Görüntüle</button>
@@ -818,9 +848,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <button id="onayGonderBtn" class="onay-btn" onclick="onayaGonder()" style="display:none">Onaya Gönder</button>
     <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
     <button class="primary" onclick="saveProject()">Kaydet</button>
-<button class="danger" onclick="clearAll()">Temizle</button>
+    <button class="danger" onclick="clearAll()">Temizle</button>
   </div>
-   
+  
   <div class="layout">
     <section class="panel">
       <div class="panel-head">
@@ -1750,7 +1780,6 @@ let nodes = [], selected = null;
       html += '</tbody></table></div>';
       stBody.innerHTML = html;
     }
-
     // ================= YÖNETİCİ KOKPİTİ =================
     // Bir FMEA projesinin metrikleri: proses / işlem / hata + RPN risk dagilimi
     // "GG.AA.YYYY" veya ISO metni Date'e cevirir; okunamazsa null
@@ -3020,6 +3049,8 @@ let nodes = [], selected = null;
         ckCiz(rows);
         // Acik olan pop-up varsa icerigini tazele (Yenile butonu)
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip), ckPopTip); } catch (e) {} }
+        // Süreç takip güncellemesi
+        try { stGuncelle(); } catch (e) {}
       } catch (e) {
         if (!sessiz) {
           try { ckBildir('Kokpit verisi alınamadı: ' + (e.message || e), 'hata'); } catch (e3) {}
@@ -3027,6 +3058,53 @@ let nodes = [], selected = null;
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), '<p style="padding:16px;color:#b00020">Hata: ' + (e.message || e) + '</p>'); } catch (e2) {} }
       }
       ckYenileAktif = false;
+    }
+    function stGuncelle() {
+      try {
+        let toplamProses = 0, toplamIslem = 0, toplamHata = 0, aktifProje = 'Yok';
+        try {
+          const projeler = (projects || []);
+          if (projeler.length) {
+            aktifProje = projeler[projeler.length - 1].name || 'Yok';
+            projeler.forEach(p => {
+              if (p && p.nodes) {
+                p.nodes.forEach(n => {
+                  if (n.type === 'process') toplamProses++;
+                  if (n.type === 'islem') toplamIslem++;
+                  if (n.type === 'hata') toplamHata++;
+                });
+              }
+            });
+          }
+        } catch (e) {}
+        document.getElementById('stProsesSayaci').textContent = toplamProses;
+        document.getElementById('stIslemSayaci').textContent = toplamIslem;
+        document.getElementById('stHataSayaci').textContent = toplamHata;
+        document.getElementById('stProjeSayaci').textContent = projeler.length;
+        document.getElementById('stProjeSayaci').setAttribute('title', aktifProje);
+        const listeDiv = document.getElementById('stProcessList');
+        if (!listeDiv) return;
+        let html = '';
+        try {
+          const projeler = (projects || []);
+          if (projeler.length) {
+            projeler.slice(0, 5).forEach(p => {
+              const ad = p.name || 'Bilinmeyen';
+              const nodeCount = p.nodes ? p.nodes.length : 0;
+              html += `<div style="margin:6px 0;padding:4px;border-radius:4px;background:#f7f9fb;border:1px solid #dde5e7;">
+                <div style="font-weight:700;color:#1f5f6b;margin-bottom:2px;">${ad}</div>
+                <div style="font-size:11px;color:#6b7d82;">${nodeCount} adım</div>
+              </div>`;
+            });
+            if (projeler.length > 5) {
+              html += `<div style="font-size:11px;color:#6b7d82; margin:6px 0;">... ve ${projeler.length - 5} projede daha</div>`;
+            }
+          } else {
+            html = '<div style="font-size:12px;color:#6b7d82;">Process verisi yok</div>';
+          }
+        } catch (e) { html = '<div style="font-size:12px;color:#b00020;">Hata: ' + (e.message || e) + '</div>'; }
+        listeDiv.innerHTML = html;
+      } catch (e) { console.error('Süreç takip güncelleme hatası:', e); }
     }
     /* ===== KOKPIT OTOMATIK YENILEME =====
        Sorun: kokpit yalnizca "Yenile" butonu ile guncelleniyordu; kullanicinin
@@ -3750,7 +3828,7 @@ function save() {
           r.onsuccess = () => res(r.result || null);
           r.onerror = () => res(null);
         });
-      }, 1000);
+      }, 5000);
     }
 
     async function idbSet(keyName, val) {
@@ -3764,7 +3842,7 @@ function save() {
             tx.oncomplete = res;
             tx.onerror = res;
           });
-        }, 1000);
+        }, 5000);
       } catch (e) {}
     }
 
@@ -4363,7 +4441,12 @@ function hataHTML(sIdx, h, i) {
       if (!p || !p.altProsesler[sIdx]) return;
       if (!p.altProsesler[sIdx].hatalar) p.altProsesler[sIdx].hatalar = [];
       p.altProsesler[sIdx].hatalar.push({ tur: '', etki: '', neden: '', s: '', o: '', d: '', sinif: '', onkontrol: '', tespitkontrol: '', faaliyet: '', sorumlu: '', hedefTarih: '', aksiyon: '', gerceklesenTarih: '', s2: '', o2: '', d2: '' });
-      ckLogEkle('fmea', 'FMEA tablosuna yeni hata satırı eklendi', 'hata-ekle|' + sIdx + '|' + (p.altProsesler[sIdx].hatalar.length - 1));
+      // GARANTI: Eklenen satırın altı her zaman boş olsun
+      const lastIdx = p.altProsesler[sIdx].hatalar.length - 1;
+      if (lastIdx >= 0) {
+        p.altProsesler[sIdx].hatalar[lastIdx] = { tur: '', etki: '', neden: '', s: '', o: '', d: '', sinif: '', onkontrol: '', tespitkontrol: '', faaliyet: '', sorumlu: '', hedefTarih: '', aksiyon: '', gerceklesenTarih: '', s2: '', o2: '', d2: '' };
+      }
+      ckLogEkle('fmea', 'FMEA tablosuna yeni hata satırı eklendi', 'hata-ekle|' + sIdx + '|' + lastIdx);
       save();
     }
 
@@ -5141,13 +5224,75 @@ ov.innerHTML = `<div class="fmea-modal">
       h.no = 1 + sira / 10;
       return '1.' + (sira * 10);
     }
-    function pkOtoSayfaDeger(r, c, dv, sayfa) {
+    /* Bir satirin GERCEK veri tasiyip tasimadigi: yalnizca otomatik "Takip No"
+       (sutun 2) ve otomatik "No" (sutun 4) disindaki hucrelerde kullanici verisi
+       ya da aktarim varsa. Günlük-2 mirasi, ASELSAN aktarimi ve ASELSAN Aylik
+       birlesik havuzu da sayilir. Boylece bos satirlar "No" ile doluymus gibi
+       gorunmez; "No", cekilen (CP/FMEA / aktarim) ya da yazilan (elle) verilere
+       gore dolar (kullanici istegi). */
+    function pkSatirVeriVar(depo, sayfa, r) {
+      const key = (pkDurum && pkDurum.anahtar) || '';
+      const rS = String(r);
+      if (!depo || typeof depo !== 'object') return false;
+      for (const k in depo) {
+        const p = String(k).split('!');
+        if (p.length !== 4 || p[2] !== rS || p[3] === '2') continue;
+        if (p[0] === key && p[1] === sayfa) return true;                              /* yerel */
+        if (sayfa === 'Günlük-2' && p[0] === key && p[1] === 'Günlük-1') return true;  /* miras */
+        if (key === 'aselsan' && sayfa !== 'Aylık' && p[0] === 'tedarikci' &&
+            (p[1] === sayfa || p[1] === 'Günlük-1' || p[1] === 'Günlük-2')) return true; /* aktarim */
+      }
+      if (key === 'aselsan' && sayfa === 'Aylık') {
+        const hvz = pkAylikBirlesik(depo); /* havuz yalnizca gercek veri satirlari */
+        const ix = r - PK_ILK_VERI;
+        if (ix >= 0 && ix < hvz.length) return true;
+      }
+      return false;
+    }
+    /* "No" sütunundaki elle/çekilen deger: yerel, Günlük-1 mirasi ve ASELSAN
+       kaynaklarinin No'su sirasiyla aranir (bos ise otomatik seri uygulanir). */
+    function pkDepoNo(depo, key, sayfa, r) {
+      if (!key || !depo || typeof depo !== 'object') return '';
+      if (sayfa === 'Günlük-2') {
+        const mg = depo[key + '!Günlük-1!' + r + '!4'];
+        if (mg !== null && mg !== undefined && String(mg).trim() !== '') return String(mg).trim();
+      }
+      const yerel = depo[key + '!' + sayfa + '!' + r + '!4'];
+      if (yerel !== null && yerel !== undefined && String(yerel).trim() !== '') return String(yerel).trim();
+      if (key === 'aselsan' && sayfa !== 'Aylık') {
+        const cfg = pkAktarimEsle('aselsan', sayfa);
+        if (cfg) {
+          for (let i = 0; i < cfg.kaynaklar.length; i++) {
+            const ks = pkAktarimKaynak(cfg.kaynaklar[i]);
+            const vs = depo['tedarikci!' + ks + '!' + r + '!4'];
+            if (vs !== null && vs !== undefined && String(vs).trim() !== '') return String(vs).trim();
+          }
+        }
+      }
+      return '';
+    }
+    function pkOtoSayfaDeger(r, c, dv, sayfa, depo) {
       if (!PK_SABIT_SAYFALAR[sayfa]) return dv;
-      if (c === 2) return pkOtoSatirNo(r);
+      if (c === 2) {
+        /* Takip No yalnizca veri satirlarinda gorunur; verisiz satirlar bos. */
+        if (!pkSatirVeriVar(depo, sayfa, r)) return '';
+        return pkOtoSatirNo(r);
+      }
       /* sayfa adi verilir: No izi sayfa bazinda ilerler; ekran ile indirme
          ayni numarayi uretsin (once sayfa adi olmadan ortak iz kullaniliyordu,
          sayfa degisince 8.20 / 7.20 karisikligi cikiyordu). */
-      if (c === 4) return pkOtoProsesNo(r, dv, sayfa);
+      if (c === 4) {
+        const key = (pkDurum && pkDurum.anahtar) || '';
+        /* "No": cekilen (CP/FMEA / aktarim) ya da yazilan (elle) verisi olan
+           satirlarda dolar; verisiz satirlar bos kalir (kullanici istegi). */
+        if (!pkSatirVeriVar(depo, sayfa, r)) return '';
+        if (key === 'aselsan' && sayfa === 'Aylık') {
+          const hvz = pkAylikBirlesik(depo);
+          const ix = r - PK_ILK_VERI;
+          if (ix >= 0 && ix < hvz.length) return hvz[ix].no;
+        }
+        return pkOtoProsesNo(r, pkDepoNo(depo, key, sayfa, r), sayfa);
+      }
       return dv;
     }
     const PK_CACHE = {};
@@ -5655,7 +5800,7 @@ ov.innerHTML = `<div class="fmea-modal">
             const pkB = sheetKey + r + '!' + c;
             const ozetB = pkHucreMetniCoz(satir[c] || null);
             const kilitB = pkAciklamKilit(ws.name, c);
-            const dvB = pkOtoSayfaDeger(r, c, kilitB ? pkHucreDegerKaynak(depo, pkB, ozetB) : pkHucreDeger(depo, pkB, ozetB), ws.name);
+            const dvB = pkOtoSayfaDeger(r, c, kilitB ? pkHucreDegerKaynak(depo, pkB, ozetB) : pkHucreDeger(depo, pkB, ozetB), ws.name, depo);
             let bW = '';
             if (b[1] > 1) {
               let toplam = 0, varMi = false;
@@ -5734,7 +5879,7 @@ ov.innerHTML = `<div class="fmea-modal">
           const ozet = pkHucreMetniCoz(satir[c] || null);
           if (veri) {            const pk = sheetKey + r + '!' + c;
             const kilitV = pkAciklamKilit(ws.name, c);
-            const dv = pkOtoSayfaDeger(r, c, kilitV ? pkHucreDegerKaynak(depo, pk, ozet) : pkHucreDeger(depo, pk, ozet), ws.name);
+            const dv = pkOtoSayfaDeger(r, c, kilitV ? pkHucreDegerKaynak(depo, pk, ozet) : pkHucreDeger(depo, pk, ozet), ws.name, depo);
             const st = w ? ' style="min-width:' + w + '"' : '';
             if (kilitV || !pkHucreBeyaz(satir[c] || null)) {
               /* Excel'de renkli hucre: giris izni yok, salt metin. */
@@ -6226,6 +6371,16 @@ ov.innerHTML = `<div class="fmea-modal">
           return h;
     }
 
+    /* Otomatik ust bilgi haritasindaki HTML degerini Excel hucresine yazilacak
+       duz metne cevirir ("etiket<br>deger" -> "etiket deger"). */
+    function pkOtoMetin(v) {
+      let s = String(v === null || v === undefined ? '' : v);
+      s = s.replace(/<br\s*\/?>/gi, ' ');
+      s = s.replace(/<[^>]*>/g, '');
+      return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+    }
+
     /* Excel'de zaten yer alan ust bilgi alanlari icin gorunum haritasi:
          hucre metni degistirilir, hucre sayisi degismez. */
     function pkHucreGorunenMetin(r, c, ozet, otoHarita) {
@@ -6694,6 +6849,20 @@ ov.innerHTML = `<div class="fmea-modal">
       const depo = pkEditsYukle();
       let n = 0;
       document.querySelectorAll('#pkOverlay .pkd textarea[data-pk]').forEach(function (t) {
+        const pp = String(t.dataset.pk || '').split('!');
+        if (pp.length === 4 && (pp[3] === '2' || pp[3] === '4')) {
+          /* Takip No / No otomatiktir ve veriye gore dolar (kullanici istegi):
+             verisiz satirlar bos kalir; sablon baskisi esas alinmaz. */
+          const rd = parseInt(pp[2], 10);
+          if (!pkSatirVeriVar(depo, pp[1], rd)) {
+            if (t.value !== '') { t.value = ''; fitCell(t); }
+            t.classList.remove('pkd-dolu');
+          } else if (pp[3] === '4') {
+            const xv = pkDepoNo(depo, pkDurum.anahtar, pp[1], rd);
+            if (xv) { if (t.value !== xv) { t.value = xv; fitCell(t); } t.classList.add('pkd-dolu'); }
+          }
+          return;
+        }
         const v = pkHucreDeger(depo, t.dataset.pk, t.dataset.orig || '');
         if (v !== (t.dataset.orig || '')) { t.value = v; n++; }
         t.classList.toggle('pkd-dolu', String(t.value || '').trim() !== '');
@@ -6961,17 +7130,61 @@ ov.innerHTML = `<div class="fmea-modal">
             }
           }
         }
-        /* "No" (boşsa hiyerarşik 1.10, 1.20...; dolu değer korunur) ve
-           "Takip No" (her veri satırına sıra) yazılır (indirilen Excel'de de
-           ekrandaki gibi). */
+        /* Ust bilgi (baslik) otomatik degerleri: Firma Adi, Parca/Proses adi ve
+           Proses/Parça Kontrolü tikleri ekranda FMEA'dan dolar; indirilen
+           Excel'e de yazilir. Aksi halde indirilen formda baslik alanlari bos
+           geliyordu (kullanici geri bildirimi). */
+        const oto = pkOtomatikDegerler();
+        wb.eachSheet(function (ws) {
+          if (!PK_SABIT_SAYFALAR[ws.name]) return;
+          let cz = null;
+          try { cz = pkSayfaCozum(ws); } catch (e) { cz = null; }
+          if (!cz) return;
+          let harita = {};
+          try {
+            harita = pkOtoHarita(cz.hucreler, cz.bas, cz.kap, cz.ilk, cz.sonBaslik, oto);
+          } catch (e2) { harita = {}; }
+          Object.keys(harita).forEach(function (ana) {
+            const p = ana.split(':');
+            const rr = parseInt(p[0], 10), cc = parseInt(p[1], 10);
+            if (!rr || !cc) return;
+            /* Kullanicinin elle kaydettigi deger varsa ezme. */
+            if (Object.prototype.hasOwnProperty.call(depo, key + '!' + ws.name + '!' + rr + '!' + cc)) return;
+            const hedef = pkOtoMetin(harita[ana]);
+            const hucre = ws.getCell(rr, cc);
+            const eski = (hucre.value === null || hucre.value === undefined) ? '' : String(pkHucreMetni(hucre));
+            if (String(eski).trim() === String(hedef).trim()) return;
+            hucre.value = hedef;
+            yazilan++;
+          });
+        });
+        /* "No" ve "Takip No" yalnizca GERCEK veri satirinda dolar (kullanici
+           istegi): cekilen (CP/FMEA/aktarim) ya da yazilan (elle) degerin
+           oldugu satirlar numaralanir, verisiz satirlar bos birakilir. Sablon
+           baskili No/Takip No degerleri esas alinmaz; bos satirlarda temizlenir
+           ki indirilen Excel ekrandaki gibi gorunsun. */
         wb.eachSheet(function (as) {
           if (!PK_SABIT_SAYFALAR[as.name]) return;
+          const asAylikHavuz = (key === 'aselsan' && as.name === 'Aylık');
           for (let rr = PK_ILK_VERI; rr <= (as.rowCount || PK_ILK_VERI); rr++) {
-            const noHucre = as.getCell(rr, 4);
-            const noDolu = noHucre && noHucre.value !== null && noHucre.value !== undefined &&
-                           String(noHucre.value).trim() !== '';
-            const noDeger = pkOtoProsesNo(rr, noDolu ? String(noHucre.value) : '', as.name);
-            if (!noDolu && noDeger) { noHucre.value = noDeger; yazilan++; }
+            if (!pkSatirVeriVar(depo, as.name, rr)) {
+              /* Verisiz satir: No / Takip No sablon baskisi temizlenir. */
+              const nh0 = as.getCell(rr, 4);
+              if (nh0 && nh0.value !== null && nh0.value !== undefined && String(nh0.value).trim() !== '') {
+                nh0.value = null; yazilan++;
+              }
+              const th0 = as.getCell(rr, 2);
+              if (th0 && th0.value !== null && th0.value !== undefined && String(th0.value).trim() !== '') {
+                th0.value = null; yazilan++;
+              }
+              continue;
+            }
+            if (!asAylikHavuz) {
+              /* No: elle yazilan korunur; bos ise otomatik seri (1.10 -> 1.20...). */
+              const noHucre = as.getCell(rr, 4);
+              const noDeger = pkOtoProsesNo(rr, pkDepoNo(depo, key, as.name, rr), as.name);
+              if (noDeger) { noHucre.value = noDeger; yazilan++; }
+            }
             const tak = pkOtoSatirNo(rr);
             if (tak) {
               const takHucre = as.getCell(rr, 2);
@@ -7631,68 +7844,18 @@ const pBase = () => {
               }
             });
           });
-        } else {
-        const DATA_PAIRS = [[4,5],[6,7],[8,9],[10,11],[12,13],[16,17],[18,19],[21,22],[24,25],[26,27],[28,29],[30,31],[32,33],[34,35],[39,40]];
-        const DATA_SINGLES = [2,3,14,15,20,23,36,37,38];
-
-        let dataRow = 13, takipNo = 1;
-        nodes.forEach(n => {
-          if (n.type !== 'process') return;
-          (n.altProsesler || []).forEach(sub => {
-            const code = sub.code || '1.10';
-            const put = (cc, v, bold, numc, fill) => {
-              const c = wsFmea.getCell(dataRow, cc);
-              c.value = v;
-              fontT(c, 11, bold);
-              c.alignment = numc
-                ? { vertical: 'middle', wrapText: true }
-                : { vertical: 'middle', horizontal: 'center', wrapText: true };
-              if (fill) gpFill(c);
-            };
-            const baseRow = () => {
-              const row = wsFmea.getRow(dataRow);
-              row.height = 30;
-              DATA_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
-              DATA_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
-              put(2, takipNo, true, false, true);
-              put(3, code, false, true);
-              put(4, sub.title, false);
-              put(6, sub.gerUrun || '', false);
-              put(8, sub.gerProses || '', false);
-            };
-            if (sub.hatalar?.length) {
-              sub.hatalar.forEach(h => {
-                baseRow();
-                put(10, h.tur || '', false);
-                put(12, h.etki || '', false);
-                put(14, h.s || '', false, true);
-                put(15, h.sinif || '', false);
-                put(16, h.neden || '', false);
-                put(18, h.onkontrol || '', false);
-                put(20, h.o || '', false, true);
-                put(21, h.tespitkontrol || '', false);
-                put(23, h.d || '', false, true);
-                const r1 = (!isNaN(parseFloat(h.s)) && !isNaN(parseFloat(h.o)) && !isNaN(parseFloat(h.d))) ? (parseFloat(h.s) * parseFloat(h.o) * parseFloat(h.d)) : '';
-                put(24, r1, true, true);
-                put(26, h.faaliyet || '', false);
-                put(28, h.sorumlu || '', false);
-                put(30, h.hedefTarih || '', false);
-                put(32, h.aksiyon || '', false);
-                put(34, h.gerceklesenTarih || '', false);
-                put(36, h.s2 || '', false, true);
-                put(37, h.o2 || '', false, true);
-                put(38, h.d2 || '', false, true);
-                const r2 = (!isNaN(parseFloat(h.s2)) && !isNaN(parseFloat(h.o2)) && !isNaN(parseFloat(h.d2))) ? (parseFloat(h.s2) * parseFloat(h.o2) * parseFloat(h.d2)) : '';
-                put(39, r2, true, true);
-                takipNo++; dataRow++;
-              });
-            } else {
-              baseRow();
-              put(10, 'Hata Kaydı Yok', false);
-              takipNo++; dataRow++;
-            }
-          });
-        });
+        }
+        // Add empty row at bottom after data - always add one empty row after data rows
+        const emptyRow = wsFmea.getRow(dataRow);
+        emptyRow.height = 30;
+        // Clear all cells in the empty row
+        const lastCol = isParca ? 42 : 40;
+        for (let c = 2; c <= lastCol; c++) {
+          const cell = wsFmea.getCell(dataRow, c);
+          cell.value = '';
+          cell.font = { name: 'Times New Roman', size: 11 };
+        }
+        dataRow++;
         }
 
         wsFmea.views = [{ showGridLines: true }];
