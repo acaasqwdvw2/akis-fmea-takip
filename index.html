@@ -7722,6 +7722,17 @@ const cpMetaDef = isParcaCP
         if (sc > bestScore) { bestScore = sc; headerRow = r; }
       }
       if (bestScore < 3 || !headerRow) return null;
+      /* Coklu satirli baslik: en iyi baslik satirinin USTUNDEKI grup baslik
+         satirlarini ("Proses Adimlari", "Gereksinimler" gibi) da baslik
+         bloguna dahil et; boylece alt basliklarla birlikte siniflandirilir. */
+      while (headerRow > 1) {
+        const seenU = {}; let scU = 0;
+        for (let c = 1; c <= maxC; c++) {
+          const f = pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, headerRow - 1, c)));
+          if (f && !seenU[f]) { seenU[f] = 1; scU++; }
+        }
+        if (scU >= 2) headerRow--; else break;
+      }
       let dataStart = headerRow + 1;
       while (dataStart <= maxR) {
         let sc = 0;
@@ -7761,11 +7772,12 @@ const cpMetaDef = isParcaCP
           kontrol: get(r, 'kontrol'), miktar: get(r, 'miktar'), siklik: get(r, 'siklik'),
           kayitSorumlu: get(r, 'kayitSorumlu'), reaksiyon: get(r, 'reaksiyon')
         };
-        const bos = !rec.adimNo && !rec.adimAdi && !rec.anaProses && !rec.tur && !rec.etki && !rec.neden &&
-                    !rec.karak && !rec.spes && !rec.olcum && !rec.kontrol && !rec.miktar && !rec.siklik && !rec.reaksiyon;
-        if (bos) continue;
-        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses'].forEach(function (k) { if (rec[k]) carry[k] = rec[k]; });
-        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses'].forEach(function (k) { if (!rec[k] && carry[k]) rec[k] = carry[k]; });
+        // Row considered valid if it has at least adimNo/adimAdi/anaProses OR essential FMEA fields
+        const hasBasics = rec.adimNo || rec.adimAdi || rec.anaProses;
+        const hasFMEA = rec.tur || rec.etki || rec.neden || rec.karak || rec.spes || rec.olcum || rec.kontrol || rec.miktar || rec.siklik || rec.reaksiyon;
+        if (!hasBasics && !hasFMEA) continue;
+        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (rec[k]) carry[k] = rec[k]; });
+        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (!rec[k] && carry[k]) rec[k] = carry[k]; });
         recs.push(rec);
       }
       return recs;
