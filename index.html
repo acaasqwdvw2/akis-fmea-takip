@@ -7062,9 +7062,9 @@ function pkSatirEkle(tablo) {
         /* TAZE kopya: onbellekteki sablon kitabi UZERINE YAZILMAZ. Aksi halde
            yazilan degerler PK_CACHE'te kalip baska tedarikcide gorunurdu
            (tedarikci-1'de doldurulan hucre tedarikci-2'de cikiyordu). */
-        const orijRes = await fetch(cfg.url, { cache: 'force-cache' });
-        if (!orijRes.ok) throw new Error(cfg.url + ' bulunamadı (HTTP ' + orijRes.status + ')');
-        const orijBuf = await orijRes.arrayBuffer();
+        const b64 = (typeof cfg.b64 === 'function') ? cfg.b64() : null;
+        if (!b64) throw new Error('Form şablonu gömülü değil.');
+        const orijBuf = pkB64ToBuffer(b64);
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.load(orijBuf);
         let yazilan = 0;
