@@ -7072,6 +7072,73 @@ function pkSatirEkle(tablo) {
       }
     }
 
+    /* Indirilen dosyada da proses kontrol formu veri satirlarini "No" degerine
+       gore siralar (ekrandaki pkIzgaraHtml siralamasiyla ayni kural): yalnizca
+       GERCEK veri satirlari (pkSatirVeriVar; ekranda No alan satirlarla ayni
+       tanim) No'ya gore artan sirada dizilir, No'suz satirlar sona atilir ve
+       esitlikte ozgun satir sirasi korunur. Siralanan satirlar veri bolgesinin
+       basindan (PK_ILK_VERI) itibaren bitisik yazilir; veri bolgesi disindaki
+       sablon yardimci satirlari (or. X/N-A secenek hucreleri) degismez.
+       Birlesik hucre (merge) yapisi korunur: yalnizca merkez hucreler okunur. */
+    function pkDosyaNoSirala(wb, key) {
+      const depo = pkEditsYukle();
+      const oncekiAnahtar = (pkDurum && pkDurum.anahtar) || '';
+      if (pkDurum && key) pkDurum.anahtar = key;
+      try {
+        Object.keys(PK_SABIT_SAYFALAR).forEach(function (sn) {
+          const ws = wb.getWorksheet(sn);
+          if (!ws) return;
+          const son = Math.max((ws.rowCount || 0), PK_ILK_VERI);
+          const sonC = Math.max((ws.columnCount || 0), 4);
+          const satirlar = [];
+          for (let r = PK_ILK_VERI; r <= son; r++) {
+            if (!pkSatirVeriVar(depo, sn, r)) continue;
+            const row = ws.getRow(r);
+            const vals = {};
+            for (let c = 1; c <= sonC; c++) {
+              const cell = row.getCell(c);
+              if (cell && cell.isMerged && cell.master && cell.master !== cell) continue;
+              vals[c] = cell ? cell.value : null;
+            }
+            const noV = row.getCell(4).value;
+            satirlar.push({ r: r, vals: vals, no: (noV === null || noV === undefined) ? '' : String(noV) });
+          }
+          if (satirlar.length < 2) return;
+          const siraliSatirlar = satirlar.slice().sort(function (x, y) {
+            const ex = !String(x.no || '').trim();
+            const ey = !String(y.no || '').trim();
+            if (ex && ey) return x.r - y.r;
+            if (ex) return 1;
+            if (ey) return -1;
+            return pkNoCmp(x.no, y.no) || (x.r - y.r);
+          });
+          for (let i = 0; i < siraliSatirlar.length; i++) {
+            const hedef = PK_ILK_VERI + i;
+            const row = ws.getRow(hedef);
+            const vs = siraliSatirlar[i].vals;
+            for (let c = 1; c <= sonC; c++) {
+              if (!Object.prototype.hasOwnProperty.call(vs, c)) continue;
+              row.getCell(c).value = vs[c];
+            }
+          }
+          /* Eski veri konumlarindan hedef araligin disinda kalanlar bosaltilir. */
+          const hedefSon = PK_ILK_VERI + siraliSatirlar.length - 1;
+          for (let i = 0; i < satirlar.length; i++) {
+            const eski = satirlar[i].r;
+            if (eski <= hedefSon) continue;
+            const row = ws.getRow(eski);
+            const vs = satirlar[i].vals;
+            for (let c = 1; c <= sonC; c++) {
+              if (!Object.prototype.hasOwnProperty.call(vs, c)) continue;
+              row.getCell(c).value = null;
+            }
+          }
+        });
+      } finally {
+        if (pkDurum) pkDurum.anahtar = oncekiAnahtar;
+      }
+    }
+
     async function pkDownloadDolu(key) {
       /* Kaydedilmis duzenlemeleri sablonun uzerine yazip indirir.
          Makrolu (.xlsm) dosyalarda ExcelJS VBA'yi yazamaz; bu yuzden ExcelJS
@@ -7250,6 +7317,7 @@ function pkSatirEkle(tablo) {
           }
         });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
+        pkDosyaNoSirala(wb, key);
         const buf = await wb.xlsx.writeBuffer();
         let indir = buf;
         if (makrolu && typeof window.JSZip !== 'undefined') {
