@@ -7334,7 +7334,12 @@ function pkSatirEkle(tablo) {
               zCikti.file('xl/_rels/workbook.xml.rels', wbr);
             }
             let ct = await zCikti.file('[Content_Types].xml').async('string');
-            ct = ct.replace(/spreadsheetml\.sheet\.main\+xml/g, 'spreadsheetml.sheet.macroEnabled.main+xml');
+            /* Makro etkin çalışma kitabı içerik türü: Excel'in beklediği TAM
+               dize "application/vnd.ms-excel.sheet.macroEnabled.main+xml"dir
+               (openxmlformats.../spreadsheetml.sheet.main+xml DEĞİL). Yanlış
+               değer verilince Excel "dosya biçimi geçerli değil" diyerek açmaz. */
+            ct = ct.replace('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml',
+              'application/vnd.ms-excel.sheet.macroEnabled.main+xml');
             if (ct.indexOf('vbaProject') === -1) {
               ct = ct.replace('</Types>',
                 '<Override PartName="/xl/vbaProject.bin" ContentType="application/vnd.ms-office.vbaProject"/></Types>');
