@@ -7139,6 +7139,31 @@ function pkSatirEkle(tablo) {
       }
     }
 
+    /* Form sayfalarindaki VERI hucrelerinde dikey metin dondurmesini (or. Haftalik
+       "Ekipman No" sutunu sablonda textRotation=90) sifirlar; boylece indirilen
+       Excel'de deger yatay yazilir (kullanici geri bildirimi). Basliklar ve
+       sablon yardimci hucreleri degismez; yalnizca dondurulmus veri hucreleri
+       duzeltilir ve mevcut hizalama (yatay/dikey/ortalama) korunur. */
+    function pkDosyaDonukDuzelt(wb) {
+      Object.keys(PK_SABIT_SAYFALAR).forEach(function (sn) {
+        const ws = wb.getWorksheet(sn);
+        if (!ws) return;
+        const son = Math.max((ws.rowCount || 0), PK_ILK_VERI);
+        const sonC = Math.max((ws.columnCount || 0), 4);
+        for (let r = PK_ILK_VERI; r <= son; r++) {
+          const row = ws.getRow(r);
+          for (let c = 1; c <= sonC; c++) {
+            const cell = row.getCell(c);
+            if (cell && cell.isMerged && cell.master && cell.master !== cell) continue;
+            const al = cell ? cell.alignment : null;
+            if (al && al.textRotation) {
+              cell.alignment = Object.assign({}, al, { textRotation: 0 });
+            }
+          }
+        }
+      });
+    }
+
     async function pkDownloadDolu(key) {
       /* Kaydedilmis duzenlemeleri sablonun uzerine yazip indirir.
          Makrolu (.xlsm) dosyalarda ExcelJS VBA'yi yazamaz; bu yuzden ExcelJS
@@ -7318,6 +7343,7 @@ function pkSatirEkle(tablo) {
         });
         if (!yazilan) { ckBildir('Şablona yazılacak veri bulunamadı.', 'hata'); return; }
         pkDosyaNoSirala(wb, key);
+        pkDosyaDonukDuzelt(wb);
         const buf = await wb.xlsx.writeBuffer();
         let indir = buf;
         if (makrolu && typeof window.JSZip !== 'undefined') {
