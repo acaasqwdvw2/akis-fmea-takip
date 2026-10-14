@@ -900,6 +900,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="sel-menu" id="projectSelMenu"></div>
     </div>
     <button class="light" onclick="newProject()">Yeni FMEA</button>
+    <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
     <button id="onayGonderBtn" class="onay-btn" onclick="onayaGonder()" style="display:none">Onaya Gönder</button>
     <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
     <button class="primary" onclick="saveProject()">Kaydet</button>
@@ -5125,7 +5126,7 @@ let rows = '';
         document.body.appendChild(ov);
       }
 ov.innerHTML = `<div class="fmea-modal">
-        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><button onclick="closeFmeaPreview()">Kapat (Esc)</button></div>
+        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeFmeaPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
           <div class="fmeta">${metaHtml}</div>
@@ -7569,7 +7570,7 @@ const cpMetaDef = isParcaCP
         document.body.appendChild(ov);
       }
       ov.innerHTML = `<div class="fmea-modal">
-        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div>
+        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
@@ -7602,6 +7603,370 @@ const cpMetaDef = isParcaCP
       fitTopScroll(ov);
       freezeFmeaHead(ov);
       setTimeout(() => { fitTopScroll(ov); pkSonSatirIsaretle(ov); }, 50);
+    }
+
+    /* ========================================================================
+       HARICI / STANDART FMEA EXCEL YUKLEME
+       ------------------------------------------------------------------------
+       Kullanici istegi: "Proses Bazli FMEA - Onizleme" ve "Kontrol Plani -
+       Onizleme" ekranlarina Excel yukleme butonu; disaridan (baska bir
+       programdan uretilen) Excel yuklenebilsin ve yuklenen veriye gore
+       otomatik akis semasi ( proses + sart/karar kutulari ) olussun.
+       Baslik satiri isimlere gore otomatik algilanir; FMEA alanlari ve
+       kontrol plani alanlari eslenir; mevcut verinin uzerine yazilir.
+       ====================================================================== */
+    function pkFmeaHucreMetni(v) {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'object') {
+        if (Array.isArray(v.richText)) { try { return v.richText.map(function (t) { return t.text || ''; }).join(''); } catch (e) { return ''; } }
+        if (v.text !== undefined && v.text !== null) return String(v.text);
+        if (v.result !== undefined && v.result !== null) return String(v.result);
+        if (v instanceof Date) { try { return v.toLocaleDateString('tr-TR'); } catch (e) { return ''; } }
+        if (v.formula !== undefined) return '';
+        try { return String(v); } catch (e) { return ''; }
+      }
+      return String(v);
+    }
+    function pkHucreTextOf(ws, r, c) {
+      try {
+        const cell = ws.getCell(r, c);
+        if (cell && cell.text !== undefined && cell.text !== null && String(cell.text).trim() !== '') return String(cell.text);
+        return pkFmeaHucreMetni(cell ? cell.value : null);
+      } catch (e) { return ''; }
+    }
+    function pkFmeaNorm(s) {
+      return String(s === null || s === undefined ? '' : s).toLocaleLowerCase('tr')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+    }
+    /* "1.10  Hammadde girisi" -> ad anahtari "hammadde girisi" (bas degisken) */
+    function pkFmeaAdAnahtar(s) { return pkFmeaNorm(s).replace(/^\d+(\s+\d+)*\s*/, ''); }
+    /* "1.10 ..." -> numara anahtari "1 10" (norm: nokta kaldirilir) */
+    function pkFmeaNoAnahtar(s) {
+      const m = String(s === null || s === undefined ? '' : s).match(/(\d+(?:[.,]\d+)*)/);
+      return m ? pkFmeaNorm(m[1]) : '';
+    }
+    /* Baslik hucresini bir FMEA / kontrol plani alani anahtarina esler. */
+    function pkFmeaAlanSiniflaT(t) {
+      if (!t) return '';
+      const has = function () { for (let i = 0; i < arguments.length; i++) { if (t.indexOf(arguments[i]) >= 0) return true; } return false; };
+      if (has('takip no', 'takip')) return 'takipNo';
+      if (has('ana proses', 'ana işlem', 'ana faaliyet', 'ana operasyon')) return 'anaProses';
+      if (t === 'no') return 'adimNo';
+      if (has('proses adımları no', 'proses no', 'işlem no', 'adım no', 'proses adım no', 'operasyon no')) return 'adimNo';
+      if (t.indexOf('gereksinim') >= 0 && (t.indexOf('ürün') >= 0 || t.indexOf('urun') >= 0)) return 'gerUrun';
+      if (t.indexOf('gereksinim') >= 0 && t.indexOf('proses') >= 0) return 'gerProses';
+      if (t.indexOf('ürün gereksinim') >= 0 || t.indexOf('urun gereksinim') >= 0) return 'gerUrun';
+      if (t.indexOf('proses gereksinim') >= 0) return 'gerProses';
+      if (          t.indexOf('adım adı') >= 0 || t.indexOf('operasyon adı') >= 0 || t.indexOf('operasyon') >= 0 ||
+          t.indexOf('proses') >= 0 || t.indexOf('işlem') >= 0 || t.indexOf('islem') >= 0 || t.indexOf('adım') >= 0) return 'adimAdi';
+      if (t.indexOf('gereksinim') >= 0) return 'gerProses';
+      if (t.indexOf('potansiyel hata türü') >= 0 || t.indexOf('hata türü') >= 0 || t.indexOf('hata turu') >= 0 ||
+          t.indexOf('potansiyel hata') >= 0 || t.indexOf('hata modu') >= 0 || t.indexOf('hata şekli') >= 0) return 'tur';
+      if (t.indexOf('potansiyel etki') >= 0 || t.indexOf('etkileri') >= 0 || t.indexOf('etki') >= 0 || t.indexOf('etkisi') >= 0) return 'etki';
+      if (t.indexOf('şiddet') >= 0 || t.indexOf('siddet') >= 0) return 'S';
+      if (t.indexOf('sınıflandırma') >= 0 || t.indexOf('siniflandirma') >= 0 || t.indexOf('sınıf') >= 0) return 'sinif';
+      if (t.indexOf('kök neden') >= 0 || t.indexOf('neden') >= 0 || t.indexOf('sebep') >= 0 || t.indexOf('sebepleri') >= 0) return 'neden';
+      if (t.indexOf('önleyici kontrol') >= 0 || t.indexOf('onleyici kontrol') >= 0 || t.indexOf('onkontrol') >= 0 || t.indexOf('önleyici') >= 0 || t.indexOf('onleyici') >= 0) return 'onkontrol';
+      if (t.indexOf('olasılık') >= 0 || t.indexOf('olasilik') >= 0 || t.indexOf('olabilirlik') >= 0) return 'O';
+      if (t.indexOf('tespit kontrol') >= 0 || t.indexOf('tespit kontrolleri') >= 0) return 'tespitkontrol';
+      if (t.indexOf('tespit') >= 0) return 'D';
+      if (t.indexOf('rpn') >= 0 || t.indexOf('risk öncelik') >= 0) return 'rpn';
+      if (t.indexOf('önerilen faaliyet') >= 0 || t.indexOf('önerilen aksiyon') >= 0 || t.indexOf('öneri') >= 0 || t.indexOf('faaliyet') >= 0) return 'faaliyet';
+      if ((t.indexOf('alınan aksiyon') >= 0 || t.indexOf('yapılan aksiyon') >= 0 || t.indexOf('aksiyon') >= 0) && t.indexOf('reaksiyon') < 0) return 'aksiyon';
+      if (t.indexOf('gerçekleşen tarih') >= 0 || t.indexOf('gerceklesen tarih') >= 0 || t.indexOf('gerçekleşme') >= 0 || t.indexOf('tamamlanma tarihi') >= 0) return 'gerceklesenTarih';
+      if (t.indexOf('hedef tamamlama') >= 0 || t.indexOf('hedef tarih') >= 0 || t.indexOf('hedef') >= 0) return 'hedefTarih';
+      if (t.indexOf('kayıt sorumlusu') >= 0 || t.indexOf('kayit sorumlusu') >= 0) return 'kayitSorumlu';
+      if (t.indexOf('sorumlu') >= 0) return 'sorumlu';
+      if (t.indexOf('reaksiyon') >= 0) return 'reaksiyon';
+      if (t.indexOf('ölçüm') >= 0 || t.indexOf('olcum') >= 0 || t.indexOf('değerlendirme tekniği') >= 0 || t.indexOf('ölçme') >= 0) return 'olcum';
+      if (t.indexOf('miktar') >= 0 || t.indexOf('numune') >= 0 || t.indexOf('örnek') >= 0 || t.indexOf('ornek') >= 0) return 'miktar';
+      if (t.indexOf('sıklığ') >= 0 || t.indexOf('sıklık') >= 0 || t.indexOf('sıklı') >= 0 || t.indexOf('siklik') >= 0 || t.indexOf('sikli') >= 0 || t.indexOf('frekans') >= 0) return 'siklik';
+      if (t.indexOf('karakteristik') >= 0 || t.indexOf('karakteristi') >= 0 || t.indexOf('ürün proses') >= 0 || t.indexOf('urun proses') >= 0) return 'karak';
+      if (t.indexOf('spesifikasyon') >= 0 || t.indexOf('tolerans') >= 0) return 'spes';
+      if (t.indexOf('kontrol yöntemi') >= 0 || t.indexOf('kayıt yöntemi') >= 0 || t.indexOf('kontrol yontemi') >= 0 || t.indexOf('yöntem') >= 0) return 'kontrol';
+      return '';
+    }
+    function pkMetaSinifla(t) {
+      const has = function () { for (let i = 0; i < arguments.length; i++) { if (t.indexOf(arguments[i]) >= 0) return true; } return false; };
+      if (has('kontrol planı revizyon no')) return 'kpRevNo';
+      if (has('kontrol planı no')) return 'kpNo';
+      if (has('kontrol planı revizyon tarihi')) return 'kpRevTarih';
+      if (has('kontrol planı oluşturulma tarihi')) return 'kpOlusturmaTarihi';
+      if (has('ekip lideri', 'takım lideri')) return 'ekipLideri';
+      if (has('fmea revizyon tarihi', 'revizyon tarihi')) return 'fmeaRevTarih';
+      if (has('fmea revizyon no', 'revizyon no')) return 'fmeaRevNo';
+      if (has('fmea oluşturulma tarihi', 'oluşturulma tarihi')) return 'fmeaTarih';
+      if (has('fmea no')) return 'fmeaNo';
+      if (has('çekirdek ekip')) return 'cekirdekEkip';
+      if (has('parça sorumlusu')) return 'parcaSorumlusu';
+      if (has('parça adı', 'parça no', 'parça yılı')) return 'parcaAdi';
+      if (has('proses sorumlusu')) return 'prosesSorumlusu';
+      if (has('proses adı', 'proses adi')) return 'prosesAdi';
+      if (has('firma adı', 'firma adi', 'sektör adı')) return 'firma';
+      return '';
+    }
+    /* Bir sayfada FMEA/kontrol plani tablosunu bulur: baslik satiri, veri
+       baslangici ve sutun eslemesi (alan -> sutun) dondurur. */
+    function pkFmeaTabloCoz(ws) {
+      const maxR = Math.min(ws.rowCount || 0, 4000);
+      const maxC = Math.min(ws.columnCount || 0, 120);
+      if (!maxR || !maxC) return null;
+      let headerRow = 0, bestScore = 0;
+      const scanR = Math.min(maxR, 60);
+      for (let r = 1; r <= scanR; r++) {
+        const seen = {}; let sc = 0;
+        for (let c = 1; c <= maxC; c++) {
+          const f = pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, r, c)));
+          if (f && !seen[f]) { seen[f] = 1; sc++; }
+        }
+        if (sc > bestScore) { bestScore = sc; headerRow = r; }
+      }
+      if (bestScore < 3 || !headerRow) return null;
+      let dataStart = headerRow + 1;
+      while (dataStart <= maxR) {
+        let sc = 0;
+        for (let c = 1; c <= maxC; c++) {
+          if (pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, dataStart, c)))) sc++;
+        }
+        if (sc >= 3) dataStart++; else break;
+      }
+      const colMap = {};
+      for (let c = 1; c <= maxC; c++) {
+        let t = '';
+        for (let rr = headerRow; rr < dataStart; rr++) t += ' ' + pkFmeaNorm(pkHucreTextOf(ws, rr, c));
+        const f = pkFmeaAlanSiniflaT(t.trim());
+        if (!f) continue;
+        if (f === 'S') { if (colMap.s == null) colMap.s = c; else if (colMap.s2 == null) colMap.s2 = c; }
+        else if (f === 'O') { if (colMap.o == null) colMap.o = c; else if (colMap.o2 == null) colMap.o2 = c; }
+        else if (f === 'D') { if (colMap.d == null) colMap.d = c; else if (colMap.d2 == null) colMap.d2 = c; }
+        else if (colMap[f] == null) colMap[f] = c;
+      }
+      return { headerRow: headerRow, dataStart: dataStart, colMap: colMap, maxR: maxR, maxC: maxC, score: bestScore };
+    }
+    function pkFmeaKayitlari(ws, tablo) {
+      const colMap = tablo.colMap, maxR = tablo.maxR;
+      const get = function (r, k) { return colMap[k] ? pkHucreTextOf(ws, r, colMap[k]).trim() : ''; };
+      const recs = [], carry = {};
+      for (let r = tablo.dataStart; r <= maxR; r++) {
+        const rec = {
+          adimNo: get(r, 'adimNo'), adimAdi: get(r, 'adimAdi'), anaProses: get(r, 'anaProses'),
+          gerUrun: get(r, 'gerUrun'), gerProses: get(r, 'gerProses'),
+          tur: get(r, 'tur'), etki: get(r, 'etki'), neden: get(r, 'neden'),
+          s: get(r, 's'), o: get(r, 'o'), d: get(r, 'd'), sinif: get(r, 'sinif'),
+          onkontrol: get(r, 'onkontrol'), tespitkontrol: get(r, 'tespitkontrol'),
+          faaliyet: get(r, 'faaliyet'), sorumlu: get(r, 'sorumlu'), hedefTarih: get(r, 'hedefTarih'),
+          aksiyon: get(r, 'aksiyon'), gerceklesenTarih: get(r, 'gerceklesenTarih'),
+          s2: get(r, 's2'), o2: get(r, 'o2'), d2: get(r, 'd2'),
+          karak: get(r, 'karak'), spes: get(r, 'spes'), olcum: get(r, 'olcum'),
+          kontrol: get(r, 'kontrol'), miktar: get(r, 'miktar'), siklik: get(r, 'siklik'),
+          kayitSorumlu: get(r, 'kayitSorumlu'), reaksiyon: get(r, 'reaksiyon')
+        };
+        const bos = !rec.adimNo && !rec.adimAdi && !rec.anaProses && !rec.tur && !rec.etki && !rec.neden &&
+                    !rec.karak && !rec.spes && !rec.olcum && !rec.kontrol && !rec.miktar && !rec.siklik && !rec.reaksiyon;
+        if (bos) continue;
+        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses'].forEach(function (k) { if (rec[k]) carry[k] = rec[k]; });
+        ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses'].forEach(function (k) { if (!rec[k] && carry[k]) rec[k] = carry[k]; });
+        recs.push(rec);
+      }
+      return recs;
+    }
+    function pkFmeaGruplariKur(recs) {
+      const gruplar = [];
+      const kararMi = function (s) {
+        const t = pkFmeaNorm(s);
+        if (!t) return false;
+        if (t.indexOf('?') >= 0) return true;
+        return /(^| )(karar|şart|sart|kontrol|onay|mutabakat)( |$)/.test(t);
+      };
+      let cur = null;
+      recs.forEach(function (rec) {
+        const stepAd = (rec.adimAdi || '').trim();
+        const ana = (rec.anaProses || '').trim();
+        if (kararMi(stepAd) || (!stepAd && kararMi(ana))) {
+          cur = null;
+          gruplar.push({ tip: 'karar', baslik: stepAd || ana || 'Karar' });
+          return;
+        }
+        let grupBas = ana;
+        if (!grupBas) {
+          const m = String(rec.adimNo || '').match(/^\s*(\d+)/);
+          grupBas = m ? ('Proses ' + m[1]) : (stepAd || 'Proses');
+        }
+        if (!cur || cur.anahtar !== grupBas) {
+          cur = { anahtar: grupBas, adimlar: [] };
+          gruplar.push({ tip: 'proses', baslik: grupBas, grup: cur });
+        }
+        const stepKey = (rec.adimNo || '').trim() || stepAd || ('#' + cur.adimlar.length);
+        let adim = null;
+        for (let i = 0; i < cur.adimlar.length; i++) { if (cur.adimlar[i].anahtar === stepKey) { adim = cur.adimlar[i]; break; } }
+        if (!adim) {
+          adim = { anahtar: stepKey, code: (rec.adimNo || '').trim(), title: stepAd || grupBas, gerUrun: rec.gerUrun || '', gerProses: rec.gerProses || '', hatalar: [], kpHam: null };
+          cur.adimlar.push(adim);
+        } else {
+          if (!adim.gerUrun) adim.gerUrun = rec.gerUrun || '';
+          if (!adim.gerProses) adim.gerProses = rec.gerProses || '';
+        }
+        if (rec.tur || rec.etki || rec.neden || rec.s || rec.o || rec.d || rec.sinif) {
+          adim.hatalar.push({
+            tur: rec.tur || '', etki: rec.etki || '', neden: rec.neden || '', s: rec.s || '', o: rec.o || '', d: rec.d || '',
+            sinif: rec.sinif || '', onkontrol: rec.onkontrol || '', tespitkontrol: rec.tespitkontrol || '',
+            faaliyet: rec.faaliyet || '', sorumlu: rec.sorumlu || '', hedefTarih: rec.hedefTarih || '',
+            aksiyon: rec.aksiyon || '', gerceklesenTarih: rec.gerceklesenTarih || '', s2: rec.s2 || '', o2: rec.o2 || '', d2: rec.d2 || ''
+          });
+        }
+        if (rec.karak || rec.spes || rec.olcum || rec.kontrol || rec.miktar || rec.siklik || rec.kayitSorumlu || rec.reaksiyon) {
+          adim.kpHam = { karak: rec.karak || '', spes: rec.spes || '', sinif: rec.sinif || '', olcum: rec.olcum || '', kontrol: rec.kontrol || '', miktar: rec.miktar || '', siklik: rec.siklik || '', kayitSorumlu: rec.kayitSorumlu || '', reaksiyon: rec.reaksiyon || '' };
+        }
+      });
+      return gruplar;
+    }
+    function pkFmeaMetaOku(ws, headerRow) {
+      const meta = {};
+      const maxC = Math.min(ws.columnCount || 0, 120);
+      const lastR = Math.max(0, headerRow - 1);
+      for (let r = 1; r <= lastR; r++) {
+        for (let c = 1; c <= maxC; c++) {
+          const t = pkFmeaNorm(pkHucreTextOf(ws, r, c));
+          if (!t) continue;
+          const k = pkMetaSinifla(t);
+          if (!k || meta[k]) continue;
+          let val = '';
+          for (let cc = c + 1; cc <= maxC; cc++) {
+            const vt = pkHucreTextOf(ws, r, cc).trim();
+            if (vt) { val = vt; break; }
+          }
+          if (val && pkFmeaNorm(val) !== t) meta[k] = val;
+        }
+      }
+      return meta;
+    }
+    function pkFmeaExcelCoz(wb) {
+      let fmeaWs = null, tablo = null, best = -1;
+      wb.eachSheet(function (ws) {
+        if (ws.state === 'veryHidden') return;
+        const t = pkFmeaTabloCoz(ws);
+        if (t && t.score > best) { best = t.score; fmeaWs = ws; tablo = t; }
+      });
+      if (!fmeaWs || !tablo) return null;
+      const recs = pkFmeaKayitlari(fmeaWs, tablo);
+      const gruplar = pkFmeaGruplariKur(recs);
+      if (!gruplar.length) return null;
+      const meta = pkFmeaMetaOku(fmeaWs, tablo.headerRow);
+      const colMap = tablo.colMap;
+      const varMi = function (k) { return meta[k] && String(meta[k]).trim(); };
+      let tip = '';
+      if (varMi('parcaAdi') || varMi('parcaSorumlusu')) tip = 'parca';
+      else if (varMi('prosesAdi') || varMi('prosesSorumlusu')) tip = 'proses';
+      else if (colMap.anaProses) tip = 'parca';
+      else if (colMap.adimAdi) tip = 'proses';
+      let cpRecs = [];
+      if (colMap.karak || colMap.spes || colMap.olcum || colMap.kontrol || colMap.miktar || colMap.siklik || colMap.kayitSorumlu || colMap.reaksiyon) cpRecs = cpRecs.concat(recs);
+      wb.eachSheet(function (ws) {
+        if (ws === fmeaWs) return;
+        const nm = pkFmeaNorm(ws.name);
+        if (nm.indexOf('kontrol plan') < 0) return;
+        const t = pkFmeaTabloCoz(ws);
+        if (!t) return;
+        cpRecs = cpRecs.concat(pkFmeaKayitlari(ws, t));
+      });
+      const cpByKey = {};
+      cpRecs.forEach(function (r) {
+        const data = {
+          karak: r.karak || '', spes: r.spes || '', sinif: r.sinif || '', olcum: r.olcum || '',
+          kontrol: r.kontrol || '', miktar: r.miktar || '', siklik: r.siklik || '',
+          kayitSorumlu: r.kayitSorumlu || '', reaksiyon: r.reaksiyon || ''
+        };
+        if (!data.karak && !data.spes && !data.olcum && !data.kontrol && !data.miktar && !data.siklik && !data.kayitSorumlu && !data.reaksiyon) return;
+        const k1 = pkFmeaNoAnahtar(r.adimNo || r.adimAdi); if (k1) cpByKey[k1] = data;
+        const k2 = pkFmeaAdAnahtar(r.adimAdi); if (k2) cpByKey[k2] = data;
+      });
+      return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey };
+    }
+    function fmeaExcelYukleAc() {
+      let inp = document.getElementById('fmeaExcelInput');
+      if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file';
+        inp.id = 'fmeaExcelInput';
+        inp.accept = '.xlsx,.xlsm';
+        inp.style.display = 'none';
+        document.body.appendChild(inp);
+      }
+      inp.value = '';
+      inp.onchange = function (e) {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (f) fmeaExcelIsle(f);
+      };
+      inp.click();
+    }
+    async function fmeaExcelIsle(file) {
+      try {
+        if (typeof ExcelJS === 'undefined') { alert('ExcelJS kütüphanesi yüklenemedi. Sayfayı yenileyin.'); return; }
+        const buf = await file.arrayBuffer();
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf);
+        const cozum = pkFmeaExcelCoz(wb);
+        if (!cozum || !cozum.gruplar.length) {
+          alert('Dosyada tanınan bir FMEA tablosu bulunamadı.\nBaşlık satırında "Proses Adımları", "Potansiyel Hata Türü", "Şiddet", "Olasılık", "Tespit" gibi başlıkların bulunduğundan emin olun.');
+          return;
+        }
+        const prosesSay = cozum.gruplar.filter(function (g) { return g.tip === 'proses'; }).length;
+        const kararSay = cozum.gruplar.filter(function (g) { return g.tip === 'karar'; }).length;
+        let adimSay = 0, hataSay = 0;
+        cozum.gruplar.forEach(function (g) {
+          if (g.tip !== 'proses') return;
+          adimSay += g.grup.adimlar.length;
+          g.grup.adimlar.forEach(function (a) { hataSay += a.hatalar.length; });
+        });
+        if (typeof confirm === 'function' && !confirm('Yüklenen dosya mevcut FMEA ve akış verisinin ÜZERİNE yazılacak.\n\nBulunan: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.\n\nDevam edilsin mi?')) return;
+
+        const mkId = function (p) { return p + '_' + Date.now() + Math.floor(Math.random() * 100000); };
+        const yeni = [];
+        const base = function (t, title) {
+          return { id: mkId('node'), type: t, title: title, targetMode: 'new', targetId: '', sideTargetMode: 'next', sideTargetId: '', newProcessTitle: 'Red / Yeniden İşleme', altProsesler: [] };
+        };
+        yeni.push(base('start', 'BAŞLANGIÇ'));
+        const kpHedefler = [];
+        cozum.gruplar.forEach(function (g) {
+          if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
+          const subs = g.grup.adimlar.map(function (a) {
+            const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
+            const kpData = a.kpHam || cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || null;
+            if (kpData) kpHedefler.push({ sub: sub, kp: kpData });
+            return sub;
+          });
+          const n = base('process', g.baslik);
+          n.altProsesler = subs;
+          yeni.push(n);
+        });
+        yeni.push(base('end', 'BİTİŞ'));
+
+        nodes = yeni;
+        selected = null;
+        if (cozum.tip) fmeaType = cozum.tip;
+        Object.keys(cozum.meta || {}).forEach(function (k) { fmeaMeta[k] = cozum.meta[k]; });
+        try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
+
+        save();
+
+        if (kpHedefler.length) {
+          const bucket = {};
+          kpHedefler.forEach(function (h) { if (h.sub.code) bucket[h.sub.code] = h.kp; });
+          try { kpYazBucket(bucket); } catch (e) {}
+        }
+        if (currentProject) { try { upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {} }
+
+        const fov = document.getElementById('fmeaOverlay');
+        if (fov && fov.classList.contains('open')) { try { showFmeaPreview(); } catch (e) {} }
+        const cov = document.getElementById('cpOverlay');
+        if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
+
+        const msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.';
+        if (typeof ckBildir === 'function') ckBildir(msg, 'basari'); else alert(msg);
+      } catch (e) {
+        alert('Excel okunamadı: ' + (e && e.message ? e.message : String(e)));
+      }
     }
 
     async function exportEditableExcel() {
