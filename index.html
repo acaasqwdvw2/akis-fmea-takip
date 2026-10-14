@@ -5775,6 +5775,7 @@ ov.innerHTML = `<div class="fmea-modal">
         if (ws.rowMeta && ws.rowMeta[String(r)] && ws.rowMeta[String(r)].hidden) continue;
         const satir = hucreler[r] || {};
         const veri = r > sonBaslik;
+        let satirNo = '';
         if (veri) veriSatir++;
         /* Miktar / Lot No / Seri No etiketlerinin bulundugu satirlar yariya
            indirilir (kullani istegi). Satirlar pkYaraliSatir ile isaretlenir;
@@ -5798,6 +5799,7 @@ ov.innerHTML = `<div class="fmea-modal">
             const ozetB = pkHucreMetniCoz(satir[c] || null);
             const kilitB = pkAciklamKilit(ws.name, c);
             const dvB = pkOtoSayfaDeger(r, c, kilitB ? pkHucreDegerKaynak(depo, pkB, ozetB) : pkHucreDeger(depo, pkB, ozetB), ws.name, depo);
+            if (c === 4) satirNo = String(dvB == null ? '' : dvB);
             let bW = '';
             if (b[1] > 1) {
               let toplam = 0, varMi = false;
@@ -5877,6 +5879,7 @@ ov.innerHTML = `<div class="fmea-modal">
           if (veri) {            const pk = sheetKey + r + '!' + c;
             const kilitV = pkAciklamKilit(ws.name, c);
             const dv = pkOtoSayfaDeger(r, c, kilitV ? pkHucreDegerKaynak(depo, pk, ozet) : pkHucreDeger(depo, pk, ozet), ws.name, depo);
+            if (c === 4) satirNo = String(dv == null ? '' : dv);
             const st = w ? ' style="min-width:' + w + '"' : '';
             if (kilitV || !pkHucreBeyaz(satir[c] || null)) {
               /* Excel'de renkli hucre: giris izni yok, salt metin. */
@@ -5938,19 +5941,41 @@ ov.innerHTML = `<div class="fmea-modal">
           }
         }
         s += '</tr>';
-        govde.push(s);
+        govde.push({ veri: veri, html: s, no: satirNo });
       }
+      /* Veri satirlari "No" kismina gore otomatik siralanir. Bos/No'suz
+         satirlar sona atilir (kendi aralarinda sabit kalir); baslik satirlari
+         ve sira siralanmaz. Boylece sonradan eklenen 2.10 satiri, 3.20'nin
+         ustune gecer. */
+      const _bas = [];
+      const _veri = [];
+      govde.forEach(function (g, i) {
+        g._i = i;
+        if (g.veri) _veri.push(g); else _bas.push(g);
+      });
+      _veri.sort(function (x, y) {
+        const ex = !String(x.no || '').trim();
+        const ey = !String(y.no || '').trim();
+        if (ex && ey) return x._i - y._i;
+        if (ex) return 1;
+        if (ey) return -1;
+        const f = pkNoCmp(x.no, y.no);
+        return f || (x._i - y._i);
+      });
+      const sirali = _bas.concat(_veri);
+
       /* Son veri satiri isaretlenir: buraya yazilinca alt satir acilir. */
-      if (govde.length) {
-        govde[govde.length - 1] =
-          govde[govde.length - 1].replace(/data-pk="/g, 'data-last="1" data-pk="');
+      if (sirali.length) {
+        const _son = sirali[sirali.length - 1];
+        if (_son.veri) _son.html = _son.html.replace(/data-pk="/g, 'data-last="1" data-pk="');
       }
 
       /* Sayfa/olcu kartlari ve alt bilgi satiri kullanici istegiyle kaldirildi.
          Ust bilgi artikca Excel'in kendi hucrelerinden gelir (bkz. pkOtoHarita). */
 
       return '<div class="fmea-x"><div class="fmea-sctop"><div class="fmea-sctrack"></div></div>' +
-        '<div class="fmea-scroll"><table class="fmea-table cptable"><tbody>' + govde.join('') +
+        '<div class="fmea-scroll"><table class="fmea-table cptable"><tbody>' +
+        sirali.map(function (g) { return g.html; }).join('') +
         '</tbody></table></div></div>';
     }
 
