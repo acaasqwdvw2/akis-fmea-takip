@@ -1599,8 +1599,8 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
           if (gorulen[cc]) return;
           gorulen[cc] = 1;
           const kayitlar = kpSatirlari(store[cc]);
-          const kaynak = kayitlar.length ? kayitlar : [{}];
-          kaynak.forEach(function (sv) {
+          if (!kayitlar.length) return;
+          kayitlar.forEach(function (sv) {
             satirlar.push({
               no: satirlar.length + 1,
               code: cc,
@@ -7474,14 +7474,10 @@ function pkSatirEkle(tablo) {
         "<td colspan=\"2\"></td>" +
         "<td colspan=\"3\"></td>" +
         "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
         "<td colspan=\"2\"></td>" +
         "<td colspan=\"3\"></td>" +
         "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
+        "<td colspan=\"4\"></td>" +
         "</tr>";
       }
 
@@ -7508,8 +7504,8 @@ function showControlPlanPreview() {
           seen[code] = true;
           /* Bir proses adimi icin CP'de birden fazla kontrol satiri olabilir. */
           const kayitlar = kpSatirlari(cpStore[code]);
-          const kaynak = kayitlar.length ? kayitlar : [{}];
-          kaynak.forEach(function (saved, idx) {
+          if (!kayitlar.length) return;
+          kayitlar.forEach(function (saved, idx) {
             rows.push({
               code, adi: (sub.title || ''), idx: idx, ilk: idx === 0,
               karak: saved.karak || '',
@@ -8593,8 +8589,8 @@ const pBase = () => {
                 if (seenCp[cc]) return;
                 seenCp[cc] = true;
                 const kayitlar = kpSatirlari(cpStoreData[cc]);
-                const kaynak = kayitlar.length ? kayitlar : [{}];
-                kaynak.forEach(function (sv) {
+                if (!kayitlar.length) return;
+                kayitlar.forEach(function (sv) {
                   cpRows.push({
                     code: cc, adi: (subcp.title || ''), karak: sv.karak || '', spes: sv.spes || '', sinif: sv.sinif || '',
                     olcum: sv.olcum || '', miktar: sv.miktar || '', siklik: sv.siklik || '',
