@@ -938,6 +938,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <script>
 let nodes = [], selected = null;
     let showMeta = false;
+    // Excel aktarimindan sonra akis semasi ilk goruntulendiginde bir kez uyari gosterilir
+    let pkAkisUyariBekle = false;
     // ---- Veri anahtarlari: HER KULLANICIYA AYRI (hesaplar birbirine karismasin) ----
     let key = 'proses_fmea_v30';
     let metaKey = 'proses_fmea_meta_v30';
@@ -965,6 +967,14 @@ let nodes = [], selected = null;
          'kontrol' in v || 'miktar' in v || 'siklik' in v ||
          'kayitSorumlu' in v || 'reaksiyon' in v));
     }
+    /* Bir kod icin CP satir listesini normalize eder: dizi ise dizi, tek nesne
+       ise [nesne], yoksa []. Boylece bir proses adimi altinda BIRDEN FAZLA
+       kontrol satiri tutulabilir (Excel'deki gibi). */
+    function kpSatirlari(v) {
+      if (Array.isArray(v)) return v.filter(function (x) { return x && typeof x === 'object'; });
+      if (kpRowNesne(v)) return [v];
+      return [];
+    }
     function aktifProjeAd() { try { ensureCurrentProject(); } catch (e) {} return String(currentProject || '').trim(); }
     try { window.__aktifProjeAd = aktifProjeAd; } catch (e) {}
     // Tum projeleri iceren ham depo (nested). Gerekirse flat -> nested migrasyonu yapar.
@@ -973,7 +983,7 @@ let nodes = [], selected = null;
       try { raw = JSON.parse(localStorage.getItem(kpKey()) || '{}'); } catch (e) { raw = {}; }
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
       const ks = Object.keys(raw);
-      if (ks.length && ks.some(function (k) { return kpRowNesne(raw[k]); })) {
+      if (ks.length && ks.some(function (k) { return kpRowNesne(raw[k]) || (Array.isArray(raw[k]) && raw[k].some(kpRowNesne)); })) {
         const sarmal = {}; sarmal[aktifProjeAd()] = raw;
         try { localStorage.setItem(kpKey(), JSON.stringify(sarmal)); } catch (e) {}
         return sarmal;
@@ -1588,20 +1598,23 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
           const cc = sub.code || '';
           if (gorulen[cc]) return;
           gorulen[cc] = 1;
-          const sv = store[cc] || {};
-          satirlar.push({
-            no: satirlar.length + 1,
-            code: cc,
-            adi: sub.title || '',
-            karak: sv.karak || '',
-            spes: sv.spes || '',
-            sinif: sv.sinif || '',
-            olcum: sv.olcum || '',
-            miktar: sv.miktar || '',
-            siklik: sv.siklik || '',
-            kontrol: sv.kontrol || '',
-            kayitSorumlu: sv.kayitSorumlu || '',
-            reaksiyon: sv.reaksiyon || ''
+          const kayitlar = kpSatirlari(store[cc]);
+          const kaynak = kayitlar.length ? kayitlar : [{}];
+          kaynak.forEach(function (sv) {
+            satirlar.push({
+              no: satirlar.length + 1,
+              code: cc,
+              adi: sub.title || '',
+              karak: sv.karak || '',
+              spes: sv.spes || '',
+              sinif: sv.sinif || '',
+              olcum: sv.olcum || '',
+              miktar: sv.miktar || '',
+              siklik: sv.siklik || '',
+              kontrol: sv.kontrol || '',
+              kayitSorumlu: sv.kayitSorumlu || '',
+              reaksiyon: sv.reaksiyon || ''
+            });
           });
         });
       });
@@ -1826,12 +1839,16 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
           return !!(v && typeof v === 'object' &&
             ckAlan(v, ['reaksiyon', 'reaksiyonPlani', 'aksiyon', 'alinanAksiyon']));
         };
+        const cpSatirVar = function (v) {
+          if (Array.isArray(v)) return v.some(cpVar);
+          return cpVar(v);
+        };
         Object.keys(kpEdits).forEach(function (kk) {
           const v = kpEdits[kk];
           if (!v || typeof v !== 'object') return;
-          if (cpVar(v)) { m.cpReaksiyon++; return; }  // eski (flat) bicim
-          // yeni bicim: once proje adi, icinde kod -> satir
-          Object.keys(v).forEach(function (k2) { if (cpVar(v[k2])) m.cpReaksiyon++; });
+          if (cpSatirVar(v)) { m.cpReaksiyon++; return; }  // eski (flat) bicim
+          // yeni bicim: once proje adi, icinde kod -> satir(lar)
+          Object.keys(v).forEach(function (k2) { if (cpSatirVar(v[k2])) m.cpReaksiyon++; });
         });
       }
       return m;
@@ -4190,6 +4207,12 @@ function toggleFmeaMeta(forceOpen) {
         flow.innerHTML = nodes.map((n, i) => renderNodeHTML(n, i)).join('');
       }
 
+      if (pkAkisUyariBekle && nodes.length) {
+        pkAkisUyariBekle = false;
+        const uyari = 'Akış şeması Excel aktarımına göre otomatik olarak oluşturulmuştur. Lütfen akışı kontrol edin; karar/şart mekanizmaları (ör. onay, kontrol, mutabakat noktaları) mevcutsa "+ Karar / Şart" ile eklenmesi gerekmektedir.';
+        if (typeof ckBildir === 'function') ckBildir(uyari, 'bilgi'); else alert(uyari);
+      }
+
       let p = nodes.find(n => n.id === selected), form = document.getElementById('form');
       if (!p) {
         const isParca = (fmeaType === 'parca');
@@ -4647,11 +4670,12 @@ return metin + '(otomatik öneri)';
     function cpEditCell(el) {
       const code = el.dataset.code, k = el.dataset.k;
       if (!code) return;
-      const isLast = el.getAttribute("data-last") === "1";
-      const tbl = el.closest("table.fmea-table");
-      store[code] = store[code] || {};
-      const eski = store[code][k];
-      store[code][k] = el.value;
+      const idx = parseInt(el.dataset.idx || '0', 10) || 0;
+      const store = kpYuku();
+      if (!Array.isArray(store[code])) store[code] = kpSatirlari(store[code]);
+      store[code][idx] = store[code][idx] || {};
+      const eski = store[code][idx][k];
+      store[code][idx][k] = el.value;
       if (String(eski == null ? '' : eski).trim() !== String(el.value || '').trim()) {
         ckLogEkle('kp', 'Kontrol planı güncellendi (' + (k || 'sütun') + '): ' + String(code),
           'kp|' + (currentProject || '') + '|' + code + '|' + k);
@@ -7482,18 +7506,22 @@ function showControlPlanPreview() {
           const code = sub.code || '';
           if (seen[code]) return;
           seen[code] = true;
-          const saved = cpStore[code] || {};
-          rows.push({
-            code, adi: (sub.title || ''),
-            karak: saved.karak || '',
-            spes: saved.spes || '',
-            sinif: saved.sinif || '',
-            olcum: saved.olcum || '',
-            kontrol: saved.kontrol || '',
-            miktar: saved.miktar || '',
-            siklik: saved.siklik || '',
-            kayitSorumlu: saved.kayitSorumlu || '',
-            reaksiyon: saved.reaksiyon || ''
+          /* Bir proses adimi icin CP'de birden fazla kontrol satiri olabilir. */
+          const kayitlar = kpSatirlari(cpStore[code]);
+          const kaynak = kayitlar.length ? kayitlar : [{}];
+          kaynak.forEach(function (saved, idx) {
+            rows.push({
+              code, adi: (sub.title || ''), idx: idx, ilk: idx === 0,
+              karak: saved.karak || '',
+              spes: saved.spes || '',
+              sinif: saved.sinif || '',
+              olcum: saved.olcum || '',
+              kontrol: saved.kontrol || '',
+              miktar: saved.miktar || '',
+              siklik: saved.siklik || '',
+              kayitSorumlu: saved.kayitSorumlu || '',
+              reaksiyon: saved.reaksiyon || ''
+            });
           });
         });
       });
@@ -7544,21 +7572,21 @@ const cpMetaDef = isParcaCP
       </thead>`;
 
       const dcell = (s, val, bg) => `<td colspan="${s}" style="${bg ? 'background:' + bg + ';' : ''}">${E(N(val))}</td>`;
-      const cpinp = (s, code, k, v, ph, bg) => `<td colspan="${s}" style="padding:0;"><textarea rows="1" wrap="soft" data-code="${code}" data-k="${k}" placeholder="${ph || ''}" style="width:100%;min-width:0;box-sizing:border-box;border:0;border-bottom:1px solid #d5e0e3;background:${bg || '#ffffff'};padding:2px 3px;font:inherit;font-size:10.5px;text-align:center;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;" oninput="cpEditCell(this)">${E(N(v))}</textarea></td>`;
-      const cpsel = (s, code, v) => `<td colspan="${s}" style="padding:0;"><select data-code="${code}" data-k="sinif" onchange="cpEditCell(this)" style="width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #d5e0e3;background:#ffffff;padding:2px 3px;font:inherit;font-size:10.5px;text-align:center;">${['','Emniyet Kritik','Görev Kritik','Kırılma Kritik','Majör'].map(o => `<option value="${o}" ${o === (N(v) || '') ? 'selected' : ''}>${o || 'Seçiniz'}</option>`).join('')}</select></td>`;
+      const cpinp = (s, code, idx, k, v, ph, bg) => `<td colspan="${s}" style="padding:0;"><textarea rows="1" wrap="soft" data-code="${code}" data-idx="${idx}" data-k="${k}" placeholder="${ph || ''}" style="width:100%;min-width:0;box-sizing:border-box;border:0;border-bottom:1px solid #d5e0e3;background:${bg || '#ffffff'};padding:2px 3px;font:inherit;font-size:10.5px;text-align:center;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;" oninput="cpEditCell(this)">${E(N(v))}</textarea></td>`;
+      const cpsel = (s, code, idx, v) => `<td colspan="${s}" style="padding:0;"><select data-code="${code}" data-idx="${idx}" data-k="sinif" onchange="cpEditCell(this)" style="width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #d5e0e3;background:#ffffff;padding:2px 3px;font:inherit;font-size:10.5px;text-align:center;">${['','Emniyet Kritik','Görev Kritik','Kırılma Kritik','Majör'].map(o => `<option value="${o}" ${o === (N(v) || '') ? 'selected' : ''}>${o || 'Seçiniz'}</option>`).join('')}</select></td>`;
       const trs = rows.map((r, i) => `<tr>
         <td class="cpp">${i + 1}</td>
-        <td class="cpp">${E(r.code)}</td>
-        <td colspan="2" class="wp">${E(r.adi)}</td>
-        ${cpinp(3, r.code, 'karak', r.karak, 'Karakteristik')}
-        ${cpinp(3, r.code, 'spes', r.spes, 'Spesifikasyon')}
-        ${cpsel(2, r.code, r.sinif)}
-        ${cpinp(3, r.code, 'olcum', r.olcum, 'Ölçüm tekniği')}
-        ${cpinp(2, r.code, 'miktar', r.miktar, 'Miktar')}
-        ${cpinp(2, r.code, 'siklik', r.siklik, 'Kontrol sıklığı')}
-        ${cpinp(3, r.code, 'kontrol', r.kontrol, 'Kontrol yöntemi')}
-        ${cpinp(2, r.code, 'kayitSorumlu', r.kayitSorumlu, 'Kayıt sorumlusu')}
-        ${cpinp(4, r.code, 'reaksiyon', r.reaksiyon, 'Reaksiyon planı')}
+        <td class="cpp">${r.ilk ? E(r.code) : ''}</td>
+        <td colspan="2" class="wp">${r.ilk ? E(r.adi) : ''}</td>
+        ${cpinp(3, r.code, r.idx, 'karak', r.karak, 'Karakteristik')}
+        ${cpinp(3, r.code, r.idx, 'spes', r.spes, 'Spesifikasyon')}
+        ${cpsel(2, r.code, r.idx, r.sinif)}
+        ${cpinp(3, r.code, r.idx, 'olcum', r.olcum, 'Ölçüm tekniği')}
+        ${cpinp(2, r.code, r.idx, 'miktar', r.miktar, 'Miktar')}
+        ${cpinp(2, r.code, r.idx, 'siklik', r.siklik, 'Kontrol sıklığı')}
+        ${cpinp(3, r.code, r.idx, 'kontrol', r.kontrol, 'Kontrol yöntemi')}
+        ${cpinp(2, r.code, r.idx, 'kayitSorumlu', r.kayitSorumlu, 'Kayıt sorumlusu')}
+        ${cpinp(4, r.code, r.idx, 'reaksiyon', r.reaksiyon, 'Reaksiyon planı')}
       </tr>`).join('');
 
       let ov = document.getElementById('cpOverlay');
@@ -7574,27 +7602,6 @@ const cpMetaDef = isParcaCP
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
-          <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}    function cpBosSatir() {
-      return "<tr>" +
-        "<td class=\"cpp\"></td>" +
-        "<td class=\"cpp\"></td>" +
-        "<td colspan=\"2\" class=\"wp\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "<td colspan=\"3\"></td>" +
-        "<td colspan=\"2\"></td>" +
-        "</tr>";
-      }
-
           <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}<tbody>${trs}${cpBosSatir()}</tbody></table></div></div>
         </div>
       </div>`;
@@ -7630,8 +7637,12 @@ const cpMetaDef = isParcaCP
     function pkHucreTextOf(ws, r, c) {
       try {
         const cell = ws.getCell(r, c);
+        const val = cell ? cell.value : null;
+        /* Tarih hücrelerinde ExcelJS cell.text ham Date.toString() dondurur;
+           bunun yerine tr-TR tarih bicimi (GG.AA.YYYY) kullanilir. */
+        if (val instanceof Date) return pkFmeaHucreMetni(val);
         if (cell && cell.text !== undefined && cell.text !== null && String(cell.text).trim() !== '') return String(cell.text);
-        return pkFmeaHucreMetni(cell ? cell.value : null);
+        return pkFmeaHucreMetni(val);
       } catch (e) { return ''; }
     }
     function pkFmeaNorm(s) {
@@ -7775,6 +7786,7 @@ const cpMetaDef = isParcaCP
       const colMap = tablo.colMap, maxR = tablo.maxR;
       const get = function (r, k) { return colMap[k] ? pkHucreTextOf(ws, r, colMap[k]).trim() : ''; };
       const recs = [], carry = {};
+      let lastAdim = '', lastAna = '';
       for (let r = tablo.dataStart; r <= maxR; r++) {
         const rec = {
           adimNo: get(r, 'adimNo'), adimAdi: get(r, 'adimAdi'), anaProses: get(r, 'anaProses'),
@@ -7800,6 +7812,16 @@ const cpMetaDef = isParcaCP
           rec.aksiyon || rec.gerceklesenTarih || rec.s2 || rec.o2 || rec.d2 ||
           rec.karak || rec.spes || rec.olcum || rec.miktar || rec.siklik || rec.kayitSorumlu ||
           rec.reaksiyon || rec.kontrol);
+        /* Gercek gereksinim (gerUrun/gerProses) alanlari yalnizca AYNI adim
+           icinde devralinir; yeni bir adim/ana proses basladıgında devralma
+           sifirlanir ki bos hucreler onceki adimin degerini almasin. */
+        const rawAdim = (rec.adimNo || '').trim();
+        const rawAna = (rec.anaProses || '').trim();
+        if ((rawAdim && rawAdim !== lastAdim) || (rawAna && rawAna !== lastAna)) {
+          carry.gerUrun = ''; carry.gerProses = '';
+        }
+        if (rawAdim) lastAdim = rawAdim;
+        if (rawAna) lastAna = rawAna;
         ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (rec[k]) carry[k] = rec[k]; });
         ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (!rec[k] && carry[k]) rec[k] = carry[k]; });
         recs.push(rec);
@@ -7808,26 +7830,13 @@ const cpMetaDef = isParcaCP
     }
     function pkFmeaGruplariKur(recs) {
       const gruplar = [];
-      const kararMi = function (s) {
-        const t = pkFmeaNorm(s);
-        if (!t) return false;
-        if (t.indexOf('?') >= 0) return true;
-        return /(^| )(karar|şart|sart|kontrol|onay|mutabakat)( |$)/.test(t);
-      };
       let cur = null;
       recs.forEach(function (rec) {
         const stepAd = (rec.adimAdi || '').trim();
         const ana = (rec.anaProses || '').trim();
-        /* Bir adim ancak KENDI FMEA/Kontrol Plani verisi yoksa sart/karar
-           kutusu olur; veri tasiyan adimlar (or. "GKK (Girdi Kalite Kontrol)")
-           proses adimi olarak korunur ki hicbir hata satiri kaybolmasin. */
-        if ((kararMi(stepAd) || (!stepAd && kararMi(ana))) && !rec._veri) {
-          const bas = stepAd || ana || 'Karar';
-          const son = gruplar[gruplar.length - 1];
-          if (!(son && son.tip === 'karar' && son.baslik === bas)) gruplar.push({ tip: 'karar', baslik: bas });
-          cur = null;
-          return;
-        }
+        /* Excel aktariminda karar/sart kutulari OTOMATIK olusturulmaz; tum
+           adimlar proses olarak aktarilir. Kullanici aktarim sonrasi
+           karar/sart mekanizmalarini gerekiyorsa kendisi ekler. */
         let grupBas = ana;
         if (!grupBas) {
           const m = String(rec.adimNo || '').match(/^\s*(\d+)/);
@@ -7874,7 +7883,9 @@ const cpMetaDef = isParcaCP
           let val = '';
           for (let cc = c + 1; cc <= maxC; cc++) {
             const vt = pkHucreTextOf(ws, r, cc).trim();
-            if (vt) { val = vt; break; }
+            if (!vt) continue;
+            if (pkMetaSinifla(pkFmeaNorm(vt))) break;
+            val = vt; break;
           }
           if (val && pkFmeaNorm(val) !== t) meta[k] = val;
         }
@@ -7901,7 +7912,6 @@ const cpMetaDef = isParcaCP
       else if (colMap.anaProses) tip = 'parca';
       else if (colMap.adimAdi) tip = 'proses';
       let cpRecs = [];
-      if (colMap.karak || colMap.spes || colMap.olcum || colMap.kontrol || colMap.miktar || colMap.siklik || colMap.kayitSorumlu || colMap.reaksiyon) cpRecs = cpRecs.concat(recs);
       wb.eachSheet(function (ws) {
         if (ws === fmeaWs) return;
         const nm = pkFmeaNorm(ws.name);
@@ -7910,7 +7920,18 @@ const cpMetaDef = isParcaCP
         if (!t) return;
         cpRecs = cpRecs.concat(pkFmeaKayitlari(ws, t));
       });
+      /* Ayri Kontrol Plani sayfasi yoksa ayni (FMEA) sayfadaki CP kolonlari kullanilir. */
+      if (!cpRecs.length && (colMap.karak || colMap.spes || colMap.olcum || colMap.kontrol || colMap.miktar || colMap.siklik || colMap.kayitSorumlu || colMap.reaksiyon)) cpRecs = recs.slice();
+      /* cpByKey: anahtar -> o adima ait CP SATIRLARI (dizi). Bir adim altinda
+         birden fazla kontrol satiri olabilir; hepsi korunur. */
       const cpByKey = {};
+      const cpEkle = function (key, data) {
+        if (!key) return;
+        if (!cpByKey[key]) cpByKey[key] = [];
+        const imza = JSON.stringify(data);
+        for (let i = 0; i < cpByKey[key].length; i++) { if (JSON.stringify(cpByKey[key][i]) === imza) return; }
+        cpByKey[key].push(data);
+      };
       cpRecs.forEach(function (r) {
         const data = {
           karak: r.karak || '', spes: r.spes || '', sinif: r.sinif || '', olcum: r.olcum || '',
@@ -7918,8 +7939,8 @@ const cpMetaDef = isParcaCP
           kayitSorumlu: r.kayitSorumlu || '', reaksiyon: r.reaksiyon || ''
         };
         if (!data.karak && !data.spes && !data.olcum && !data.kontrol && !data.miktar && !data.siklik && !data.kayitSorumlu && !data.reaksiyon) return;
-        const k1 = pkFmeaNoAnahtar(r.adimNo || r.adimAdi); if (k1) cpByKey[k1] = data;
-        const k2 = pkFmeaAdAnahtar(r.adimAdi); if (k2) cpByKey[k2] = data;
+        cpEkle(pkFmeaNoAnahtar(r.adimNo || r.adimAdi), data);
+        cpEkle(pkFmeaAdAnahtar(r.adimAdi), data);
       });
       return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey };
     }
@@ -7973,8 +7994,8 @@ const cpMetaDef = isParcaCP
           if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
           const subs = g.grup.adimlar.map(function (a) {
             const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
-            const kpData = a.kpHam || cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || null;
-            if (kpData) kpHedefler.push({ sub: sub, kp: kpData });
+            const kpArr = cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || (a.kpHam ? [a.kpHam] : null);
+            if (kpArr && kpArr.length) kpHedefler.push({ sub: sub, kp: kpArr });
             return sub;
           });
           const n = base('process', g.baslik);
@@ -8003,7 +8024,11 @@ const cpMetaDef = isParcaCP
         const cov = document.getElementById('cpOverlay');
         if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
 
-        const msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.';
+        try { autoNumberNodes(); } catch (e) {}
+        pkAkisUyariBekle = true;
+        try { render(); } catch (e) { console.error('render:', e); }
+
+        const msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata.';
         if (typeof ckBildir === 'function') ckBildir(msg, 'basari'); else alert(msg);
       } catch (e) {
         alert('Excel okunamadı: ' + (e && e.message ? e.message : String(e)));
@@ -8552,11 +8577,14 @@ const pBase = () => {
                 const cc = subcp.code || '';
                 if (seenCp[cc]) return;
                 seenCp[cc] = true;
-                const sv = cpStoreData[cc] || {};
-                cpRows.push({
-                  code: cc, adi: (subcp.title || ''), karak: sv.karak || '', spes: sv.spes || '', sinif: sv.sinif || '',
-                  olcum: sv.olcum || '', miktar: sv.miktar || '', siklik: sv.siklik || '',
-                  kontrol: sv.kontrol || '', kayitSorumlu: sv.kayitSorumlu || '', reaksiyon: sv.reaksiyon || ''
+                const kayitlar = kpSatirlari(cpStoreData[cc]);
+                const kaynak = kayitlar.length ? kayitlar : [{}];
+                kaynak.forEach(function (sv) {
+                  cpRows.push({
+                    code: cc, adi: (subcp.title || ''), karak: sv.karak || '', spes: sv.spes || '', sinif: sv.sinif || '',
+                    olcum: sv.olcum || '', miktar: sv.miktar || '', siklik: sv.siklik || '',
+                    kontrol: sv.kontrol || '', kayitSorumlu: sv.kayitSorumlu || '', reaksiyon: sv.reaksiyon || ''
+                  });
                 });
               });
             });
