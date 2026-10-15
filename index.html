@@ -7733,23 +7733,37 @@ const cpMetaDef = isParcaCP
         }
         if (scU >= 2) headerRow--; else break;
       }
+      /* Baslik blogunun bittigi yeri bul: tekrarlanan baslik satirlari yuksek
+         sayida "siniflandirilabilir" huceye sahipken, veri satirlari serbest
+         metin oldugu icin cok daha azdir. Bu yuzden alt baslik blogunu, baslik
+         satirinin sayisinin yarisindan azina dusunce bitir. */
+      let headerCells = 0;
+      for (let c = 1; c <= maxC; c++) {
+        if (pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, headerRow, c)))) headerCells++;
+      }
+      const dataStopThr = Math.max(3, Math.floor(headerCells * 0.5));
       let dataStart = headerRow + 1;
       while (dataStart <= maxR) {
         let sc = 0;
         for (let c = 1; c <= maxC; c++) {
           if (pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, dataStart, c)))) sc++;
         }
-        if (sc >= 3) dataStart++; else break;
+        if (sc >= dataStopThr) dataStart++; else break;
       }
       const colMap = {};
       for (let c = 1; c <= maxC; c++) {
         let t = '';
         for (let rr = headerRow; rr < dataStart; rr++) t += ' ' + pkFmeaNorm(pkHucreTextOf(ws, rr, c));
-        const f = pkFmeaAlanSiniflaT(t.trim());
+        const h = t.trim();
+        const f = pkFmeaAlanSiniflaT(h);
         if (!f) continue;
+        /* Ana proses icin "No" yerine "Adi" sutununu tercih et; boylece proses
+           kutusunda numara yerine proses adi ("Kablaj Uretimi") gorunur. */
+        const adMi = /(^| )ad[ıi]( |$)/.test(h);
         if (f === 'S') { if (colMap.s == null) colMap.s = c; else if (colMap.s2 == null) colMap.s2 = c; }
         else if (f === 'O') { if (colMap.o == null) colMap.o = c; else if (colMap.o2 == null) colMap.o2 = c; }
         else if (f === 'D') { if (colMap.d == null) colMap.d = c; else if (colMap.d2 == null) colMap.d2 = c; }
+        else if (f === 'anaProses') { if (colMap.anaProses == null || adMi) colMap.anaProses = c; }
         else if (colMap[f] == null) colMap[f] = c;
       }
       return { headerRow: headerRow, dataStart: dataStart, colMap: colMap, maxR: maxR, maxC: maxC, score: bestScore };
@@ -7776,6 +7790,13 @@ const cpMetaDef = isParcaCP
         const hasBasics = rec.adimNo || rec.adimAdi || rec.anaProses;
         const hasFMEA = rec.tur || rec.etki || rec.neden || rec.karak || rec.spes || rec.olcum || rec.kontrol || rec.miktar || rec.siklik || rec.reaksiyon;
         if (!hasBasics && !hasFMEA) continue;
+        /* Satirin KENDI (devralinmamis) FMEA/CP verisi var mi? Sart/karar
+           tespitinde kullanilir; devralma (carry) sonrasi kullanilmaz. */
+        rec._veri = !!(rec.tur || rec.etki || rec.neden || rec.s || rec.o || rec.d || rec.sinif ||
+          rec.onkontrol || rec.tespitkontrol || rec.faaliyet || rec.sorumlu || rec.hedefTarih ||
+          rec.aksiyon || rec.gerceklesenTarih || rec.s2 || rec.o2 || rec.d2 ||
+          rec.karak || rec.spes || rec.olcum || rec.miktar || rec.siklik || rec.kayitSorumlu ||
+          rec.reaksiyon || rec.kontrol);
         ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (rec[k]) carry[k] = rec[k]; });
         ['adimNo', 'adimAdi', 'anaProses', 'gerUrun', 'gerProses', 'tur', 'etki', 'neden'].forEach(function (k) { if (!rec[k] && carry[k]) rec[k] = carry[k]; });
         recs.push(rec);
@@ -7794,9 +7815,14 @@ const cpMetaDef = isParcaCP
       recs.forEach(function (rec) {
         const stepAd = (rec.adimAdi || '').trim();
         const ana = (rec.anaProses || '').trim();
-        if (kararMi(stepAd) || (!stepAd && kararMi(ana))) {
+        /* Bir adim ancak KENDI FMEA/Kontrol Plani verisi yoksa sart/karar
+           kutusu olur; veri tasiyan adimlar (or. "GKK (Girdi Kalite Kontrol)")
+           proses adimi olarak korunur ki hicbir hata satiri kaybolmasin. */
+        if ((kararMi(stepAd) || (!stepAd && kararMi(ana))) && !rec._veri) {
+          const bas = stepAd || ana || 'Karar';
+          const son = gruplar[gruplar.length - 1];
+          if (!(son && son.tip === 'karar' && son.baslik === bas)) gruplar.push({ tip: 'karar', baslik: bas });
           cur = null;
-          gruplar.push({ tip: 'karar', baslik: stepAd || ana || 'Karar' });
           return;
         }
         let grupBas = ana;
