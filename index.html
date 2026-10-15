@@ -143,6 +143,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-sec.kutu{border-radius:6px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.35)}
     .pk-sec-info{padding:6px 10px;font-size:11px;color:#3d5a63;background:#eef6f7;border-bottom:1px solid #d3e3e6}
     .pk-sec-scroll{overflow:auto;flex:1 1 auto;min-height:0}
+    /* Kontrol Sec ekraninda maddenin yaninda gosterilen periyot rozetleri.
+       Kullanicinin o maddeyi hangi periyotlarda (Gunluk/Haftalik/Aylik)
+       kontrol ettigini tek bakista gosterir. */
+    .pk-periyot{display:inline-block;margin-left:5px;padding:1px 6px;border-radius:9px;
+      font-size:9.5px;font-weight:700;color:#fff;background:#7d8f96;white-space:nowrap}
+    .pk-periyot.gunluk{background:#2e6b4f}
+    .pk-periyot.haftalik{background:#1f6f8b}
+    .pk-periyot.aylik{background:#8a5a12}
+    .pk-periyot.alis{background:none;color:#7d8f96;font-weight:400;font-style:italic}
     .pk-sec-scroll table{border-collapse:collapse;width:100%;font-size:11px}
     .pk-sec-scroll th{position:sticky;top:0;background:#eef2f3;padding:4px 5px;border:1px solid #c9d6d9;
       font-weight:700;text-align:center;z-index:2}
@@ -6446,6 +6455,54 @@ ov.innerHTML = `<div class="fmea-modal">
        CP "Kontrol Yontemi / Kayit Yontemi" ve "Miktarı" aktarilmaz.
        Sutun adresleri Excel basliklarindan okunur (dosyaya gore degisebilir). */
     /* Kontrol Sec ekrani: satirlari isaretlenir, onaylaninca PK formuna yazilir. */
+    /* Kontrol Sec ekrani: satirlari isaretlenir, onaylaninca PK formuna yazilir.
+       Kullanici istegi:
+       - Satirlar ONCEDEN SECILI GELMEZ; her maddeyi tek tek secmek gerekir.
+       - Bir maddenin secildigi periyotlar (Gunluk/Haftalik/Aylik) o maddenin
+         YANINDA rozet olarak yazilir; boylece "haftalik'ta calisirken gunluk'te
+         secilen maddeler" karsida gorunur.
+       Periyot bilgisi kalici depoda tutulur; sadece BU ekranda gosterilir. */
+    const PK_PERIYOT_SIRA = ['Günlük', 'Haftalık', 'Aylık'];
+    function pkPeriyotEtiket(sayfa) {
+      const s = String(sayfa || '');
+      if (s.indexOf('Günlük') === 0) return 'Günlük';
+      if (s.indexOf('Haftalık') === 0) return 'Haftalık';
+      if (s.indexOf('Aylık') === 0) return 'Aylık';
+      return '';
+    }
+    function pkPeriyotAnahtari() {
+      const k = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
+      return 'pkPeriyot::' + k + '::' + (pkDurum.anahtar || '');
+    }
+    /* Madde kodu -> secildigi periyotlar. */
+    function pkPeriyotYukle() {
+      try {
+        const v = JSON.parse(localStorage.getItem(pkPeriyotAnahtari()) || '{}');
+        return (v && typeof v === 'object') ? v : {};
+      } catch (e) { return {}; }
+    }
+    function pkPeriyotYaz(depo) {
+      try { localStorage.setItem(pkPeriyotAnahtari(), JSON.stringify(depo || {})); } catch (e) {}
+    }
+    function pkPeriyotSatir(depo, r) {
+      const l = depo[pkPeriyotMaddeAnahtari(r)] || [];
+      return PK_PERIYOT_SIRA.filter(function (p) { return l.indexOf(p) >= 0; });
+    }
+    /* Anahtar yalnizca KODDAN olusur; boyce madde adi degisse/degistirilse bile
+       periyot rozeti kaybolmaz. (Kod CP'de benzersizdir.) */
+    function pkPeriyotMaddeAnahtari(r) {
+      const k = String((r && r.code) || '').trim();
+      if (k) return k;
+      return String((r && r.adi) || '').trim();
+    }
+    function pkPeriyotRozetler(depo, r) {
+      const l = pkPeriyotSatir(depo, r);
+      if (!l.length) return '<span class="pk-periyot alis">—</span>';
+      return l.map(function (p) {
+        const sinif = p === 'Günlük' ? 'gunluk' : (p === 'Haftalık' ? 'haftalik' : 'aylik');
+        return '<span class="pk-periyot ' + sinif + '">' + esc(p) + '</span>';
+      }).join('');
+    }
     function pkKontrolSec(anahtar) {
       const kaynak = (typeof window.__pkKontrolPlani === 'function') ? window.__pkKontrolPlani() : null;
       if (!kaynak || !kaynak.satirlar || !kaynak.satirlar.length) {
@@ -6453,17 +6510,17 @@ ov.innerHTML = `<div class="fmea-modal">
         return;
       }
       const s = kaynak.satirlar;
-      const sec = {};
-      s.forEach(function (r, i) { sec[i] = true; });
+      /* Kullanici istegi: hicbir satir onceden secili gelmez. */
+      const periyotDepo = pkPeriyotYukle();
       const satirHtml = s.map(function (r, i) {
         return '<tr><td class="pk-sec-no">' + esc(String(r.no)) + '</td>' +
           '<td>' + esc(r.code) + '</td>' +
-          '<td>' + esc(r.adi) + '</td>' +
+          '<td>' + esc(r.adi) + pkPeriyotRozetler(periyotDepo, r) + '</td>' +
           '<td>' + esc(r.karak) + '</td>' +
           '<td>' + esc(r.spes) + '</td>' +
           '<td>' + esc(r.sinif) + '</td>' +
           '<td>' + esc(r.olcum) + '</td>' +
-          '<td><input type="checkbox" class="pk-sec-kutu" data-i="' + i + '" checked></td></tr>';
+          '<td><input type="checkbox" class="pk-sec-kutu" data-i="' + i + '"></td></tr>';
       }).join('');
       const ov = document.createElement('div');
       ov.id = 'pkSecOverlay';
@@ -6476,7 +6533,7 @@ ov.innerHTML = `<div class="fmea-modal">
         '<div><button class="pk-dl" onclick="pkSecOnayla(\'' + anahtar + '\')">Seçilenleri Forma Aktar</button> ' +
         '<button onclick="pkSecKapat()">Kapat (Esc)</button></div></div>' +
         '<div class="pk-sec-info">Kaynak: Kontrol Planı · KP No: <b>' + esc(kaynak.kpNo || '—') +
-        '</b> · ' + s.length + ' satır listelendi</div>' +
+        '</b> · ' + s.length + ' satır listelendi · Satırın yanındaki rozet, o maddenin hangi periyotlarda kontrol edildiğini gösterir</div>' +
         '<div class="pk-sec-scroll"><table class="fmea-table cptable"><thead><tr>' +
         '<th class="pk-sec-no">No</th><th>KP Kodu</th><th>Adı</th><th>Karakteristiği</th>' +
         '<th>Spesifikasyon</th><th>Sınıflandırma</th><th>Yöntem</th><th>Seç</th>' +
@@ -6511,6 +6568,29 @@ ov.innerHTML = `<div class="fmea-modal">
       if (!kaynak || !kaynak.satirlar) return 0;
       const ws = pkDurum.wb.worksheets[pkDurum.sekme];
       if (!ws) return 0;
+
+      /* Secilen maddelerin hangi periyotta kontrol edildigini SAKLA.
+         "Kontrol Sec" ekraninda madde yaninda rozet olarak gosterilir.
+         Bu kayit form yazimindan bagimsizdir: kullanici maddeyi sectiyse
+         periyot bilgisi kaybolmaz. */
+      (function () {
+        const periyotEt = pkPeriyotEtiket(ws.name);
+        if (!periyotEt) return;
+        try {
+          const pDepo = pkPeriyotYukle();
+          const gorulen = {};
+          secili.forEach(function (i) {
+            const kay = kaynak.satirlar[i];
+            if (!kay) return;
+            const a = pkPeriyotMaddeAnahtari(kay);
+            if (gorulen[a]) return;
+            gorulen[a] = 1;
+            const l = pDepo[a] || [];
+            if (l.indexOf(periyotEt) < 0) { l.push(periyotEt); pDepo[a] = l; }
+          });
+          pkPeriyotYaz(pDepo);
+        } catch (e) {}
+      })();
 
       /* Baslik/veri ayrimi pkIzgaraHtml ile ayni cozumleyiciden gelir; boyle
          aktarilan degerler ekranda gorunen satirin uzerine biner. */
@@ -7986,14 +8066,34 @@ const cpMetaDef = isParcaCP
           alert('Dosyada tanınan bir FMEA tablosu bulunamadı.\nBaşlık satırında "Proses Adımları", "Potansiyel Hata Türü", "Şiddet", "Olasılık", "Tespit" gibi başlıkların bulunduğundan emin olun.');
           return;
         }
-        const prosesSay = cozum.gruplar.filter(function (g) { return g.tip === 'proses'; }).length;
-        const kararSay = cozum.gruplar.filter(function (g) { return g.tip === 'karar'; }).length;
+        const fmeaProsesSay = cozum.gruplar.filter(function (g) { return g.tip === 'proses'; }).length;
+        const kararSay = cozum.gruplar.filter(function (g) { return g.tip === 'karar' }).length;
         let adimSay = 0, hataSay = 0;
         cozum.gruplar.forEach(function (g) {
           if (g.tip !== 'proses') return;
           adimSay += g.grup.adimlar.length;
           g.grup.adimlar.forEach(function (a) { hataSay += a.hatalar.length; });
         });
+        /* Kontrol Plani sayfasi varsa akis semasi CP adimlarindan kurulur;
+           onay metni de CP adim sayisini yansitir. */
+        let prosesSay = fmeaProsesSay;
+        const cpAdimSay = (function () {
+          const g = {};
+          (cozum.cpKayitlar || []).forEach(function (c) {
+            if (!String(c.code || '').trim() && !String(c.adi || '').trim()) return;
+            g[pkFmeaNoAnahtar(c.code) || ('#' + Object.keys(g).length)] = 1;
+          });
+          return Object.keys(g).length;
+        })();
+        if (cpAdimSay) {
+          adimSay = cpAdimSay;
+          const pn = {};
+          (cozum.cpKayitlar || []).forEach(function (c) {
+            const m = String(c.code || '').match(/\d+/);
+            pn[m ? m[0] : 'x'] = 1;
+          });
+          prosesSay = Object.keys(pn).length || fmeaProsesSay;
+        }
         if (typeof confirm === 'function' && !confirm('Yüklenen dosya mevcut FMEA ve akış verisinin ÜZERİNE yazılacak.\n\nBulunan: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.\n\nDevam edilsin mi?')) return;
 
         const mkId = function (p) { return p + '_' + Date.now() + Math.floor(Math.random() * 100000); };
@@ -8003,18 +8103,122 @@ const cpMetaDef = isParcaCP
         };
         yeni.push(base('start', 'BAŞLANGIÇ'));
         const kpHedefler = [];
+
+        /* Kullanici istegi: aktarimda akis semasi KONTROL PLANI adimlarindan
+           kurulur, FMEA adimlarindan degil. Her CP satiri bir akis kutusudur ve
+           basligi CP'deki "Adi" degeridir.
+           Hata eslestirme (kayip olmamasi icin):
+             1) once ayni No (orn. CP 1.10 -> FMEA 1.10)
+             2) CP No'nun PROSES numarasi ile ayni proses numarasinin tum
+                FMEA adimlari birlestirilir (CP 1.10 kutusu, FMEA 1.10-1.60
+                alt adimlarinin hatalarini toplar).
+           Boylece FMEA'daki butun hatalar akista yer alir. */
+        const fmeaAdimlar = [];
         cozum.gruplar.forEach(function (g) {
-          if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
-          const subs = g.grup.adimlar.map(function (a) {
-            const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
-            const kpArr = cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || (a.kpHam ? [a.kpHam] : null);
-            if (kpArr && kpArr.length) kpHedefler.push({ sub: sub, kp: kpArr });
-            return sub;
-          });
-          const n = base('process', g.baslik);
-          n.altProsesler = subs;
-          yeni.push(n);
+          if (g.tip !== 'proses') return;
+          (g.grup.adimlar || []).forEach(function (a) { fmeaAdimlar.push(a); });
         });
+        const noAnahtarla = function (code) {
+          const m = String(code || '').match(/\d+/);
+          const n = m ? parseInt(m[0], 10) : NaN;
+          return (isNaN(n) ? '' : n);
+        };
+
+        /* CP'de bir adim icin birden fazla KONTROL SATIRI olabilir; akis semasinda
+           bunlar TEK kutu olarak gosterilir. Bu yuzden ayni No'ya sahip CP
+           satirlari birlestirilir (Magnezyum: 45 kutu, Kablaj: 104 satir ->
+           20 kutu). */
+        const cpBirlestir = {};
+        const cpSira = [];
+        (cozum.cpKayitlar || []).forEach(function (c) {
+          if (!String(c.code || '').trim() && !String(c.adi || '').trim()) return;
+          const k = pkFmeaNoAnahtar(c.code) || ('#' + (cpSira.length));
+          if (!cpBirlestir[k]) { cpBirlestir[k] = { code: String(c.code || '').trim(), adi: String(c.adi || '').trim(), veriler: [] }; cpSira.push(k); }
+          if (!cpBirlestir[k].adi) cpBirlestir[k].adi = String(c.adi || '').trim();
+          cpBirlestir[k].veriler.push(c.data);
+        });
+        const cpSatirlar = cpSira.map(function (k) { return cpBirlestir[k]; });
+        if (cpSatirlar.length) {
+          /* Her FMEA hatasi TAM OLARAK BIR CP kutusuna yazilir:
+             1) Ayni No'ya sahip CP kutusu varsa hata oraya (orn. FMEA 6.20 ->
+                CP 6.20).
+             2) Yoksa ayni proses numarasinin ILK CP kutusuna (orn. FMEA 1.20 ->
+                CP 1.10). Boylece hicbir hata kaybolmaz ve hicbiri iki kez
+                sayilmaz. */
+          const kutuNo = {};   /* prosesNo -> ilk CP kutusunun No anahtari */
+          const cpKutuVar = {}; /* tam No anahtari -> kutu var mi */
+          cpSatirlar.forEach(function (c) {
+            const k = pkFmeaNoAnahtar(c.code);
+            const pn = noAnahtarla(c.code);
+            if (pn !== '' && kutuNo[pn] === undefined) kutuNo[pn] = k;
+            if (k) cpKutuVar[k] = 1;
+          });
+          /* FMEA adiminin hatalari hangi CP kutusuna gidecek? */
+          const hedefKutu = {};
+          let sonKutu = null;
+          cpSatirlar.forEach(function (c) { const k = pkFmeaNoAnahtar(c.code); if (k) sonKutu = k; });
+          fmeaAdimlar.forEach(function (a) {
+            const nk = pkFmeaNoAnahtar(a.code);
+            if (!nk) return;
+            let hedef = null;
+            if (cpKutuVar[nk]) hedef = nk;
+            else {
+              const pn = noAnahtarla(a.code);
+              if (pn !== '' && kutuNo[pn] !== undefined) hedef = kutuNo[pn];
+            }
+            /* CP'de karsiligi hic yoksa: veri kaybi olmasin diye ayni No'lu
+               varsa o, yoksa son CP kutusu kullanilir. */
+            if (!hedef) hedef = sonKutu;
+            if (!hedef) return;
+            (hedefKutu[hedef] = hedefKutu[hedef] || []).push(a);
+          });
+
+          let curGrup = null, curBaslik = '';
+          const gruplar = [];
+          cpSatirlar.forEach(function (c) {
+            const kod = String(c.code || '').trim();
+            const pn = noAnahtarla(kod);
+            const baslik = pn !== '' ? ('Proses ' + pn) : ('Proses ' + (kod || c.adi || '1'));
+            if (baslik !== curBaslik) {
+              curGrup = { baslik: baslik, adimlar: [] };
+              gruplar.push(curGrup);
+              curBaslik = baslik;
+            }
+            const kutuAnahtar = pkFmeaNoAnahtar(kod);
+            const hatalar = [];
+            const kaynakAdimlar = hedefKutu[kutuAnahtar] || [];
+            kaynakAdimlar.forEach(function (a) {
+              (a.hatalar || []).forEach(function (h) { hatalar.push(h); });
+            });
+            const ilk = kaynakAdimlar[0];
+            const sub = {
+              id: mkId('sub'), code: kod, title: String(c.adi || '').trim(),
+              gerUrun: (ilk && ilk.gerUrun) || '', gerProses: (ilk && ilk.gerProses) || '',
+              hatalar: hatalar
+            };
+            curGrup.adimlar.push(sub);
+            kpHedefler.push({ sub: sub, kp: c.veriler });
+          });
+          gruplar.forEach(function (g) {
+            const n = base('process', g.baslik);
+            n.altProsesler = g.adimlar;
+            yeni.push(n);
+          });
+        } else {
+          /* Kontrol Plani sayfasi yoksa eski davranis (FMEA adimlari) korunur. */
+          cozum.gruplar.forEach(function (g) {
+            if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
+            const subs = g.grup.adimlar.map(function (a) {
+              const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
+              const kpArr = cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || (a.kpHam ? [a.kpHam] : null);
+              if (kpArr && kpArr.length) kpHedefler.push({ sub: sub, kp: kpArr });
+              return sub;
+            });
+            const n = base('process', g.baslik);
+            n.altProsesler = subs;
+            yeni.push(n);
+          });
+        }
         nodes = yeni;
         selected = null;
         if (cozum.tip) fmeaType = cozum.tip;
