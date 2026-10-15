@@ -7500,6 +7500,7 @@ function showControlPlanPreview() {
       const rows = [];
       const seen = {};
       const cpStore = kpYuku();   // aktif projenin kontrol plani
+      const eslesmeyen = kpSatirlari(cpStore['__eslesmeyen__']);   // FMEA'da adimi olmayan CP satirlari
       nodes.forEach(n => {
         if (n.type !== 'process') return;
         (n.altProsesler || []).forEach(sub => {
@@ -7588,6 +7589,24 @@ const cpMetaDef = isParcaCP
         ${cpinp(2, r.code, r.idx, 'kayitSorumlu', r.kayitSorumlu, 'Kayıt sorumlusu')}
         ${cpinp(4, r.code, r.idx, 'reaksiyon', r.reaksiyon, 'Reaksiyon planı')}
       </tr>`).join('');
+      const eslesmeyenHtml = eslesmeyen.length ? (
+        '<div class="fmea-title" style="margin-top:12px;color:#b26a00">⚠ FMEA\'da adımı bulunmayan Kontrol Planı satırları (kod eşleşmedi)</div>' +
+        '<div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">' + thead + '<tbody>' +
+        eslesmeyen.map((s, i) => `<tr>
+        <td class="cpp">${i + 1}</td>
+        <td class="cpp">${E(s.code || '')}</td>
+        <td colspan="2" class="wp">${E(N(s.adi))}</td>
+        ${cpinp(3, '__eslesmeyen__', i, 'karak', s.karak, 'Karakteristik')}
+        ${cpinp(3, '__eslesmeyen__', i, 'spes', s.spes, 'Spesifikasyon')}
+        ${cpsel(2, '__eslesmeyen__', i, s.sinif)}
+        ${cpinp(3, '__eslesmeyen__', i, 'olcum', s.olcum, 'Ölçüm tekniği')}
+        ${cpinp(2, '__eslesmeyen__', i, 'miktar', s.miktar, 'Miktar')}
+        ${cpinp(2, '__eslesmeyen__', i, 'siklik', s.siklik, 'Kontrol sıklığı')}
+        ${cpinp(3, '__eslesmeyen__', i, 'kontrol', s.kontrol, 'Kontrol yöntemi')}
+        ${cpinp(2, '__eslesmeyen__', i, 'kayitSorumlu', s.kayitSorumlu, 'Kayıt sorumlusu')}
+        ${cpinp(4, '__eslesmeyen__', i, 'reaksiyon', s.reaksiyon, 'Reaksiyon planı')}
+      </tr>`).join('') + '</tbody></table></div></div>'
+      ) : '';
 
       let ov = document.getElementById('cpOverlay');
       if (!ov) {
@@ -7603,6 +7622,7 @@ const cpMetaDef = isParcaCP
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
           <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}<tbody>${trs}${cpBosSatir()}</tbody></table></div></div>
+          ${eslesmeyenHtml}
         </div>
       </div>`;
       ov.classList.add("open");
@@ -7923,8 +7943,14 @@ const cpMetaDef = isParcaCP
       /* Ayri Kontrol Plani sayfasi yoksa ayni (FMEA) sayfadaki CP kolonlari kullanilir. */
       if (!cpRecs.length && (colMap.karak || colMap.spes || colMap.olcum || colMap.kontrol || colMap.miktar || colMap.siklik || colMap.kayitSorumlu || colMap.reaksiyon)) cpRecs = recs.slice();
       /* cpByKey: anahtar -> o adima ait CP SATIRLARI (dizi). Bir adim altinda
-         birden fazla kontrol satiri olabilir; hepsi korunur. */
+         birden fazla kontrol satiri olabilir; hepsi korunur.
+         ONEMLI: CP satirlarinin adim NUMARASI varsa eslesme YALNIZCA numarayla
+         yapilir; "ad" (title) ile eslesme sadece numara hic yoksa kullanilir.
+         Aksi halde ayni adi tasiyan kardes adimlara (orn. 1.20..1.60 "Giris
+         Kalite Kontrol") 1.10'un CP satiri yanlislikla kopyalaniyordu. */
+      const cpHasNo = cpRecs.some(function (r) { return String(r.adimNo || '').trim(); });
       const cpByKey = {};
+      const cpKayitlar = [];
       const cpEkle = function (key, data) {
         if (!key) return;
         if (!cpByKey[key]) cpByKey[key] = [];
@@ -7940,9 +7966,10 @@ const cpMetaDef = isParcaCP
         };
         if (!data.karak && !data.spes && !data.olcum && !data.kontrol && !data.miktar && !data.siklik && !data.kayitSorumlu && !data.reaksiyon) return;
         cpEkle(pkFmeaNoAnahtar(r.adimNo || r.adimAdi), data);
-        cpEkle(pkFmeaAdAnahtar(r.adimAdi), data);
+        if (!cpHasNo) cpEkle(pkFmeaAdAnahtar(r.adimAdi), data);
+        cpKayitlar.push({ code: String(r.adimNo || '').trim(), adi: String(r.adimAdi || '').trim(), data: data });
       });
-      return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey };
+      return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey, cpKayitlar: cpKayitlar, cpHasNo: cpHasNo };
     }
     function fmeaExcelYukleAc() {
       let inp = document.getElementById('fmeaExcelInput');
@@ -7990,10 +8017,12 @@ const cpMetaDef = isParcaCP
         };
         yeni.push(base('start', 'BAŞLANGIÇ'));
         const kpHedefler = [];
+        const adimKodlar = {};
         cozum.gruplar.forEach(function (g) {
           if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
           const subs = g.grup.adimlar.map(function (a) {
             const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
+            adimKodlar[pkFmeaNoAnahtar(a.code)] = 1;
             const kpArr = cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || (a.kpHam ? [a.kpHam] : null);
             if (kpArr && kpArr.length) kpHedefler.push({ sub: sub, kp: kpArr });
             return sub;
@@ -8004,6 +8033,22 @@ const cpMetaDef = isParcaCP
         });
         yeni.push(base('end', 'BİTİŞ'));
 
+        /* FMEA'da karsiligi olmayan (kod eslesmeyen) CP satirlari kaybolmasin;
+           Kontrol Plani onizlemesinde ayri bolum olarak gosterilir. */
+        const cpEslesmeyen = [];
+        const cpSeen = {};
+        (cozum.cpKayitlar || []).forEach(function (k) {
+          if (!k.code) return;
+          if (adimKodlar[pkFmeaNoAnahtar(k.code)]) return;
+          const imza = k.code + '|' + JSON.stringify(k.data);
+          if (cpSeen[imza]) return;
+          cpSeen[imza] = 1;
+          cpEslesmeyen.push({ code: k.code, adi: k.adi,
+            karak: k.data.karak, spes: k.data.spes, sinif: k.data.sinif, olcum: k.data.olcum,
+            miktar: k.data.miktar, siklik: k.data.siklik, kontrol: k.data.kontrol,
+            kayitSorumlu: k.data.kayitSorumlu, reaksiyon: k.data.reaksiyon });
+        });
+
         nodes = yeni;
         selected = null;
         if (cozum.tip) fmeaType = cozum.tip;
@@ -8012,9 +8057,10 @@ const cpMetaDef = isParcaCP
 
         save();
 
-        if (kpHedefler.length) {
+        if (kpHedefler.length || cpEslesmeyen.length) {
           const bucket = {};
           kpHedefler.forEach(function (h) { if (h.sub.code) bucket[h.sub.code] = h.kp; });
+          if (cpEslesmeyen.length) bucket['__eslesmeyen__'] = cpEslesmeyen;
           try { kpYazBucket(bucket); } catch (e) {}
         }
         if (currentProject) { try { upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {} }
@@ -8028,7 +8074,8 @@ const cpMetaDef = isParcaCP
         pkAkisUyariBekle = true;
         try { render(); } catch (e) { console.error('render:', e); }
 
-        const msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata.';
+        let msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata.';
+        if (cpEslesmeyen.length) msg += ' ' + cpEslesmeyen.length + ' CP satırının kodu bir adımla eşleşmedi (Kontrol Planı önizlemesinde ayrı bölümde gösterilir).';
         if (typeof ckBildir === 'function') ckBildir(msg, 'basari'); else alert(msg);
       } catch (e) {
         alert('Excel okunamadı: ' + (e && e.message ? e.message : String(e)));
