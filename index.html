@@ -900,6 +900,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="sel-menu" id="projectSelMenu"></div>
     </div>
     <button class="light" onclick="newProject()">Yeni FMEA</button>
+    <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
     <button id="onayGonderBtn" class="onay-btn" onclick="onayaGonder()" style="display:none">Onaya Gönder</button>
     <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
     <button class="primary" onclick="saveProject()">Kaydet</button>
@@ -4661,93 +4662,6 @@ return metin + '(otomatik öneri)';
       scheduleCloudSync();
     }
 
-    /* ========================================================================
-       EXCEL'DEN COKLU KOPYALA-YAPISTIR
-       ------------------------------------------------------------------------
-       Kullanici istegi: "Excel dosyasindan cogul sekilde kopyalayip siteden
-       FMEA / Kontrol Plani / Proses Kontrol Formu gibi tablolari acip
-       yapistirabilmek." Panodaki (TSV) blok, odakli hucreden baslayarak
-       tablodaki duzenlenebilir alanlara satir x sutun duzeninde dagitilir.
-       Tek hucre yapistirmasi normal sekilde devam eder.
-       ====================================================================== */
-    function pkTsvCoz(text) {
-      const rows = []; let row = [], cur = '', q = false;
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (q) {
-          if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else { q = false; } }
-          else { cur += ch; }
-        } else if (ch === '"') { q = true; }
-        else if (ch === '\t') { row.push(cur); cur = ''; }
-        else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
-        else if (ch === '\r') { /* yoksay */ }
-        else { cur += ch; }
-      }
-      row.push(cur); rows.push(row);
-      while (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
-      return rows;
-    }
-    function pkHucreDegerAta(el, val) {
-      const s = (val == null ? '' : String(val));
-      if (el.tagName === 'SELECT') {
-        let bulundu = false;
-        for (let i = 0; i < el.options.length; i++) {
-          const o = el.options[i];
-          if (o.value === s || o.textContent.trim() === s) { el.value = o.value; bulundu = true; break; }
-        }
-        if (bulundu) el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
-        el.value = s;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }
-    document.addEventListener('paste', function (e) {
-      const t = e.target;
-      const cb = e.clipboardData || window.clipboardData;
-      const txt = cb ? cb.getData('text/plain') : '';
-      if (!txt) return;
-      const mat = pkTsvCoz(txt);
-      if (!mat.length || (mat.length === 1 && mat[0].length <= 1)) return;
-      /* 1) Panodaki veri bir FMEA tablosu olarak taniniyorsa: akis bu veriye
-            gore yeniden kurulur (Excel yukleme ile ayni sonuc). Boylece Excel'den
-            kopyalanan coklu satirlar dogrudan akisa donusur. */
-      const cozum = pkFmeaMetinCoz(txt);
-      if (cozum && cozum._hataSay > 0 && cozum.gruplar.some(function (g) { return g.tip === 'proses'; })) {
-        e.preventDefault();
-        const ps = cozum.gruplar.filter(function (g) { return g.tip === 'proses'; }).length;
-        const ks = cozum.gruplar.filter(function (g) { return g.tip === 'karar'; }).length;
-        let as = 0, hs = 0;
-        cozum.gruplar.forEach(function (g) { if (g.tip === 'proses') { as += g.grup.adimlar.length; g.grup.adimlar.forEach(function (a) { hs += a.hatalar.length; }); } });
-        if (typeof confirm === 'function' && !confirm('Yapıştırılan veri mevcut FMEA ve akış verisinin ÜZERİNE yazılacak.\n\nBulunan: ' + ps + ' proses, ' + as + ' adım, ' + hs + ' hata' + (ks ? (', ' + ks + ' şart/karar') : '') + '.\n\nAkış bu veriye göre yeniden kurulsun mu?')) return;
-        pkFmeaCozumUygula(cozum, 'Yapıştırılan veri');
-        return;
-      }
-      /* 2) Aksi halde: tablo ici duzenlenebilir hucrelere satir x sutun dagitimi. */
-      if (!t || !/^(TEXTAREA|INPUT)$/.test(t.tagName)) return;
-      const tbl = t.closest ? t.closest('table.fmea-table') : null;
-      if (!tbl) return;
-      e.preventDefault();
-      const body = tbl.tBodies[0] || tbl;
-      const satirlar = Array.prototype.slice.call(body.rows).map(function (tr) {
-        return Array.prototype.slice.call(tr.querySelectorAll('textarea, select, input'));
-      });
-      let basR = -1, basC = -1;
-      for (let i = 0; i < satirlar.length && basR < 0; i++) {
-        const j = satirlar[i].indexOf(t);
-        if (j >= 0) { basR = i; basC = j; }
-      }
-      if (basR < 0) return;
-      for (let i = 0; i < mat.length; i++) {
-        const tr = satirlar[basR + i];
-        if (!tr) break;
-        for (let j = 0; j < mat[i].length; j++) {
-          const el = tr[basC + j];
-          if (!el) continue;
-          try { pkHucreDegerAta(el, mat[i][j]); } catch (err) {}
-        }
-      }
-    });
-
     function updateCount() {
       let pc = nodes.filter(n => n.type === 'process').length, subc = 0, h = 0;
       nodes.forEach(n => {
@@ -5212,7 +5126,7 @@ let rows = '';
         document.body.appendChild(ov);
       }
 ov.innerHTML = `<div class="fmea-modal">
-        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div><button onclick="closeFmeaPreview()">Kapat (Esc)</button></div></div>
+        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeFmeaPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
           <div class="fmeta">${metaHtml}</div>
@@ -7656,7 +7570,7 @@ const cpMetaDef = isParcaCP
         document.body.appendChild(ov);
       }
       ov.innerHTML = `<div class="fmea-modal">
-        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div><button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
+        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
@@ -8009,104 +7923,6 @@ const cpMetaDef = isParcaCP
       });
       return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey };
     }
-    /* Bir cozum (gruplar + meta + cpByKey) nesnesini akisa (nodes) uygular.
-       Hem Excel yukleme hem de panodan yapistirma ayni yolu kullanir. */
-    function pkFmeaCozumUygula(cozum, kaynak) {
-      const prosesSay = cozum.gruplar.filter(function (g) { return g.tip === 'proses'; }).length;
-      const kararSay = cozum.gruplar.filter(function (g) { return g.tip === 'karar'; }).length;
-      let adimSay = 0, hataSay = 0;
-      cozum.gruplar.forEach(function (g) {
-        if (g.tip !== 'proses') return;
-        adimSay += g.grup.adimlar.length;
-        g.grup.adimlar.forEach(function (a) { hataSay += a.hatalar.length; });
-      });
-      const mkId = function (p) { return p + '_' + Date.now() + Math.floor(Math.random() * 100000); };
-      const yeni = [];
-      const base = function (t, title) {
-        return { id: mkId('node'), type: t, title: title, targetMode: 'new', targetId: '', sideTargetMode: 'next', sideTargetId: '', newProcessTitle: 'Red / Yeniden İşleme', altProsesler: [] };
-      };
-      yeni.push(base('start', 'BAŞLANGIÇ'));
-      const kpHedefler = [];
-      cozum.gruplar.forEach(function (g) {
-        if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
-        const subs = g.grup.adimlar.map(function (a) {
-          const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
-          const kpData = a.kpHam || cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || null;
-          if (kpData) kpHedefler.push({ sub: sub, kp: kpData });
-          return sub;
-        });
-        const n = base('process', g.baslik);
-        n.altProsesler = subs;
-        yeni.push(n);
-      });
-      yeni.push(base('end', 'BİTİŞ'));
-
-      nodes = yeni;
-      selected = null;
-      if (cozum.tip) fmeaType = cozum.tip;
-      Object.keys(cozum.meta || {}).forEach(function (k) { fmeaMeta[k] = cozum.meta[k]; });
-      try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
-
-      save();
-
-      if (kpHedefler.length) {
-        const bucket = {};
-        kpHedefler.forEach(function (h) { if (h.sub.code) bucket[h.sub.code] = h.kp; });
-        try { kpYazBucket(bucket); } catch (e) {}
-      }
-      if (currentProject) { try { upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {} }
-
-      try { if (typeof render === 'function') render(); } catch (e) {}
-      const fov = document.getElementById('fmeaOverlay');
-      if (fov && fov.classList.contains('open')) { try { showFmeaPreview(); } catch (e) {} }
-      const cov = document.getElementById('cpOverlay');
-      if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
-
-      const msg = (kaynak || 'Veri') + ' uygulandı: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.';
-      if (typeof ckBildir === 'function') ckBildir(msg, 'basari'); else alert(msg);
-      return { prosesSay: prosesSay, adimSay: adimSay, hataSay: hataSay, kararSay: kararSay };
-    }
-    /* Panodan yapistirilan 2B diziyi, Excel sayfasi gibi davranan hafif bir
-       "worksheet" nesnesine cevirir (pkFmeaTabloCoz ile ayni kod yolu kullanilsin). */
-    function pkPanoWs(mat) {
-      const maxC = mat.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
-      return {
-        rowCount: mat.length, columnCount: maxC,
-        getCell: function (r, c) { const row = mat[r - 1] || []; const v = row[c - 1]; return { value: v, text: (v == null ? '' : String(v)) }; }
-      };
-    }
-    /* Panodan yapistirilan TSV metnini FMEA tablosu olarak cozer. */
-    function pkFmeaMetinCoz(text) {
-      const mat = pkTsvCoz(text);
-      if (!mat.length) return null;
-      const ws = pkPanoWs(mat);
-      const tablo = pkFmeaTabloCoz(ws);
-      if (!tablo) return null;
-      const recs = pkFmeaKayitlari(ws, tablo);
-      const gruplar = pkFmeaGruplariKur(recs);
-      if (!gruplar.length) return null;
-      const meta = pkFmeaMetaOku(ws, tablo.headerRow);
-      const colMap = tablo.colMap;
-      let tip = '';
-      if (meta.parcaAdi || meta.parcaSorumlusu) tip = 'parca';
-      else if (meta.prosesAdi || meta.prosesSorumlusu) tip = 'proses';
-      else if (colMap.anaProses) tip = 'parca';
-      else if (colMap.adimAdi) tip = 'proses';
-      const cpByKey = {};
-      recs.forEach(function (r) {
-        const data = {
-          karak: r.karak || '', spes: r.spes || '', sinif: r.sinif || '', olcum: r.olcum || '',
-          kontrol: r.kontrol || '', miktar: r.miktar || '', siklik: r.siklik || '',
-          kayitSorumlu: r.kayitSorumlu || '', reaksiyon: r.reaksiyon || ''
-        };
-        if (!data.karak && !data.spes && !data.olcum && !data.kontrol && !data.miktar && !data.siklik && !data.kayitSorumlu && !data.reaksiyon) return;
-        const k1 = pkFmeaNoAnahtar(r.adimNo || r.adimAdi); if (k1) cpByKey[k1] = data;
-        const k2 = pkFmeaAdAnahtar(r.adimAdi); if (k2) cpByKey[k2] = data;
-      });
-      let hataSay = 0;
-      gruplar.forEach(function (g) { if (g.tip === 'proses') g.grup.adimlar.forEach(function (a) { hataSay += a.hatalar.length; }); });
-      return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey, _hataSay: hataSay };
-    }
     function fmeaExcelYukleAc() {
       let inp = document.getElementById('fmeaExcelInput');
       if (!inp) {
@@ -8145,7 +7961,50 @@ const cpMetaDef = isParcaCP
           g.grup.adimlar.forEach(function (a) { hataSay += a.hatalar.length; });
         });
         if (typeof confirm === 'function' && !confirm('Yüklenen dosya mevcut FMEA ve akış verisinin ÜZERİNE yazılacak.\n\nBulunan: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.\n\nDevam edilsin mi?')) return;
-        pkFmeaCozumUygula(cozum, 'Excel');
+
+        const mkId = function (p) { return p + '_' + Date.now() + Math.floor(Math.random() * 100000); };
+        const yeni = [];
+        const base = function (t, title) {
+          return { id: mkId('node'), type: t, title: title, targetMode: 'new', targetId: '', sideTargetMode: 'next', sideTargetId: '', newProcessTitle: 'Red / Yeniden İşleme', altProsesler: [] };
+        };
+        yeni.push(base('start', 'BAŞLANGIÇ'));
+        const kpHedefler = [];
+        cozum.gruplar.forEach(function (g) {
+          if (g.tip === 'karar') { yeni.push(base('condition', g.baslik)); return; }
+          const subs = g.grup.adimlar.map(function (a) {
+            const sub = { id: mkId('sub'), code: a.code || '', title: a.title || '', gerUrun: a.gerUrun || '', gerProses: a.gerProses || '', hatalar: a.hatalar };
+            const kpData = a.kpHam || cozum.cpByKey[pkFmeaNoAnahtar(a.code)] || cozum.cpByKey[pkFmeaNoAnahtar(a.title)] || cozum.cpByKey[pkFmeaAdAnahtar(a.title)] || null;
+            if (kpData) kpHedefler.push({ sub: sub, kp: kpData });
+            return sub;
+          });
+          const n = base('process', g.baslik);
+          n.altProsesler = subs;
+          yeni.push(n);
+        });
+        yeni.push(base('end', 'BİTİŞ'));
+
+        nodes = yeni;
+        selected = null;
+        if (cozum.tip) fmeaType = cozum.tip;
+        Object.keys(cozum.meta || {}).forEach(function (k) { fmeaMeta[k] = cozum.meta[k]; });
+        try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
+
+        save();
+
+        if (kpHedefler.length) {
+          const bucket = {};
+          kpHedefler.forEach(function (h) { if (h.sub.code) bucket[h.sub.code] = h.kp; });
+          try { kpYazBucket(bucket); } catch (e) {}
+        }
+        if (currentProject) { try { upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {} }
+
+        const fov = document.getElementById('fmeaOverlay');
+        if (fov && fov.classList.contains('open')) { try { showFmeaPreview(); } catch (e) {} }
+        const cov = document.getElementById('cpOverlay');
+        if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
+
+        const msg = 'Excel yüklendi: ' + prosesSay + ' proses, ' + adimSay + ' adım, ' + hataSay + ' hata' + (kararSay ? (', ' + kararSay + ' şart/karar') : '') + '.';
+        if (typeof ckBildir === 'function') ckBildir(msg, 'basari'); else alert(msg);
       } catch (e) {
         alert('Excel okunamadı: ' + (e && e.message ? e.message : String(e)));
       }
