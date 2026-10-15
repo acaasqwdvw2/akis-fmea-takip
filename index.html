@@ -7657,6 +7657,11 @@ const cpMetaDef = isParcaCP
       if (t.indexOf('gereksinim') >= 0 && t.indexOf('proses') >= 0) return 'gerProses';
       if (t.indexOf('ürün gereksinim') >= 0 || t.indexOf('urun gereksinim') >= 0) return 'gerUrun';
       if (t.indexOf('proses gereksinim') >= 0) return 'gerProses';
+      /* Kontrol Plani: "Urun/Proses Karakteristigi" ve "Spesifikasyonu/
+         Toleransi" grup basliklarindaki 'proses' kelimesi yuzunden yanlislikla
+         adimAdi'ye dusmesin; once bu ozel alanlara bak. */
+      if (t.indexOf('spesifikasyon') >= 0 || t.indexOf('tolerans') >= 0) return 'spes';
+      if (t.indexOf('karakteristik') >= 0 || t.indexOf('karakteristi') >= 0 || t.indexOf('ürün proses') >= 0 || t.indexOf('urun proses') >= 0) return 'karak';
       if (          t.indexOf('adım adı') >= 0 || t.indexOf('operasyon adı') >= 0 || t.indexOf('operasyon') >= 0 ||
           t.indexOf('proses') >= 0 || t.indexOf('işlem') >= 0 || t.indexOf('islem') >= 0 || t.indexOf('adım') >= 0) return 'adimAdi';
       if (t.indexOf('gereksinim') >= 0) return 'gerProses';
@@ -7679,10 +7684,8 @@ const cpMetaDef = isParcaCP
       if (t.indexOf('sorumlu') >= 0) return 'sorumlu';
       if (t.indexOf('reaksiyon') >= 0) return 'reaksiyon';
       if (t.indexOf('ölçüm') >= 0 || t.indexOf('olcum') >= 0 || t.indexOf('değerlendirme tekniği') >= 0 || t.indexOf('ölçme') >= 0) return 'olcum';
-      if (t.indexOf('miktar') >= 0 || t.indexOf('numune') >= 0 || t.indexOf('örnek') >= 0 || t.indexOf('ornek') >= 0) return 'miktar';
       if (t.indexOf('sıklığ') >= 0 || t.indexOf('sıklık') >= 0 || t.indexOf('sıklı') >= 0 || t.indexOf('siklik') >= 0 || t.indexOf('sikli') >= 0 || t.indexOf('frekans') >= 0) return 'siklik';
-      if (t.indexOf('karakteristik') >= 0 || t.indexOf('karakteristi') >= 0 || t.indexOf('ürün proses') >= 0 || t.indexOf('urun proses') >= 0) return 'karak';
-      if (t.indexOf('spesifikasyon') >= 0 || t.indexOf('tolerans') >= 0) return 'spes';
+      if (t.indexOf('miktar') >= 0 || t.indexOf('numune') >= 0 || t.indexOf('örnek') >= 0 || t.indexOf('ornek') >= 0) return 'miktar';
       if (t.indexOf('kontrol yöntemi') >= 0 || t.indexOf('kayıt yöntemi') >= 0 || t.indexOf('kontrol yontemi') >= 0 || t.indexOf('yöntem') >= 0) return 'kontrol';
       return '';
     }
