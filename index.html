@@ -4767,6 +4767,30 @@ return metin + '(otomatik öneri)';
         el.style.height = Math.min(el.scrollHeight + 2, 200) + 'px';
       }
     }
+    /* PERFORMANS: fitCell her cagrida scrollHeight OKUR; bu her hucre icin ayri
+       bir duzenleme (layout) hesabi tetikler. FMEA onizlemesinde ~1650 metin
+       kutusu oldugu icin ardisik cagrilar "layout thrashing" yaratip acilisi
+       belirgin sekilde yavaslatiyordu.
+       Cozum: once TUM yukseklikler 'auto' yapilir (sadece yazma), sonra
+       olculer (tek duzenleme), en son degerler yazilir. Boylece 1650 yerine
+       1 duzenleme hesabi yapilir. */
+    function fitToplu(els) {
+      if (!els || !els.length) return;
+      const n = els.length;
+      const i = [], h = [];
+      for (let k = 0; k < n; k++) {
+        const e = els[k];
+        if (e && e.tagName === 'TEXTAREA') { e.style.height = 'auto'; i.push(k); }
+      }
+      if (!i.length) return;
+      for (let m = 0; m < i.length; m++) {
+        const e = els[i[m]];
+        try { h[m] = Math.min(e.scrollHeight + 2, 200); } catch (err) { h[m] = 0; }
+      }
+      for (let m = 0; m < i.length; m++) {
+        if (h[m]) els[i[m]].style.height = h[m] + 'px';
+      }
+    }
 
     function fmeaEditCell(el) {
       const n = nodes.find(x => x.id === el.dataset.n);
@@ -5310,7 +5334,7 @@ let rows = '';
       if (ov.__sonHtml !== yeniHtml) {
         ov.__sonHtml = yeniHtml;
         ov.innerHTML = yeniHtml;
-        ov.querySelectorAll('textarea').forEach(t => fitCell(t));
+        fitToplu(ov.querySelectorAll('textarea'));
         fitTopScroll(ov);
         freezeFmeaHead(ov);
       }
@@ -7152,6 +7176,9 @@ function pkSatirEkle(tablo) {
     function pkHucreYukle() {
       const depo = pkEditsYukle();
       let n = 0;
+      /* PERFORMANS: fitCell cagrilari toplu LASTIRILDI; her biri ayri bir
+         duzenleme hesabi tetiklerdi. Degerler once yazilir, olcu tek seferde. */
+      const olculecek = [];
       document.querySelectorAll('#pkOverlay .pkd textarea[data-pk]').forEach(function (t) {
         const pp = String(t.dataset.pk || '').split('!');
         if (pp.length === 4 && (pp[3] === '2' || pp[3] === '4')) {
@@ -7159,19 +7186,20 @@ function pkSatirEkle(tablo) {
              verisiz satirlar bos kalir; sablon baskisi esas alinmaz. */
           const rd = parseInt(pp[2], 10);
           if (!pkSatirVeriVar(depo, pp[1], rd)) {
-            if (t.value !== '') { t.value = ''; fitCell(t); }
+            if (t.value !== '') { t.value = ''; olculecek.push(t); }
             t.classList.remove('pkd-dolu');
           } else if (pp[3] === '4') {
             const xv = pkDepoNo(depo, pkDurum.anahtar, pp[1], rd);
-            if (xv) { if (t.value !== xv) { t.value = xv; fitCell(t); } t.classList.add('pkd-dolu'); }
+            if (xv) { if (t.value !== xv) { t.value = xv; olculecek.push(t); } t.classList.add('pkd-dolu'); }
           }
           return;
         }
         const v = pkHucreDeger(depo, t.dataset.pk, t.dataset.orig || '');
         if (v !== (t.dataset.orig || '')) { t.value = v; n++; }
         t.classList.toggle('pkd-dolu', String(t.value || '').trim() !== '');
-        fitCell(t);
+        olculecek.push(t);
       });
+      fitToplu(olculecek);
       const say = document.getElementById('pkEditsSay');
       if (say) say.textContent = Object.keys(depo).length ? Object.keys(depo).length + ' düzenleme kayıtlı' : 'Henüz düzenleme yok';
       return n;
@@ -7761,6 +7789,42 @@ function pkSatirEkle(tablo) {
        Satirlar onizlemede soyle siralanir: her proses adiminin CP satirlari
        ardisik gelir ve "ilk" olani kod+adi gosterir. Burada ayni sirayla
        depo icindeki gercek dizi indeksi bulunur ve o kayit cikarilir. */
+    /* Silme sonrasi "No" (proses numarasi) degerleri ardisik sekilde yeniden
+       numaralandirilir: 1.10, 1.20, 1.30... (bosluk kalmaz).
+       ONEMLI: Kontrol Plani verisi adim KODU ile anahtarlandigi icin satirlar
+       yeni kodlara TASINIR; boylece hicbir veri kaybolmaz ve silinen satirin
+       ardindan tum alanlar (onizleme + Excel indirme) otomatik duzelir. */
+    function pkNoYenidenNumarala() {
+      try {
+        if (!Array.isArray(nodes)) return;
+        const proje = aktifProjeAd();
+        const tum = kpTumu();
+        const eski = (tum[proje] && typeof tum[proje] === 'object' && !Array.isArray(tum[proje])) ? tum[proje] : {};
+        const yeni = {};
+        const seen = {};
+        const tasi = {};   /* yeni koda TASINAN eski kodlar */
+        let pno = 0;
+        nodes.forEach(function (n) {
+          if (n.type !== 'process') return;
+          pno++;
+          let sira = 0;
+          (n.altProsesler || []).forEach(function (sub) {
+            const eskiKod = String((sub && sub.code) || '').trim();
+            if (!eskiKod || seen[eskiKod]) return;
+            seen[eskiKod] = 1;
+            sira += 10;
+            const yeniKod = pno + '.' + sira;
+            sub.code = yeniKod;
+            if (eski[eskiKod]) { yeni[yeniKod] = eski[eskiKod]; tasi[eskiKod] = 1; }
+          });
+        });
+        /* Akista olmayan kodlarin verisi korunur; ANCAK yeni koda tasinmis
+           eski kodlar geri eklenmez (aksi halde silinen satirin verisi
+           yeni kodun altinda kalir ve satir sayisi artmaz olmaz). */
+        Object.keys(eski).forEach(function (k) { if (!(k in yeni) && !tasi[k]) yeni[k] = eski[k]; });
+        try { kpYazBucket(yeni); } catch (e) {}
+      } catch (e) { /* sessiz */ }
+    }
     function cpSeciliSatiriSil() {
       const sel = document.getElementById('cpSilSatir');
       if (!sel) { ckBildir('Önce satır seçin.', 'uyari'); return; }
@@ -7784,24 +7848,24 @@ function pkSatirEkle(tablo) {
       if (!hedef) { ckBildir('Satır bulunamadı.', 'uyari'); return; }
       const liste = kpSatirlari(depo[hedef.code]).slice();
       const silinen = liste.splice(hedef.k, 1)[0] || {};
+      let kaldirildi = false;
       if (hedef.k === 0 && !liste.length) {
         /* Adimin SON satiri silindi. Akis adimi da kaldirilir; aksi halde
            pkCpEksikleriAc() ayni kodu bir sonraki cizimde tekrar acar ve
            silme geri alinmis gibi gorunur. */
         delete depo[hedef.code];
-        const n = nodes.find(function (x) { return x.id === pkDurum.anahtar; });
-        /* tum projelerde ara: kod eski bir node'a ait olabilir */
-        let kaldirildi = false;
         nodes.forEach(function (x) {
           if (x.type !== 'process' || !x.altProsesler) return;
           const ix = x.altProsesler.findIndex(function (s) { return String(s.code || '') === hedef.code; });
           if (ix >= 0) { x.altProsesler.splice(ix, 1); kaldirildi = true; }
         });
-        if (kaldirildi) { try { autoNumberNodes(); save(); } catch (e) {} }
       } else {
         depo[hedef.code] = liste;
       }
       kpYazBucket(depo);
+      /* No degerleri ardisik olsun: 1.10, 1.20, 1.30... (CP verisi tasinir) */
+      pkNoYenidenNumarala();
+      if (kaldirildi) { try { save(); } catch (e) {} }
       if (window.scheduleCloudSync) scheduleCloudSync(600);
       try { showControlPlanPreview(); } catch (e) {}
       ckBildir((silinen.karak || hedef.code || 'Satır') + ' silindi.' + (hedef.k === 0 && !liste.length ? ' (Akış adımı da kaldırıldı)' : ''), 'oldu');
@@ -7948,7 +8012,7 @@ const cpMetaDef = isParcaCP
       if (ov.__sonHtml !== yeniHtml) {
         ov.__sonHtml = yeniHtml;
         ov.innerHTML = yeniHtml;
-        ov.querySelectorAll("textarea").forEach(t => fitCell(t));
+        fitToplu(ov.querySelectorAll("textarea"));
       }
       ov.classList.add("open");
       fitTopScroll(ov);
