@@ -7131,14 +7131,10 @@ function pkSatirEkle(tablo) {
     function pkKaynakDokumanDoldur(ws) {
       try {
         const kaynak = (typeof window.__pkKontrolPlani === 'function') ? window.__pkKontrolPlani() : null;
-        /* Kontrol Plani No yoksa (cogu Excel'de yalnizca "Kontrol Plani
-           Revizyon No" vardir) revizyon numarasindan uretilir: "KP-5".
-           Boylece Kaynak Doküman sutunu her zaman dolu gelir. */
-        let kpNo = String((kaynak && kaynak.kpNo) || fmeaMeta.kpNo || '').trim();
-        if (!kpNo) {
-          const rev = String(fmeaMeta.kpRevNo || '').trim();
-          if (rev) kpNo = 'KP-' + rev;
-        }
+        /* YALNIZCA Excel'de GERCEKTEN bulunan "Kontrol Plani No" kullanilir.
+           Dosyada bu alan yoksa sutun BOS birakilir; revizyon numarasindan
+           "KP-5" gibi bir deger UYDURULMAZ (kullanici istegi). */
+        const kpNo = String((kaynak && kaynak.kpNo) || fmeaMeta.kpNo || '').trim();
         if (!kpNo) return;
         const depo = pkEditsYukle();
         const key = pkDurum.anahtar;
@@ -8036,6 +8032,28 @@ const cpMetaDef = isParcaCP
       const meta = {};
       const maxC = Math.min(ws.columnCount || 0, 120);
       const lastR = Math.max(0, headerRow - 1);
+      /* Etiket + deger araligi: deger etiketin HEMEN sagindaki hucrededir
+         (birlestirilmis hucrelerde de bu gecerlidir). Onceki kod bos
+         hucreleri ATLAYIP daha ilerideki dolu hucreyi aliyordu; boylece
+         "Proses Sorumlusu" bos birakildiginda sayfadaki rastgele bir isim
+         (orn. baska bir etiketin degeri) alaniyordu.
+         ONEMLI: bosluk birakilmaz; birlestirilmis hucrelerin devami kadar
+         bakilir, sonra BOSLIK bulunursa deger yok sayilir. */
+      const birlestirilmisDevam = function (r, c) {
+        try {
+          if (!ws.getCell || !ws.getCell(r, c)) return false;
+          const cell = ws.getCell(r, c);
+          if (cell.isMerged && cell.master && cell.master !== cell) return true;
+          const m = ws.model && ws.model.merges;
+          if (!m) return false;
+          for (let i = 0; i < m.length; i++) {
+            const mg = m[i];
+            const tl = ws.getCell(mg.top, mg.left);
+            if (tl === cell) return (mg.right > mg.left);
+          }
+          return false;
+        } catch (e) { return false; }
+      };
       for (let r = 1; r <= lastR; r++) {
         for (let c = 1; c <= maxC; c++) {
           const t = pkFmeaNorm(pkHucreTextOf(ws, r, c));
@@ -8045,9 +8063,14 @@ const cpMetaDef = isParcaCP
           let val = '';
           for (let cc = c + 1; cc <= maxC; cc++) {
             const vt = pkHucreTextOf(ws, r, cc).trim();
-            if (!vt) continue;
-            if (pkMetaSinifla(pkFmeaNorm(vt))) break;
-            val = vt; break;
+            if (vt) {
+              if (pkMetaSinifla(pkFmeaNorm(vt))) break;
+              val = vt; break;
+            }
+            /* Bos hucre: birlestirilmis devami degilse BURADA DUR.
+               Boylece etiketten sonra deger yoksa alan bos kalir ve
+               sayfadaki baska bir deger yanlis alana yazilmaz. */
+            if (!birlestirilmisDevam(r, cc)) break;
           }
           if (val && pkFmeaNorm(val) !== t) meta[k] = val;
         }
