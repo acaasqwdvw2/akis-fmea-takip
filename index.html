@@ -6985,8 +6985,35 @@ let rows = '';
     function pkPeriyotYaz(depo) {
       try { localStorage.setItem(pkPeriyotAnahtari(), JSON.stringify(depo || {})); } catch (e) {}
     }
+    /* ONEMLI - rozetler AYRI bir depodan degil, GERCEK form verisinden
+       (pkEdits) turetilir. Boylece madde bir periyottan SILINDIIGINDE
+       rozet de kaybolur; eskiden ayri depo tutuldugu icin 'Günlük' yazisi
+       silindikten sonra da ekranda kaliyordu.
+       Anahtar: <form>!<sayfa>!<satir>!<sutun>; 'No' sutunu (4) kodu tasir,
+       periyot sayfa adindan okunur. Her form (Tedarikci / Aselsan Global)
+       kendi verisinden tarar, birbirine karismaz. */
+    function pkPeriyotKodlari() {
+      const sonuc = {};
+      try {
+        const depo = pkEditsYukle();
+        const key = pkDurum.anahtar;
+        if (!key) return sonuc;
+        Object.keys(depo).forEach(function (k) {
+          const p = k.split('!');
+          if (p.length !== 4 || p[0] !== key || p[3] !== '4') return;
+          const per = pkPeriyotEtiket(p[1]);
+          if (!per) return;
+          const kod = String(depo[k] || '').trim();
+          if (!kod) return;
+          if (!sonuc[kod]) sonuc[kod] = [];
+          if (sonuc[kod].indexOf(per) < 0) sonuc[kod].push(per);
+        });
+      } catch (e) {}
+      return sonuc;
+    }
     function pkPeriyotSatir(depo, r) {
-      const l = depo[pkPeriyotMaddeAnahtari(r)] || [];
+      const kod = pkPeriyotMaddeAnahtari(r);
+      const l = pkPeriyotKodlari()[kod] || [];
       return PK_PERIYOT_SIRA.filter(function (p) { return l.indexOf(p) >= 0; });
     }
     /* Anahtar yalnizca KODDAN olusur; boyce madde adi degisse/degistirilse bile
@@ -7012,7 +7039,7 @@ let rows = '';
       }
       const s = kaynak.satirlar;
       /* Kullanici istegi: hicbir satir onceden secili gelmez. */
-      const periyotDepo = pkPeriyotYukle();
+      const periyotDepo = pkPeriyotKodlari();   /* gercek form verisinden turetilir */
       const satirHtml = s.map(function (r, i) {
         return '<tr><td class="pk-sec-no">' + esc(String(r.no)) + '</td>' +
           '<td>' + esc(r.code) + '</td>' +
@@ -7070,28 +7097,9 @@ let rows = '';
       const ws = pkDurum.wb.worksheets[pkDurum.sekme];
       if (!ws) return 0;
 
-      /* Secilen maddelerin hangi periyotta kontrol edildigini SAKLA.
-         "Kontrol Sec" ekraninda madde yaninda rozet olarak gosterilir.
-         Bu kayit form yazimindan bagimsizdir: kullanici maddeyi sectiyse
-         periyot bilgisi kaybolmaz. */
-      (function () {
-        const periyotEt = pkPeriyotEtiket(ws.name);
-        if (!periyotEt) return;
-        try {
-          const pDepo = pkPeriyotYukle();
-          const gorulen = {};
-          secili.forEach(function (i) {
-            const kay = kaynak.satirlar[i];
-            if (!kay) return;
-            const a = pkPeriyotMaddeAnahtari(kay);
-            if (gorulen[a]) return;
-            gorulen[a] = 1;
-            const l = pDepo[a] || [];
-            if (l.indexOf(periyotEt) < 0) { l.push(periyotEt); pDepo[a] = l; }
-          });
-          pkPeriyotYaz(pDepo);
-        } catch (e) {}
-      })();
+      /* Periyot rozeti artik AYRI depoda tutulmaz; pkPeriyotKodlari()
+         gercek form verisinden (pkEdits) turetir. Boylece bir periyottan
+         silinen maddenin rozeti otomatik kaybolur. */
 
       /* Baslik/veri ayrimi pkIzgaraHtml ile ayni cozumleyiciden gelir; boyle
          aktarilan degerler ekranda gorunen satirin uzerine biner. */
