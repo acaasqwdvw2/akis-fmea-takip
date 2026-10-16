@@ -3601,6 +3601,12 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       cloudRejectedRows = []; cloudReddi = null;
           scopeKeysForUser(null);
           nodes = []; projects = []; currentProject = ''; fmeaMeta = {};
+          /* TEDARIKCI/KULLANICI IZOLASYONU: cikis yapildiginda kontrol plani
+             deposu BOSALTILIR. Aksi halde oturum acmadan giren (ya da sonra
+             baska bir tedarikci giren) kisi paylasilan tabletteki eski veriyi
+             gorebilirdi. Anahtarlar oturumsuzken kapsamsiz (scopeOf(null) === '')
+             oldugu icin bu adim ZORUNLUDUR. */
+          try { try { localStorage.removeItem(kpKey()); } catch (e) {} } catch (e) {}
           try { paintAccount(); } catch (e) {}
           try { applyAdminMode(); } catch (e) {}
           document.getElementById('authScreen').style.display = 'flex';
@@ -3801,7 +3807,7 @@ function save() {
       if (currentProject) upsertProject(currentProject, nodes, fmeaMeta);
       const name = 'Tedarikçi ' + (projects.length + 1);
       upsertProject(name, [], {});
-      nodes = []; fmeaMeta = {}; currentProject = name; selected = null;
+      nodes = []; fmeaMeta = {}; currentProject = name; selected = null; sonTiklananProses = null;
       showMeta = true;
       ckLogEkle('proje', 'Yeni FMEA oluşturuldu: ' + name, 'proje-yeni|' + name);
       save();
@@ -3945,20 +3951,26 @@ function toggleFmeaMeta(forceOpen) {
       return (n.altProsesler || []).filter(s => !s.fmeaOnly);
     }
 
+    /* Kullanic istegi: akistan son tiklanan proses HATIRLANIR ve "+" dugmeleri
+       ile eklenen yeni dugum o prosesin ALTINA (hemen arkasina) girer;
+       onceki davranista dugumler her zaman en sona ekleniyordu. Panel
+       kapatilsa da bu hafiza korunur. */
+    let sonTiklananProses = null;
+
     function addNode(type) {
       const labels = { start: 'BAŞLANGIÇ', process: '', condition: 'Malzeme Uygun mu?', end: 'BİTİŞ' };
-      const n = { 
-        id: 'node_' + Date.now() + Math.floor(Math.random()*1000), 
-        type, 
-        title: labels[type], 
-        targetMode: 'new', 
-        targetId: '', 
+      const n = {
+        id: 'node_' + Date.now() + Math.floor(Math.random()*1000),
+        type,
+        title: labels[type],
+        targetMode: 'new',
+        targetId: '',
         sideTargetMode: 'next',
         sideTargetId: '',
         newProcessTitle: 'Red / Yeniden İşleme',
-        altProsesler: [] 
+        altProsesler: []
       };
-      
+
       if (type === 'process') {
         n.altProsesler.push({
           id: 'sub_' + Date.now() + '_1',
@@ -3970,7 +3982,17 @@ function toggleFmeaMeta(forceOpen) {
         });
       }
 
-      nodes.push(n);
+      /* Hedef: hafirlanan proses (yoksa en son dugumun sonu). */
+      let ix = -1;
+      if (sonTiklananProses) {
+        ix = nodes.findIndex(x => x.id === sonTiklananProses);
+        if (ix >= 0) nodes.splice(ix + 1, 0, n); else nodes.push(n);
+      } else {
+        nodes.push(n);
+      }
+      /* Yeni proses eklendiyse hafira o alinir; boylece ardisik eklemeler
+         ayni prosesin altina devam eder. */
+      if (type === 'process') sonTiklananProses = n.id;
       selected = n.id;
       save();
       render();
@@ -3979,6 +4001,10 @@ function toggleFmeaMeta(forceOpen) {
 
     function selectNode(id) {
       selected = id;
+      /* TIKLANAN PROSES HAFIZAYA ALINIR: panel kapansa bile "+" dugmeleri
+         bu prosesin altina eklemeye devam eder. */
+      const dugum = nodes.find(n => n.id === id);
+      if (dugum && dugum.type === 'process') sonTiklananProses = id;
       render();
       openForm();
     }
@@ -3990,6 +4016,8 @@ function toggleFmeaMeta(forceOpen) {
 
     function closeForm() {
       selected = null;
+      /* NOT: sonTiklananProses SILINMEZ; panel kapansa da "+" dugmeleri
+         son tiklanan prosesin altina eklemeye devam eder. */
       render();
       const ov = document.getElementById('formOverlay');
       if (ov) ov.classList.remove('open');
@@ -4006,6 +4034,7 @@ function toggleFmeaMeta(forceOpen) {
       if (confirm('Bu adımı silmek istiyor musunuz?')) {
         nodes = nodes.filter(n => n.id !== id);
         if (selected === id) selected = null;
+        if (sonTiklananProses === id) sonTiklananProses = null;
         save();
       }
     }
@@ -8435,12 +8464,16 @@ const cpMetaDef = isParcaCP
 
         save();
 
-        if (kpHedefler.length) {
+        /* ONEMLI - TEDARIKCI IZOLASYONU:
+           Yeni Excel yuklendiginde aktif projeye ait ESKI kontrol plani
+           verisi MUTLAKA temizlenir. Aksi halde yeni dosyada Kontrol Plani
+           sayfasi yoksa/bos ise bir onceki TEDARIKCININ verisi ekranda kalir
+           (kullanici "baska tedarikcinin verisi geliyor" derdi).
+           kpYazBucket yalnizca kpHedefler doluyken cagriliyordu; simdi her
+           zaman cagrilir ve bucket bos da olsa yazilir. */
+        {
           const bucket = {};
           kpHedefler.forEach(function (h) {
-            /* ONEMLI: dizi referansi degismis olabilir (ayni adi tekrarlanan
-               adimlar birlestirilirken concat yeni dizi uretir). Bu yuzden
-               guncel deger sub.kp'den okunur, h.kp'den degil. */
             if (h.sub.code) bucket[h.sub.code] = h.sub.kp || h.kp || [];
           });
           try { kpYazBucket(bucket); } catch (e) {}
@@ -9310,7 +9343,7 @@ function download(d, n, t) {
     }
 
     function clearAll() {
-      if (confirm('Tüm akış silinsin mi?')) { nodes = []; selected = null; save(); }
+      if (confirm('Tüm akış silinsin mi?')) { nodes = []; selected = null; sonTiklananProses = null; save(); }
     }
 
     window.addEventListener('resize', drawConnections);
