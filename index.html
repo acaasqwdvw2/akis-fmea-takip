@@ -4392,20 +4392,39 @@ form.innerHTML = showMeta ? `
       render();
     }
 
+    /* Akista elle eklenen adim icin Kontrol Plani'nda BOS bir satir acar.
+       Boylece "akis semasindaki her adim kontrol planinda olur"; adim
+       sonradan Kontrol Plani onizlemesinden doldurulabilir. */
+    function pkCpSatirAc(code) {
+      try {
+        if (!code) return;
+        const tum = kpTumu();
+        const proje = aktifProjeAd();
+        const b = (tum[proje] && typeof tum[proje] === 'object' && !Array.isArray(tum[proje])) ? tum[proje] : {};
+        if (kpSatirlari(b[code]).length) return;   /* zaten satir var */
+        b[code] = [{ karak: '', spes: '', sinif: '', olcum: '', kontrol: '', miktar: '', siklik: '', kayitSorumlu: '', reaksiyon: '' }];
+        kpYazBucket(b);
+      } catch (e) { /* sessiz: akis yine de calissin */ }
+    }
     function addSubProses() {
       let p = nodes.find(n => n.id === selected);
       if (!p) return;
       if (!p.altProsesler) p.altProsesler = [];
-      p.altProsesler.push({
+      const sub = {
         id: 'sub_' + Date.now() + Math.floor(Math.random()*1000),
         code: '',
         title: '',
         gerUrun: '',
         gerProses: '',
         hatalar: []
-      });
+      };
+      p.altProsesler.push(sub);
       ckLogEkle('akis', 'Akışa yeni alt proses eklendi', 'akis-ekle|' + (currentProject || '') + '|' + (selected || ''));
       save();
+      /* save() -> autoNumberNodes() kodu atadi; simdi CP karsiligini ac. */
+      pkCpSatirAc(sub.code);
+      const cov = document.getElementById('cpOverlay');
+      if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
     }
 
     function editSubProses(sIdx, k, v) {
@@ -7633,7 +7652,45 @@ function pkSatirEkle(tablo) {
         "</tr>";
       }
 
-function showControlPlanPreview() {
+/* Kontrol Plani onizlemesinde secili satiri siler.
+       Satirlar onizlemede soyle siralanir: her proses adiminin CP satirlari
+       ardisik gelir ve "ilk" olani kod+adi gosterir. Burada ayni sirayla
+       depo icindeki gercek dizi indeksi bulunur ve o kayit cikarilir. */
+    function cpSeciliSatiriSil() {
+      const sel = document.getElementById('cpSilSatir');
+      if (!sel) { ckBildir('Önce satır seçin.', 'uyari'); return; }
+      const ix = parseInt(sel.value, 10);
+      if (isNaN(ix) || ix < 0) { ckBildir('Önce silinecek satırı seçin.', 'uyari'); return; }
+      const depo = kpYuku();
+      /* onizleme sirasi: kodlar gorunum sirasiyla, her kod icin satirlar */
+      const sira = [];
+      const seen = {};
+      nodes.forEach(function (n) {
+        if (n.type !== 'process') return;
+        (n.altProsesler || []).forEach(function (sub) {
+          const code = sub.code || '';
+          if (!code || seen[code]) return;
+          seen[code] = 1;
+          const kayitlar = kpSatirlari(depo[code]);
+          kayitlar.forEach(function (_, k) { sira.push({ code: code, k: k }); });
+        });
+      });
+      const hedef = sira[ix];
+      if (!hedef) { ckBildir('Satır bulunamadı.', 'uyari'); return; }
+      const liste = kpSatirlari(depo[hedef.code]).slice();
+      const silinen = liste.splice(hedef.k, 1)[0] || {};
+      if (hedef.k === 0 && !liste.length) {
+        /* Adimin son satiri silindi: kod deposundan tamamen kaldirilir */
+        delete depo[hedef.code];
+      } else {
+        depo[hedef.code] = liste;
+      }
+      kpYazBucket(depo);
+      if (window.scheduleCloudSync) scheduleCloudSync(600);
+      try { showControlPlanPreview(); } catch (e) {}
+      ckBildir((silinen.karak || hedef.code || 'Satır') + ' silindi.', 'oldu');
+    }
+    function showControlPlanPreview() {
       if (!nodes.length) {
         alert('Görüntülenecek Kontrol Planı verisi yok. Önce akış oluşturun.');
         return;
@@ -7745,8 +7802,20 @@ const cpMetaDef = isParcaCP
         ov.onclick = (e) => { if (e.target === ov) ov.classList.remove('open'); };
         document.body.appendChild(ov);
       }
+      /* Kullanici istegi: her satir icinde sil dugmesi yerine EN USTTE
+         "Satır Seç" listesi + "Sil" dugmesi. Secilen satir Kontrol Plani
+         deposundan silinir ve onizleme yeniden cizilir. */
+      const silSecenek = rows.map(function (r, i) {
+        return '<option value="' + i + '">' + esc((r.code || '—') + ' · ' + String(r.adi || '').slice(0, 34) +
+          (r.ilk ? '' : '  (#' + (i + 1) + ')')) + '</option>';
+      }).join('');
+
       ov.innerHTML = `<div class="fmea-modal">
-        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
+        <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div>
+          <select id="cpSilSatir" class="pk-sec-btn" style="background:#fff;color:#2e6b4f;max-width:340px;padding:5px 8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;">${silSecenek || '<option value="">— satır yok —</option>'}</select>
+          <button class="pk-sec-btn" style="background:#a33;color:#fff;" onclick="cpSeciliSatiriSil()"${rows.length ? '' : ' disabled'}>🗑 Seçili Satırı Sil</button>
+          <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
+          <button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
