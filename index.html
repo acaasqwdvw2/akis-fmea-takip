@@ -3799,7 +3799,20 @@ function save() {
 
     function newProject() {
       if (currentProject) upsertProject(currentProject, nodes, fmeaMeta);
-      const name = 'Tedarikçi ' + (projects.length + 1);
+      /* "Tedarikçi N" adi silinen projelerden sonra tekrar uretilebilirdi ve
+         o eski projenin kontrol plani/form verileri yeni FMEA'da gorunurdu.
+         Bu yuzden ad hem sayiya hem benzersizlik icin kontrol edilir. */
+      let n = projects.length + 1;
+      let name = 'Tedarikçi ' + n;
+      while (projects.some(function (p) { return p && p.name === name; })) {
+        n++;
+        name = 'Tedarikçi ' + n;
+      }
+      /* Eski bir "Tedarikçi N" kalintisi varsa CP deposu da temizlenir. */
+      try {
+        const tum = kpTumu();
+        if (tum[name] && typeof tum[name] === 'object') { delete tum[name]; }
+      } catch (e) {}
       upsertProject(name, [], {});
       nodes = []; fmeaMeta = {}; currentProject = name; selected = null; sonTiklananDugum = null;
       showMeta = true;
@@ -3807,6 +3820,22 @@ function save() {
       save();
     }
 
+    /* Proje adi benzersiz olmalidir: ayni firma adi iki FMEA'da kullanilabilir
+       (ayni firmanin farkli urunleri). Onceki davranista saveProject() var olan
+       projeyi ezdi; kontrol plani deposu proje adiyla anahtarlandigi icin yeni
+       FMEA, eski FMEA'nin kontrol planini ve form verilerini gosteriyordu.
+       Bu yuzden cakisma varsa adi " (2)", " (3)" ile benzersizlestirilir. */
+    function pkProjeAdiBenzersiz(ad, haricAd) {
+      let ad2 = String(ad || '').trim();
+      if (!ad2) return ad2;
+      const varMi = function (a) {
+        return projects.some(function (p) { return p && p.name === a; });
+      };
+      if (!varMi(ad2) || ad2 === haricAd) return ad2;
+      let i = 2;
+      while (varMi(ad2 + ' (' + i + ')') && ad2 + ' (' + i + ')' !== haricAd) i++;
+      return ad2 + ' (' + i + ')';
+    }
     async function saveProject() {
       autoNumberNodes();
       const firma = (fmeaMeta.firma || '').trim();
@@ -3814,7 +3843,10 @@ function save() {
       if (!name) name = (prompt('Firma Adı / Sektör Adı:') || '').trim();
       if (!name) return;
       const eskiAd = currentProject;
-      const yenidenAdlandirildi = currentProject && currentProject !== name;
+      /* Ayni ad AYNI projeye ait degilse cakisma vardir: eski FMEA'nin kontrol
+         plani/form verileri yeni FMEA'ya tasinmasin diye ad benzersizlestirilir. */
+      name = pkProjeAdiBenzersiz(name, eskiAd);
+      const yenidenAdlandirildi = eskiAd && eskiAd !== name;
       const yeniMi = !projects.some(p => p.name === name);
       if (currentProject && currentProject !== name) {
         projects = projects.filter(p => p.name !== currentProject);
@@ -5264,7 +5296,10 @@ let rows = '';
         ov.onclick = (e) => { if (e.target === ov) ov.classList.remove('open'); };
         document.body.appendChild(ov);
       }
-ov.innerHTML = `<div class="fmea-modal">
+/* PERFORMANS: uretilen HTML bir onceki render ile ayniysa DOM'a YENIDEN
+         basilmaz. FMEA onizlemesi 1.7 MB HTML ve ~1850 form denetimi uretir;
+         her acilista innerHTML'i yeniden yazmak en pahali is. */
+      const yeniHtml = `<div class="fmea-modal">
         <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeFmeaPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
@@ -5272,10 +5307,14 @@ ov.innerHTML = `<div class="fmea-modal">
           <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table">${thead}<tbody>${rows}${fmeaBosSatir(isParcaPrev)}</tbody></table></div></div>
         </div>
       </div>`;
+      if (ov.__sonHtml !== yeniHtml) {
+        ov.__sonHtml = yeniHtml;
+        ov.innerHTML = yeniHtml;
+        ov.querySelectorAll('textarea').forEach(t => fitCell(t));
+        fitTopScroll(ov);
+        freezeFmeaHead(ov);
+      }
       ov.classList.add('open');
-      ov.querySelectorAll('textarea').forEach(t => fitCell(t));
-      fitTopScroll(ov);
-      freezeFmeaHead(ov);
       setTimeout(() => { fitTopScroll(ov); pkSonSatirIsaretle(document.getElementById("fmeaOverlay")); }, 0);
     }
 
@@ -7746,15 +7785,26 @@ function pkSatirEkle(tablo) {
       const liste = kpSatirlari(depo[hedef.code]).slice();
       const silinen = liste.splice(hedef.k, 1)[0] || {};
       if (hedef.k === 0 && !liste.length) {
-        /* Adimin son satiri silindi: kod deposundan tamamen kaldirilir */
+        /* Adimin SON satiri silindi. Akis adimi da kaldirilir; aksi halde
+           pkCpEksikleriAc() ayni kodu bir sonraki cizimde tekrar acar ve
+           silme geri alinmis gibi gorunur. */
         delete depo[hedef.code];
+        const n = nodes.find(function (x) { return x.id === pkDurum.anahtar; });
+        /* tum projelerde ara: kod eski bir node'a ait olabilir */
+        let kaldirildi = false;
+        nodes.forEach(function (x) {
+          if (x.type !== 'process' || !x.altProsesler) return;
+          const ix = x.altProsesler.findIndex(function (s) { return String(s.code || '') === hedef.code; });
+          if (ix >= 0) { x.altProsesler.splice(ix, 1); kaldirildi = true; }
+        });
+        if (kaldirildi) { try { autoNumberNodes(); save(); } catch (e) {} }
       } else {
         depo[hedef.code] = liste;
       }
       kpYazBucket(depo);
       if (window.scheduleCloudSync) scheduleCloudSync(600);
       try { showControlPlanPreview(); } catch (e) {}
-      ckBildir((silinen.karak || hedef.code || 'Satır') + ' silindi.', 'oldu');
+      ckBildir((silinen.karak || hedef.code || 'Satır') + ' silindi.' + (hedef.k === 0 && !liste.length ? ' (Akış adımı da kaldırıldı)' : ''), 'oldu');
     }
     function showControlPlanPreview() {
       if (!nodes.length) {
@@ -7879,7 +7929,11 @@ const cpMetaDef = isParcaCP
           (r.ilk ? '' : '  (#' + (i + 1) + ')')) + '</option>';
       }).join('');
 
-      ov.innerHTML = `<div class="fmea-modal">
+      /* PERFORMANS: uretilen HTML bir onceki render ile ayniysa DOM'a YENIDEN
+         basilmaz. Kontrol Plani onizlemesi 45 satir x 9 metin kutusu icerir;
+         her acilista innerHTML'i yeniden yazmak sayisal olarak en pahali is.
+         Veri degismisse (duzenleme, ekleme, silme) yine basılır. */
+      const yeniHtml = `<div class="fmea-modal">
         <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div>
           <select id="cpSilSatir" class="pk-sec-btn" style="background:#fff;color:#2e6b4f;max-width:340px;padding:5px 8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;">${silSecenek || '<option value="">— satır yok —</option>'}</select>
           <button class="pk-sec-btn" style="background:#a33;color:#fff;" onclick="cpSeciliSatiriSil()"${rows.length ? '' : ' disabled'}>🗑 Seçili Satırı Sil</button>
@@ -7891,8 +7945,12 @@ const cpMetaDef = isParcaCP
           <div class="fmea-x"><div class="fmea-scroll"><table class="fmea-table cptable">${thead}<tbody>${trs}${cpBosSatir()}</tbody></table></div></div>
         </div>
       </div>`;
+      if (ov.__sonHtml !== yeniHtml) {
+        ov.__sonHtml = yeniHtml;
+        ov.innerHTML = yeniHtml;
+        ov.querySelectorAll("textarea").forEach(t => fitCell(t));
+      }
       ov.classList.add("open");
-      ov.querySelectorAll("textarea").forEach(t => fitCell(t));
       fitTopScroll(ov);
       freezeFmeaHead(ov);
       setTimeout(() => { fitTopScroll(ov); pkSonSatirIsaretle(ov); }, 50);
@@ -8495,6 +8553,25 @@ const cpMetaDef = isParcaCP
         if (cozum.tip) fmeaType = cozum.tip;
         Object.keys(cozum.meta || {}).forEach(function (k) { fmeaMeta[k] = cozum.meta[k]; });
         try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta)); } catch (e) {}
+
+        /* IzOLASYON: Aktarim, aktif projeyi Excel'deki FIRMA adi ile belirler.
+           Proje adi bos kalirsa kontrol plani deposu bos anahtara ("") yazilir
+           ve veri daha sonraki bir FMEA ile karsiastir. Ayni firma adi zaten
+           baska bir projede varsa benzersiz ad uretilir; boylece yeni yukleme
+           eski FMEA'nin kontrol plani/form verisini GORMEZ. */
+        try {
+          const firma = String((cozum.meta && (cozum.meta.firma || cozum.meta.prosesAdi || cozum.meta.parcaAdi)) || '').trim();
+          const hedefAd = pkProjeAdiBenzersiz(firma || 'Tedarikçi ' + (projects.length + 1), currentProject);
+          if (hedefAd && hedefAd !== currentProject) {
+            if (currentProject) projects = projects.filter(function (p) { return p.name !== currentProject; });
+            currentProject = hedefAd;
+            try { localStorage.setItem(currentKey, currentProject); } catch (e) {}
+          }
+          /* Proje LISTEYE hemen yazilir; aksi halde save() -> ensureCurrentProject()
+             projeyi bulamadigi icin currentProject'i bosaltir ve kontrol plani
+             bos anahtara ("") yazilir. */
+          try { if (!projects.some(function (p) { return p.name === currentProject; })) upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {}
+        } catch (e) {}
 
         save();
 
