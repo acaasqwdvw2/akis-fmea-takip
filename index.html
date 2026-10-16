@@ -916,6 +916,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     body:has(.fmea-overlay.open) .panel-head{display:none!important}
     /* Kayan cubuk cubugu (sayfa ici kaydirma) hizalanir */
     .fmea-overlay .fmea-scroll{max-height:none!important}
+
+    /* ---- Proses Kontrol Formlari: sablon secim menusu ---- */
+    .ag-dd{position:relative;display:flex}
+    .ag-menu{position:absolute;left:0;top:calc(100% + 8px);min-width:300px;background:#fff;
+      border:1px solid var(--ag-bd);border-radius:12px;box-shadow:0 12px 30px rgba(16,24,40,.2);
+      padding:6px;display:none;z-index:80}
+    .ag-dd.open .ag-menu{display:block}
+    .ag-menu button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;
+      border:0;background:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;color:#1b2433;cursor:pointer}
+    .ag-menu button:hover{background:#eef2f8}
+    .pk-dot{width:10px;height:10px;border-radius:50%;flex:none}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1036,10 +1047,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <!-- Sayili adim sekmeleri (ust_menu_ornek tasarimi). Yalnizca GORSEL
          navigasyon; mevcut butonlarin tamami asagida KORUNMUStUR. -->
     <nav class="ag-steps" aria-label="Adımlar">
-      <button type="button" class="ag-step on" data-adim="akis" onclick="agAdimSec('akis')" data-tip="Proses Akış Şeması"><span class="n">1</span><span class="lb">Proses Akış</span></button>
-      <button type="button" class="ag-step" data-adim="fmea" onclick="agAdimSec('fmea')" data-tip="FMEA Görüntüle"><span class="n">2</span><span class="lb">FMEA</span></button>
-      <button type="button" class="ag-step" data-adim="cp" onclick="agAdimSec('cp')" data-tip="Kontrol Planı Görüntüle"><span class="n">3</span><span class="lb">Kontrol Planı</span></button>
-      <button type="button" class="ag-step" data-adim="takip" onclick="agAdimSec('takip')" data-tip="Süreç Takip"><span class="n">4</span><span class="lb">Süreç Takip</span></button>
+      <button type="button" class="ag-step" data-adim="bilgi" onclick="agAdimSec('bilgi')" data-tip="FMEA Başlık Bilgileri"><span class="n">1</span><span class="lb">FMEA Bilgileri</span></button>
+      <button type="button" class="ag-step on" data-adim="akis" onclick="agAdimSec('akis')" data-tip="Proses Akış Şeması"><span class="n">2</span><span class="lb">Proses Akış</span></button>
+      <button type="button" class="ag-step" data-adim="fmea" onclick="agAdimSec('fmea')" data-tip="FMEA Görüntüle"><span class="n">3</span><span class="lb">FMEA</span></button>
+      <button type="button" class="ag-step" data-adim="cp" onclick="agAdimSec('cp')" data-tip="Kontrol Planı Görüntüle"><span class="n">4</span><span class="lb">Kontrol Planı</span></button>
+      <div class="ag-dd">
+        <button type="button" class="ag-step" data-adim="pk" onclick="agAdimSec('pk')" data-tip="Proses Kontrol Formları — şablon seçin"><span class="n">5</span><span class="lb">Proses Kontrol Formları</span></button>
+        <div class="ag-menu" id="agPkMenu">
+          <button type="button" onclick="agPkSec('tedarikci')"><span class="pk-dot" style="background:#8a5a2e"></span>Tedarikçi Proses Kontrol Formu</button>
+          <button type="button" onclick="agPkSec('aselsan')"><span class="pk-dot" style="background:#6b4a8a"></span>Aselsan Global Proses Kontrol Formu</button>
+        </div>
+      </div>
     </nav>
     <button class="light" onclick="toggleFmeaMeta(true)">FMEA Başlık Bilgileri</button>
     <button class="excel-btn" style="background:#3a7ca5" onclick="showFmeaPreview()">FMEA Görüntüle</button>
@@ -4123,13 +4141,31 @@ function save() {
       setTimeout(agUstYuksekligi, 0);
     } catch (e) {}
 
+    /* Proses Kontrol Formu sablonu secimi (Tedarikci / Aselsan Global). */
+    function agPkSec(tur) {
+      try {
+        const dd = document.querySelector('.ag-dd');
+        if (dd) dd.classList.remove('open');
+        if (tur === 'aselsan') openProsesKontrolFormu('aselsan');
+        else openProsesKontrolFormu('tedarikci');
+      } catch (e) {}
+    }
+    try {
+      document.addEventListener('click', function (e) {
+        const dd = document.querySelector('.ag-dd');
+        if (dd && dd.classList.contains('open') && !dd.contains(e.target)) dd.classList.remove('open');
+      });
+    } catch (e) {}
+
     function agAdimSec(adim) {
       try {
         agUstYuksekligi();
         document.querySelectorAll('.ag-step').forEach(function (b) {
           b.classList.toggle('on', b.getAttribute('data-adim') === adim);
         });
-        if (adim === 'akis') {
+        if (adim === 'bilgi') {
+          try { toggleFmeaMeta(true); } catch (e) {}
+        } else if (adim === 'akis') {
           try { closeFmeaPreview(); } catch (e) {}
           try { closeControlPlanPreview(); } catch (e) {}
           try { closeProsesKontrolFormu(); } catch (e2) {}
@@ -4138,8 +4174,9 @@ function save() {
           try { showFmeaPreview(); } catch (e) {}
         } else if (adim === 'cp') {
           try { showControlPlanPreview(); } catch (e) {}
-        } else if (adim === 'takip') {
-          try { openCockpit(); } catch (e) {}
+        } else if (adim === 'pk') {
+          const dd = document.querySelector('.ag-dd');
+          if (dd) dd.classList.toggle('open');
         }
       } catch (e) { /* sessiz */ }
     }
