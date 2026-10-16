@@ -3637,13 +3637,34 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       scheduleCloudSync();
     }
 
+    /* Alt proses kodlari otomatik numaralandirilir.
+       ONEMLI: Kod ONCEDEN (ornegin Excel aktarimindan) geldiyse KORUNUR.
+       Aksi halde numaralandirma kodlari degistirir ve Kontrol Plani verisi
+       yanlis satira yazilir ("kontrol planina rastgele veri yazildi" hatasi).
+       Kodu olmayan yeni adimlar eklenen SIRAYA gore devam eder. */
     function autoNumberNodes() {
       let procNum = 0;
       nodes.forEach(n => {
         if (n.type === 'process') {
           procNum++;
-          (n.altProsesler || []).forEach((sub, si) => {
-            sub.code = `${procNum}.${(si + 1) * 10}`;
+          let son = 0;
+          (n.altProsesler || []).forEach((sub) => {
+            const mevcut = String((sub && sub.code) || '').trim();
+            /* numara kismini (orn. "7.20" -> 20) kontrol et */
+            const no = (function () {
+              const k = (mevcut.split('.').pop() || '').match(/\d+/);
+              if (!k) return null;
+              /* kod bu prosesin NO'su ile basliyor mu? (yoksa yeniden numaralandir) */
+              if (mevcut.indexOf(procNum + '.') !== 0) return null;
+              return parseInt(k[0], 10);
+            })();
+            if (no !== null && !isNaN(no)) {
+              if (no > son) son = no;
+              return;                     /* mevcut kodu koru */
+            }
+            const yeni = (son + 10);
+            son = yeni;
+            sub.code = procNum + '.' + yeni;
           });
         }
       });
@@ -8078,12 +8099,29 @@ const cpMetaDef = isParcaCP
            onay metni de CP adim sayisini yansitir. */
         let prosesSay = fmeaProsesSay;
         const cpAdimSay = (function () {
-          const g = {};
+          const g = {}, sira = [];
           (cozum.cpKayitlar || []).forEach(function (c) {
             if (!String(c.code || '').trim() && !String(c.adi || '').trim()) return;
-            g[pkFmeaNoAnahtar(c.code) || ('#' + Object.keys(g).length)] = 1;
+            const k = pkFmeaNoAnahtar(c.code) || ('#' + sira.length);
+            if (!g[k]) { g[k] = { kod: String(c.code || '').trim(), adi: String(c.adi || '').trim() }; sira.push(k); }
           });
-          return Object.keys(g).length;
+          /* Tekillestirme: ayni proses icinde birebir ayni adli ardisik
+             adimlar tekilleştirilir (ilk basamak kalir). */
+          const noAnahtar = function (code) {
+            const m = String(code || '').match(/\d+/);
+            return m ? m[0] : 'x';
+          };
+          const norm = function (s) { return String(s || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr'); };
+          const son = {};
+          let n = 0;
+          sira.forEach(function (k) {
+            const r = g[k];
+            const p = noAnahtar(r.kod);
+            if (son[p] !== undefined && son[p] === norm(r.adi)) return;
+            son[p] = norm(r.adi);
+            n++;
+          });
+          return n;
         })();
         if (cpAdimSay) {
           adimSay = cpAdimSay;
@@ -8194,10 +8232,27 @@ const cpMetaDef = isParcaCP
             const sub = {
               id: mkId('sub'), code: kod, title: String(c.adi || '').trim(),
               gerUrun: (ilk && ilk.gerUrun) || '', gerProses: (ilk && ilk.gerProses) || '',
-              hatalar: hatalar
+              hatalar: hatalar, kp: c.veriler || []
             };
-            curGrup.adimlar.push(sub);
-            kpHedefler.push({ sub: sub, kp: c.veriler });
+            /* Kullanici istegi: AYNI ADI birebir tekrarlanan ardisik adimlar
+               tekilleştirilir; ilk basamak korunur (örn. 15.10 / 15.20 / 15.30
+               "SICAK DI DURULAMA" -> yalnizca 15.10 kalir). Tekrar eden
+               adimin hatalari ve kontrol plani satirlari ilk adima BIRLESTIRILIR,
+               boylece hicbir veri kaybolmaz. Farkli adlar (örn. "YAĞ ALMA
+               Anodal® DA-2/3/4/5") korunur. */
+            const normAd = function (s) {
+              return String(s || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr');
+            };
+            const yeniAd = normAd(sub.title);
+            const onceki = curGrup.adimlar.length ? curGrup.adimlar[curGrup.adimlar.length - 1] : null;
+            if (onceki && yeniAd && normAd(onceki.title) === yeniAd) {
+              /* Tekrar eden adim: ilk basamaga birlestirilir. */
+              onceki.hatalar = (onceki.hatalar || []).concat(sub.hatalar);
+              onceki.kp = (onceki.kp || []).concat(sub.kp);
+            } else {
+              curGrup.adimlar.push(sub);
+              kpHedefler.push({ sub: sub, kp: sub.kp });
+            }
           });
           gruplar.forEach(function (g) {
             const n = base('process', g.baslik);
@@ -8229,7 +8284,12 @@ const cpMetaDef = isParcaCP
 
         if (kpHedefler.length) {
           const bucket = {};
-          kpHedefler.forEach(function (h) { if (h.sub.code) bucket[h.sub.code] = h.kp; });
+          kpHedefler.forEach(function (h) {
+            /* ONEMLI: dizi referansi degismis olabilir (ayni adi tekrarlanan
+               adimlar birlestirilirken concat yeni dizi uretir). Bu yuzden
+               guncel deger sub.kp'den okunur, h.kp'den degil. */
+            if (h.sub.code) bucket[h.sub.code] = h.sub.kp || h.kp || [];
+          });
           try { kpYazBucket(bucket); } catch (e) {}
         }
         if (currentProject) { try { upsertProject(currentProject, nodes, fmeaMeta); } catch (e) {} }
