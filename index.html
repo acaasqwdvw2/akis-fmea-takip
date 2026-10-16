@@ -962,13 +962,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* ---- Toolbar: TEK SATIR, EŞİT BOYUT, 2 SATIR YAZI ----
        Kullanici istegi: dugmeler tek satırda olsun, hepsi aynı boyutta olsun
        ve bir dugmenin yazisi gerekirse iki satıra sarılsın. */
-    .toolbar{flex-wrap:nowrap!important; overflow-x:auto!important; overflow-y:hidden;
-      scrollbar-width:thin; align-items:center!important; align-content:center}
-    .toolbar::-webkit-scrollbar{height:6px}
-    .toolbar::-webkit-scrollbar-thumb{background:#c3ccd9;border-radius:3px}
+    /* overflow KULLANILMAZ: acikir secim listesi (.sel-menu) asagi dogru
+       acar; overflow herhangi bir yonde tanimliysa o liste kirpilir ve
+       "tikladim ama liste gorunmedi" olur. Tek satir icin butonlar daralir. */
+    .toolbar{flex-wrap:nowrap!important; align-items:center!important; align-content:center}
     /* Ortak buton ölçüsü */
     .toolbar > button, .toolbar .sel-wrap > button, .toolbar .sel-btn{
-      flex:0 0 auto; height:46px!important; min-width:104px; max-width:168px;
+      flex:0 1 auto; height:46px!important; min-width:0; max-width:168px;
+      /* Yazi sigmazsa boyut kuculur (clamp) ve gerekirse 2 satira sarilir */
+      font-size:clamp(10px, .95vw, 13px)!important;
       display:inline-flex; align-items:center; justify-content:center; gap:6px;
       text-align:center; white-space:normal!important; word-break:normal;
       line-height:1.15; padding-top:0; padding-bottom:0;
@@ -979,6 +981,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .toolbar > button > span, .toolbar .sel-btn > span{white-space:normal!important}
     .toolbar .sel-btn{display:inline-flex!important; align-items:center; justify-content:center;
       text-align:center; line-height:1.15}
+    /* FMEA secim kutusu: proje adi uzunsa yazi kuculur/tek satira iner */
+    .toolbar .sel-wrap{flex:0 1 auto; min-width:0; max-width:230px}
+    .toolbar .sel-btn{font-size:clamp(9px, 1.05vw, 13px)!important;
+      white-space:normal!important; overflow:hidden; display:block;
+      line-height:1.15; text-align:center; padding:6px 10px!important;
+      word-break:break-word; hyphens:auto}
+    /* Cok uzun proje adlarinda daha da kuculur */
+    .toolbar .sel-wrap.is-long .sel-btn{font-size:clamp(8px, .72vw, 11px)!important}
+    /* Genel ".toolbar button" kuralindan sonra gelir ve daha ozguldur
+       (.sel-wrap > .sel-btn), bu yuzden kazanir. */
+    .toolbar .sel-wrap > .sel-btn{
+      font-size:clamp(9px, 1.05vw, 13px)!important;
+      height:46px!important; min-width:0; max-width:230px; flex:0 1 auto;
+      white-space:normal!important; word-break:break-word; hyphens:auto;
+      text-align:center; line-height:1.15; padding:6px 10px!important;
+      overflow:hidden; display:block;
+    }
+    @media (max-width:1500px){
+      .toolbar .sel-wrap > .sel-btn{font-size:clamp(9px, .82vw, 12px)!important}
+    }
+    @media (max-width:1200px){
+      .toolbar .sel-wrap > .sel-btn{font-size:clamp(9px, .72vw, 11px)!important}
+    }
+    @media (max-width:900px){
+      .toolbar .sel-wrap > .sel-btn{font-size:10px!important}
+    }
+    /* Acilir liste arkasinda kalmasin diye ust cubuktan yuksekte */
+    .toolbar .sel-menu{z-index:200!important; white-space:normal!important;
+      font-size:clamp(11px, .9vw, 14px)!important}
     /* Adım sekmeleri de aynı yükseklikte */
     .ag-steps{align-items:center!important; flex:0 0 auto; height:46px;
       padding:0 4px; border:none; background:#e6eaf2; border-radius:999px}
