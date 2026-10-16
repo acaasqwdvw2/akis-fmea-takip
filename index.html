@@ -7110,15 +7110,70 @@ function pkSatirEkle(tablo) {
       const ws = gorunur[pkDurum.sekme];
       if (!ws) return;
       if (typeof pkDurum !== "undefined") pkDurum._pn = { sayfa: "", no: null };
+      /* "Kaynak Doküman" sutunu Kontrol Plani No ile otomatik doldurulur
+         (elleriyle yazilmis degerler korunur). */
+      try { pkKaynakDokumanDoldur(ws); } catch (e) {}
       ov.querySelector(".pk-title").textContent = cfg.ad + " — Doldurulabilir Form";
       ov.querySelector(".pk-slot").innerHTML = pkSekmeler(key, pkDurum.wb) + pkIzgaraHtml(ws);
       const bas = ov.querySelectorAll(".pk-tabs button");
       for (let i = 0; i < bas.length; i++) bas[i].className = (i === pkDurum.sekme ? "on" : "");
       pkHucreYukle();
+      pkKaynakDokumanDoldur(ws);
       const bek = ov.querySelector(".pk-belge-ortam");
       if (bek) pkBelgeKonumlandir(bek);
       fitTopScroll(ov);
       pkSonSatirIsaretle();
+    }
+    /* Kullanici istegi: form sablonu acildiginda "Kaynak Doküman" sutununa
+       Kontrol Plani No otomatik gelir. Hucre bos birakilmissa veya hic
+       yazilmamissa doldurulur; elle yazilmis deger KORUNUR. Yalnizca veri
+       satirlarina yazilir (basliklara dokunulmaz). */
+    function pkKaynakDokumanDoldur(ws) {
+      try {
+        const kaynak = (typeof window.__pkKontrolPlani === 'function') ? window.__pkKontrolPlani() : null;
+        /* Kontrol Plani No yoksa (cogu Excel'de yalnizca "Kontrol Plani
+           Revizyon No" vardir) revizyon numarasindan uretilir: "KP-5".
+           Boylece Kaynak Doküman sutunu her zaman dolu gelir. */
+        let kpNo = String((kaynak && kaynak.kpNo) || fmeaMeta.kpNo || '').trim();
+        if (!kpNo) {
+          const rev = String(fmeaMeta.kpRevNo || '').trim();
+          if (rev) kpNo = 'KP-' + rev;
+        }
+        if (!kpNo) return;
+        const depo = pkEditsYukle();
+        const key = pkDurum.anahtar;
+        if (!key) return;
+        const cozum = pkSayfaCozum(ws);
+        if (!cozum) return;
+        const sut = cozum.baslikSutunlar || {};
+        const kolon = sut.sutunlar || sut;
+        const cKaynak = kolon.kaynak;
+        if (!cKaynak) return;              /* bu sablonda "Kaynak Doküman" sutunu yok */
+        const bas = (cozum.sonBaslik || 0) + 1;
+        let yazildi = 0;
+        const son = bas + pkSatirSayisi();
+        /* Satirin "veri sayilan" kontrolu kaynak sutununu (B) hariç tutar;
+           oysa biz O SUTUNU dolduracagiz. Bu yuzden burada takip no (2)
+           disinda herhangi bir veri olup olmadigina bakilir. */
+        const satirdaVeri = function (depo, sayfa, r) {
+          const rS = String(r);
+          for (const k in depo) {
+            const p = String(k).split('!');
+            if (p.length !== 4 || p[2] !== rS) continue;
+            if (p[3] === String(cKaynak) || p[3] === '2') continue;
+            if (p[0] === key && p[1] === sayfa) return true;
+          }
+          return false;
+        };
+        for (let r = bas; r <= son; r++) {
+          const pk = key + '!' + ws.name + '!' + r + '!' + cKaynak;
+          if (depo[pk] !== undefined && String(depo[pk]).trim() !== '') continue;  /* elle yazilmis: dokunma */
+          if (!satirdaVeri(depo, ws.name, r)) continue;   /* henuz veri girilmemis bos satir */
+          depo[pk] = kpNo;
+          yazildi++;
+        }
+        if (yazildi) pkEditsYaz(depo);
+      } catch (e) { /* sessiz: form acilmaya devam etsin */ }
     }
     function pkEnsureOverlay() {
       let ov = document.getElementById('pkOverlay');
