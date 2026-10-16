@@ -3801,7 +3801,7 @@ function save() {
       if (currentProject) upsertProject(currentProject, nodes, fmeaMeta);
       const name = 'Tedarikçi ' + (projects.length + 1);
       upsertProject(name, [], {});
-      nodes = []; fmeaMeta = {}; currentProject = name; selected = null; sonTiklananProses = null;
+      nodes = []; fmeaMeta = {}; currentProject = name; selected = null; sonTiklananDugum = null;
       showMeta = true;
       ckLogEkle('proje', 'Yeni FMEA oluşturuldu: ' + name, 'proje-yeni|' + name);
       save();
@@ -3945,11 +3945,11 @@ function toggleFmeaMeta(forceOpen) {
       return (n.altProsesler || []).filter(s => !s.fmeaOnly);
     }
 
-    /* Kullanic istegi: akistan son tiklanan proses HATIRLANIR ve "+" dugmeleri
-       ile eklenen yeni dugum o prosesin ALTINA (hemen arkasina) girer;
-       onceki davranista dugumler her zaman en sona ekleniyordu. Panel
-       kapatilsa da bu hafiza korunur. */
-    let sonTiklananProses = null;
+    /* Kullanic istegi: akistan son tiklanan KUTU (proses, karar/sart, baslangic,
+       bitis - HEPSI) HATIRLANIR ve "+" dugmeleri ile eklenen yeni dugum o
+       kutunun ALTINA (hemen arkasina) girer; onceki davranista dugumler her
+       zaman en sona ekleniyordu. Panel kapatilsa da bu hafiza korunur. */
+    let sonTiklananDugum = null;
 
     function addNode(type) {
       const labels = { start: 'BAŞLANGIÇ', process: '', condition: 'Malzeme Uygun mu?', end: 'BİTİŞ' };
@@ -3976,17 +3976,17 @@ function toggleFmeaMeta(forceOpen) {
         });
       }
 
-      /* Hedef: hafirlanan proses (yoksa en son dugumun sonu). */
+      /* Hedef: hafirlanan KUTU (hangi tur olursa olsun: proses, karar/sart,
+         baslangic, bitis). Yoksa dugum sona eklenir. */
       let ix = -1;
-      if (sonTiklananProses) {
-        ix = nodes.findIndex(x => x.id === sonTiklananProses);
+      if (sonTiklananDugum) {
+        ix = nodes.findIndex(x => x.id === sonTiklananDugum);
         if (ix >= 0) nodes.splice(ix + 1, 0, n); else nodes.push(n);
       } else {
         nodes.push(n);
       }
-      /* Yeni proses eklendiyse hafira o alinir; boylece ardisik eklemeler
-         ayni prosesin altina devam eder. */
-      if (type === 'process') sonTiklananProses = n.id;
+      /* Yeni kutuyu hafira al; boylece ardisik eklemeler ayni kutuya devam eder. */
+      sonTiklananDugum = n.id;
       selected = n.id;
       save();
       /* Yeni proses de Kontrol Planı'nda yer alsın (iskelet satir). */
@@ -3997,10 +3997,11 @@ function toggleFmeaMeta(forceOpen) {
 
     function selectNode(id) {
       selected = id;
-      /* TIKLANAN PROSES HAFIZAYA ALINIR: panel kapansa bile "+" dugmeleri
-         bu prosesin altina eklemeye devam eder. */
+      /* TIKLANAN KUTU HAFIZAYA ALINIR (proses olmak zorunda degil; sart/karar,
+         baslangic ve bitis de olabilir). Panel kapansa bile "+" dugmeleri bu
+         kutunun altina eklemeye devam eder. */
       const dugum = nodes.find(n => n.id === id);
-      if (dugum && dugum.type === 'process') sonTiklananProses = id;
+      if (dugum) sonTiklananDugum = id;
       render();
       openForm();
     }
@@ -4012,7 +4013,7 @@ function toggleFmeaMeta(forceOpen) {
 
     function closeForm() {
       selected = null;
-      /* NOT: sonTiklananProses SILINMEZ; panel kapansa da "+" dugmeleri
+      /* NOT: sonTiklananDugum SILINMEZ; panel kapansa da "+" dugmeleri
          son tiklanan prosesin altina eklemeye devam eder. */
       render();
       const ov = document.getElementById('formOverlay');
@@ -4030,7 +4031,7 @@ function toggleFmeaMeta(forceOpen) {
       if (confirm('Bu adımı silmek istiyor musunuz?')) {
         nodes = nodes.filter(n => n.id !== id);
         if (selected === id) selected = null;
-        if (sonTiklananProses === id) sonTiklananProses = null;
+        if (sonTiklananDugum === id) sonTiklananDugum = null;
         save();
       }
     }
@@ -9376,7 +9377,7 @@ function download(d, n, t) {
     }
 
     function clearAll() {
-      if (confirm('Tüm akış silinsin mi?')) { nodes = []; selected = null; sonTiklananProses = null; save(); }
+      if (confirm('Tüm akış silinsin mi?')) { nodes = []; selected = null; sonTiklananDugum = null; save(); }
     }
 
     window.addEventListener('resize', drawConnections);
