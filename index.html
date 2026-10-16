@@ -905,7 +905,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <button class="excel-btn" style="background:#8a5a2e" onclick="openProsesKontrolFormu('tedarikci')">Tedarikçi Proses Kontrol Formu</button>
     <button class="excel-btn" style="background:#6b4a8a" onclick="openProsesKontrolFormu('aselsan')">Aselsan Global Proses Kontrol Formu</button>
     <div class="sel-wrap" id="projectSelWrap">
-      <button type="button" class="sel-btn" id="projectSelBtn" onclick="toggleProjectMenu(event)">-- Tedarikçi Seçin --</button>
+      <button type="button" class="sel-btn" id="projectSelBtn" onclick="toggleProjectMenu(event)">-- FMEA Seçin --</button>
       <div class="sel-menu" id="projectSelMenu"></div>
     </div>
     <button class="light" onclick="newProject()">Yeni FMEA</button>
@@ -1635,7 +1635,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       };
     };
     // Bulut verisi geldikten sonra secili proje tutmuyorsa ilk projeyi sec.
-    // Aksi halde "Aktif FMEA" bulunamaz, proje menusu "-- Tedarikci Secin --" der
+    // Aksi halde "Aktif FMEA" bulunamaz, proje menusu "-- FMEA Secin --" der
     // ve Onaya Gonder butonu calismaz.
     function ensureCurrentProject() {
       if (!projects.length) { currentProject = ''; return; }
@@ -3719,14 +3719,14 @@ function save() {
       const menu = document.getElementById('projectSelMenu');
       if (!btn || !menu) return;
       const cur = projects.find(p => p.name === currentProject);
-      btn.textContent = cur ? ((cur.fmeaMeta && cur.fmeaMeta.firma) || cur.name) + (cur.type === 'parca' ? ' [Parça Bazlı]' : '') : '-- Tedarikçi Seçin --';
-      menu.innerHTML = '<button type="button" data-pick="">-- Tedarikçi Seçin --</button>' +
+      btn.textContent = cur ? ((cur.fmeaMeta && cur.fmeaMeta.firma) || cur.name) + (cur.type === 'parca' ? ' [Parça Bazlı]' : '') : '-- FMEA Seçin --';
+      menu.innerHTML = '<button type="button" data-pick="">-- FMEA Seçin --</button>' +
         projects.map(p => {
           const display = (p.fmeaMeta && p.fmeaMeta.firma) || p.name;
           const tag = (p.type === 'parca') ? ' [Parça Bazlı]' : '';
           return `<div class="sel-item${p.name === currentProject ? ' current' : ''}">
             <button type="button" class="sel-pick" data-pick="${esc(p.name)}">${esc(display + tag)}</button>
-            <button type="button" class="sel-del" title="${p.name === currentProject ? 'Silme butonu devre dışı (aktif tedarikçi)' : 'Tedarikçiyi sil'}" data-del="${esc(p.name)}"${p.name === currentProject ? ' disabled' : ''}>×</button>
+            <button type="button" class="sel-del" title="${p.name === currentProject ? 'Silme butonu devre dışı (aktif FMEA)' : 'FMEA\'yı sil'}" data-del="${esc(p.name)}"${p.name === currentProject ? ' disabled' : ''}>×</button>
           </div>`;
         }).join('');
       try { paintOnayBtn(); } catch (e) {}
