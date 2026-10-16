@@ -3989,6 +3989,8 @@ function toggleFmeaMeta(forceOpen) {
       if (type === 'process') sonTiklananProses = n.id;
       selected = n.id;
       save();
+      /* Yeni proses de Kontrol Planı'nda yer alsın (iskelet satir). */
+      try { pkCpEksikleriAc(); } catch (e) {}
       render();
       openForm();
     }
@@ -4421,6 +4423,39 @@ form.innerHTML = showMeta ? `
       render();
     }
 
+    /* Akista olup Kontrol Plani'nda karsiligi OLMAYAN her adim icin bos bir CP
+       satiri acar. Boylece "akis semasindaki her adim kontrol planinda olur".
+       Satirda anlamli gelen yalnizca No (adim kodu) ve Adi'dir; Takip No
+       onizlemede sirayla (1..N) uretilir. Karakteristigi, Spesifikasyon,
+       Siniflandirma, Olcum, Kontrol, Miktar, Siklik, Kayit Sorumlusu ve
+       Reaksiyon sutunlari BOS birakilir ve siteden doldurulur. */
+    function pkCpEksikleriAc() {
+      try {
+        if (!Array.isArray(nodes) || !nodes.length) return;
+        /* Proje adi bos olabilir (yeni yukleme / temizleme sonrasi).
+           O durumda mevcut veri SILINMEZ; kpYazBucket zaten ayni anahtari
+           ("") kullanir, sadece eklenen kodlar ona yazilir. */
+        const proje = aktifProjeAd();
+        const tum = kpTumu();
+        const mevcut = (tum[proje] && typeof tum[proje] === 'object' && !Array.isArray(tum[proje]))
+          ? tum[proje] : {};
+        const b = Object.assign({}, mevcut);
+        const seen = {};
+        let eklendi = 0;
+        nodes.forEach(function (n) {
+          if (n.type !== 'process') return;
+          (n.altProsesler || []).forEach(function (sub) {
+            const code = String((sub && sub.code) || '').trim();
+            if (!code || seen[code]) return;
+            seen[code] = 1;
+            if (kpSatirlari(b[code]).length) return;      /* zaten satir var */
+            b[code] = [{ karak: '', spes: '', sinif: '', olcum: '', kontrol: '', miktar: '', siklik: '', kayitSorumlu: '', reaksiyon: '' }];
+            eklendi++;
+          });
+        });
+        if (eklendi) kpYazBucket(b);
+      } catch (e) { /* sessiz: akis/CP yine de calissin */ }
+    }
     /* Akista elle eklenen adim icin Kontrol Plani'nda BOS bir satir acar.
        Boylece "akis semasindaki her adim kontrol planinda olur"; adim
        sonradan Kontrol Plani onizlemesinden doldurulabilir. */
@@ -4450,8 +4485,9 @@ form.innerHTML = showMeta ? `
       p.altProsesler.push(sub);
       ckLogEkle('akis', 'Akışa yeni alt proses eklendi', 'akis-ekle|' + (currentProject || '') + '|' + (selected || ''));
       save();
-      /* save() -> autoNumberNodes() kodu atadi; simdi CP karsiligini ac. */
-      pkCpSatirAc(sub.code);
+      /* save() -> autoNumberNodes() kodu atadi; simdi tum eksik CP
+         satirlarini ac (yeni adim dahil). */
+      try { pkCpEksikleriAc(); } catch (e) {}
       const cov = document.getElementById('cpOverlay');
       if (cov && cov.classList.contains('open')) { try { showControlPlanPreview(); } catch (e) {} }
     }
@@ -7724,7 +7760,10 @@ function pkSatirEkle(tablo) {
         alert('Görüntülenecek Kontrol Planı verisi yok. Önce akış oluşturun.');
         return;
       }
+      /* Akista olup CP'de karsiligi olmayan adimlar icin iskelet satir acilir
+         (yalnizca No/Adi anlamli; diger sutunlar siteden doldurulur). */
       autoNumberNodes();
+      try { pkCpEksikleriAc(); } catch (e) {}
       const E = (s) => esc(s);
       const N = (v) => (v === '' || v === null || v === undefined) ? '' : v;
       const RPN = (s, o, d) => ((+s || 0) * (+o || 0) * (+d || 0));
