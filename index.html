@@ -860,6 +860,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .toolbar{padding:10px 12px!important}
       .toolbar button{padding:7px 10px!important; font-size:13px!important}
     }
+
+    /* ---- Sayili adim sekmeleri (ust_menu_ornek birebir) ----
+       Yuvarlak (pill) kapsayici, numarali daireler, aktif sekme beyaz. */
+    .ag-steps{display:flex;gap:4px;align-items:center;padding:4px;background:#e6eaf2;
+      border:1px solid var(--ag-bd);border-radius:999px;margin-right:6px;flex-wrap:wrap}
+    .ag-step{display:flex;align-items:center;gap:8px;border:0;background:transparent;
+      color:#5b6b82;padding:7px 14px;border-radius:999px;white-space:nowrap;
+      font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+    .ag-step .n{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+      font-size:11px;font-weight:700;background:#cfd8e6;color:#3c4a5f}
+    .ag-step:hover{background:#dbe2ee;color:#1f2a3c}
+    .ag-step.on{background:#fff;color:var(--ag-brand);box-shadow:0 1px 4px rgba(16,24,40,.18)}
+    .ag-step.on .n{background:var(--ag-link);color:#fff}
+    .ag-step.done .n{background:#16a34a;color:#fff}
+    @media (max-width:900px){
+      .ag-step{padding:7px 10px;font-size:12px}
+      .ag-step .lb{display:none}
+      .ag-step.on .lb{display:inline}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -977,6 +996,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   </div>
   
   <div class="toolbar">
+    <!-- Sayili adim sekmeleri (ust_menu_ornek tasarimi). Yalnizca GORSEL
+         navigasyon; mevcut butonlarin tamami asagida KORUNMUStUR. -->
+    <nav class="ag-steps" aria-label="Adımlar">
+      <button type="button" class="ag-step on" data-adim="akis" onclick="agAdimSec('akis')" data-tip="Proses Akış Şeması"><span class="n">1</span><span class="lb">Proses Akış</span></button>
+      <button type="button" class="ag-step" data-adim="fmea" onclick="agAdimSec('fmea')" data-tip="FMEA Görüntüle"><span class="n">2</span><span class="lb">FMEA</span></button>
+      <button type="button" class="ag-step" data-adim="cp" onclick="agAdimSec('cp')" data-tip="Kontrol Planı Görüntüle"><span class="n">3</span><span class="lb">Kontrol Planı</span></button>
+      <button type="button" class="ag-step" data-adim="takip" onclick="agAdimSec('takip')" data-tip="Süreç Takip"><span class="n">4</span><span class="lb">Süreç Takip</span></button>
+    </nav>
     <button class="light" onclick="toggleFmeaMeta(true)">FMEA Başlık Bilgileri</button>
     <button class="excel-btn" style="background:#3a7ca5" onclick="showFmeaPreview()">FMEA Görüntüle</button>
     <button class="excel-btn" style="background:#5b8c5a" onclick="showControlPlanPreview()">Kontrol Planı Görüntüle</button>
@@ -4024,6 +4051,29 @@ function save() {
       download(html, fname, 'text/html;charset=utf-8');
     }
 
+    /* --- Sayili adim sekmeleri (gorsel navigasyon) ------------------
+       Yalnizca mevcut ekranlari ACIKLAYAN bir navigasyon; hicbir islev
+       degistirmez, veriye dokunmaz. Butonlar ornek tasarimdaki gibi
+       1-2-3-4 numarali ve yanyana durur. */
+    function agAdimSec(adim) {
+      try {
+        document.querySelectorAll('.ag-step').forEach(function (b) {
+          b.classList.toggle('on', b.getAttribute('data-adim') === adim);
+        });
+        if (adim === 'akis') {
+          try { closeFmeaPreview(); } catch (e) {}
+          try { closeControlPlanPreview(); } catch (e) {}
+          try { closeProsesKontrolFormu(); } catch (e2) {}
+          try { document.getElementById('flowContainer').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e3) {}
+        } else if (adim === 'fmea') {
+          try { showFmeaPreview(); } catch (e) {}
+        } else if (adim === 'cp') {
+          try { showControlPlanPreview(); } catch (e) {}
+        } else if (adim === 'takip') {
+          try { openCockpit(); } catch (e) {}
+        }
+      } catch (e) { /* sessiz */ }
+    }
 function toggleFmeaMeta(forceOpen) {
       showMeta = (forceOpen === undefined) ? !showMeta : !!forceOpen;
       selected = null;
