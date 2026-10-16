@@ -879,6 +879,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .ag-step .lb{display:none}
       .ag-step.on .lb{display:inline}
     }
+
+    /* ================= FMEA / Kontrol Plani / Form: POP-UP YERINE AKIS
+       YERINDE =====================
+       Kullanici istegi: bu ekranlar popup olarak acilmasin, akis semasinin
+       ciktigi yerde, ayni yerde gosterilsin. YALNIZCA CSS: hicbir JS, fonksiyon
+       veya HTML degistirilmedi; acik/kapali mantigi aynen calisir.
+       Ust cubuk + arac cubugu gorunur kalir (butonlar kaybolmaz); ekran
+       dogrudan akis alaninin yerine oturur. */
+    :root{--ag-ust-yukseklik:126px}
+    @media (max-width:900px){:root{--ag-ust-yukseklik:172px}}
+    .fmea-overlay{
+      position:fixed!important;
+      top:var(--ag-ust-yukseklik)!important;
+      right:0!important; left:0!important; bottom:auto!important;
+      height:calc(100vh - var(--ag-ust-yukseklik))!important;
+      height:calc(100dvh - var(--ag-ust-yukseklik))!important;
+      background:transparent!important;      /* karartma yok -> popup hissi kalkar */
+      padding:14px!important;
+      align-items:stretch!important; justify-content:stretch!important;
+      z-index:45!important;                   /* arac cubugunun (20) uzerinde */
+    }
+    .fmea-overlay .fmea-modal{
+      max-width:100%!important; width:100%!important; min-width:0!important;
+      height:100%!important; max-height:100%!important; min-height:0!important;
+      align-self:stretch!important;
+      border-radius:12px!important;
+      border:1px solid var(--ag-bd)!important;
+      box-shadow:0 1px 3px rgba(16,24,40,.08)!important;
+    }
+    .fmea-overlay .mhead{border-bottom:1px solid var(--ag-bd)!important;
+      background:#fff!important; border-radius:12px 12px 0 0!important}
+    .fmea-overlay .mhead h3{color:#1b2433!important}
+    /* Baslik cubugu (akis semasi basligi) panel acikken gizlenir: ayni yere
+       baska bir baslik geliyor. Akis, panel kapandinca geri gorunur. */
+    body:has(.fmea-overlay.open) .panel-head{display:none!important}
+    /* Kayan cubuk cubugu (sayfa ici kaydirma) hizalanir */
+    .fmea-overlay .fmea-scroll{max-height:none!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -3818,16 +3855,28 @@ function save() {
       paintOnayBtn();
     }
 
+    /* FMEA seciminde gosterilecek ad: "Firma Adı / Sektör Adı - Proses Adı".
+       Eski davranista yalnizca firma (veya proje adi) yaziliyordu; ayni
+       firmanin birden fazla FMEA'si oldugunda birbirini ayirt etmek zor
+       oluyordu. */
+    function pkProjeEtiket(p) {
+      if (!p) return '';
+      const m = p.fmeaMeta || {};
+      const firma = String(m.firma || '').trim();
+      const proses = String(m.prosesAdi || m.parcaAdi || '').trim();
+      if (firma && proses) return firma + ' - ' + proses;
+      return firma || proses || p.name || '';
+    }
     function refreshProjectSel() {
       ensureCurrentProject();
       const btn = document.getElementById('projectSelBtn');
       const menu = document.getElementById('projectSelMenu');
       if (!btn || !menu) return;
       const cur = projects.find(p => p.name === currentProject);
-      btn.textContent = cur ? ((cur.fmeaMeta && cur.fmeaMeta.firma) || cur.name) + (cur.type === 'parca' ? ' [Parça Bazlı]' : '') : '-- FMEA Seçin --';
+      btn.textContent = cur ? pkProjeEtiket(cur) + (cur.type === 'parca' ? ' [Parça Bazlı]' : '') : '-- FMEA Seçin --';
       menu.innerHTML = '<button type="button" data-pick="">-- FMEA Seçin --</button>' +
         projects.map(p => {
-          const display = (p.fmeaMeta && p.fmeaMeta.firma) || p.name;
+          const display = pkProjeEtiket(p);
           const tag = (p.type === 'parca') ? ' [Parça Bazlı]' : '';
           return `<div class="sel-item${p.name === currentProject ? ' current' : ''}">
             <button type="button" class="sel-pick" data-pick="${esc(p.name)}">${esc(display + tag)}</button>
@@ -4055,8 +4104,28 @@ function save() {
        Yalnizca mevcut ekranlari ACIKLAYAN bir navigasyon; hicbir islev
        degistirmez, veriye dokunmaz. Butonlar ornek tasarimdaki gibi
        1-2-3-4 numarali ve yanyana durur. */
+    /* Akis yerinde acilan panellerin ust cubuk + arac cubugu yuksekligini
+       olcer ve CSS degiskenine yazar. Yalnizca GORSEL: hicbir islev, veri
+       veya yerlesim yapisi degismez. (Aksi halde sabit bir deger dar ekranda
+       ya da sarilan arac cubugunda butonlar panelin altinda kalir.) */
+    function agUstYuksekligi() {
+      try {
+        const hd = document.querySelector('header');
+        const tb = document.querySelector('.toolbar');
+        const h = (hd ? hd.getBoundingClientRect().bottom : 0) +
+                  (tb ? tb.getBoundingClientRect().height : 0);
+        document.documentElement.style.setProperty('--ag-ust-yukseklik', Math.ceil(h) + 'px');
+      } catch (e) {}
+    }
+    try {
+      window.addEventListener('resize', agUstYuksekligi);
+      document.addEventListener('DOMContentLoaded', agUstYuksekligi);
+      setTimeout(agUstYuksekligi, 0);
+    } catch (e) {}
+
     function agAdimSec(adim) {
       try {
+        agUstYuksekligi();
         document.querySelectorAll('.ag-step').forEach(function (b) {
           b.classList.toggle('on', b.getAttribute('data-adim') === adim);
         });
