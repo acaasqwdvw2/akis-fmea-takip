@@ -958,6 +958,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       box-shadow:0 1px 0 rgba(0,0,0,.2)!important;
     }
     .toolbar button[onclick="newProject()"]:hover{filter:brightness(1.07);border-color:transparent!important}
+
+    /* ---- Toolbar: TEK SATIR, EŞİT BOYUT, 2 SATIR YAZI ----
+       Kullanici istegi: dugmeler tek satırda olsun, hepsi aynı boyutta olsun
+       ve bir dugmenin yazisi gerekirse iki satıra sarılsın. */
+    .toolbar{flex-wrap:nowrap!important; overflow-x:auto!important; overflow-y:hidden;
+      scrollbar-width:thin; align-items:center!important; align-content:center}
+    .toolbar::-webkit-scrollbar{height:6px}
+    .toolbar::-webkit-scrollbar-thumb{background:#c3ccd9;border-radius:3px}
+    /* Ortak buton ölçüsü */
+    .toolbar > button, .toolbar .sel-wrap > button, .toolbar .sel-btn{
+      flex:0 0 auto; height:46px!important; min-width:104px; max-width:168px;
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      text-align:center; white-space:normal!important; word-break:normal;
+      line-height:1.15; padding-top:0; padding-bottom:0;
+      line-height:1.2!important; padding:5px 12px!important;
+      font-size:12.5px!important; overflow:hidden;
+    }
+    /* Uzun etiketler alt satıra taşsın (2 satır) */
+    .toolbar > button > span, .toolbar .sel-btn > span{white-space:normal!important}
+    .toolbar .sel-btn{display:inline-flex!important; align-items:center; justify-content:center;
+      text-align:center; line-height:1.15}
+    /* Adım sekmeleri de aynı yükseklikte */
+    .ag-steps{align-items:center!important; flex:0 0 auto; height:46px;
+      padding:0 4px; border:none; background:#e6eaf2; border-radius:999px}
+    .ag-step{height:46px!important; justify-content:center; align-items:center}
+    .ag-step .lb{white-space:normal!important; line-height:1.15; max-width:118px}
+    /* Adım grubu ve butonlar aynı yükseklikte dursun */
+    .ag-steps{height:46px}
+    .ag-step .n{flex:none}
+    @media (max-width:1100px){
+      .toolbar > button, .toolbar .sel-wrap > button{min-width:92px; font-size:12px!important}
+      .ag-step .lb{display:none}
+      .ag-step.on .lb{display:inline}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
