@@ -6592,6 +6592,16 @@ let rows = '';
     function pkAylikBirlesik(depo) {
       const kac = (typeof pkDurum !== 'undefined' && pkDurum._pkABDepo === depo);
       if (kac) return pkDurum._pkABHavuz;
+      /* ONEMLI - havuz daima ACIK OLAN formun verisinden kurulur.
+         Once 'tedarikci' sabit yaziliydi; Aselsan Global formu
+         acildiginda havuz yanlis/bos kuruluyor, eklenen madde (orn.
+         6.10) No'su okunamadigi icin listenin EN BASINA dustu.
+         Artik her form kendi verisini tarar (tedarikci / aselsan).
+         NOT: pkDepoNo'daki 'tedarikci!' okuması BILINCLI bir geri
+         düsüştür (aselsan birlestirilmis sayfalar kaynak sayfaya bakar) -
+         ona dokunulmadi. */
+      const formKey = (typeof pkDurum !== 'undefined' && pkDurum.anahtar)
+        ? pkDurum.anahtar : 'tedarikci';
       /* Havuza yalnizca GERCEK veri satirlari (r >= PK_ILK_VERI) girer.
          Ust bilgi bandi duzenlemeleri (satir < 20: Denetim Ayi, Denetci,
          Miktar/Lot/Seri) fantom satir olusturup ekran ve havuz yerini
@@ -6600,7 +6610,7 @@ let rows = '';
       const once = {};
       for (const k in depo) {
         const p = k.split('!');
-        if (p.length !== 4 || p[0] !== 'tedarikci' ||
+        if (p.length !== 4 || p[0] !== formKey ||
             (p[1] !== 'Haftal\u0131k' && p[1] !== 'Ayl\u0131k')) continue;
         const r = parseInt(p[2], 10);
         if (!r || r < PK_ILK_VERI) continue;
@@ -6622,7 +6632,7 @@ let rows = '';
         let iz = null;
         for (let i = 0; i < liste.length; i++) {
           const r = liste[i];
-          const noD = depo['tedarikci!' + ks + '!' + r + '!4'];
+          const noD = depo[formKey + '!' + ks + '!' + r + '!4'];
           const ham = (noD === null || noD === undefined) ? '' : String(noD).trim();
           let no;
           if (ham) {
