@@ -782,6 +782,84 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .ck-head{flex-direction:column;align-items:stretch}
       .ck-head-r{justify-content:flex-end}
     }
+
+    /* ======================= GÖRSEL YENİLEME (ust_menu_ornek) ============
+       Yalnızca GÖRÜNTÜ: hiçbir buton, id, onclick veya işlev değiştirilmemiştir.
+       Referans tasarım: lacivert gradyanlı üst çubuk, yuvarlak (pill) butonlar,
+       turuncu "Kaydet", ince kenarlıklar ve yumuşak gölge. */
+    :root{
+      --ag-brand:#0f2a52; --ag-brand-2:#1b3d78; --ag-accent:#f5a524; --ag-accent-tx:#2b1b00;
+      --ag-link:#2563eb; --ag-bd:#e2e7ef; --ag-mut:#667085; --ag-r:10px;
+    }
+    /* ---- Üst çubuk ---- */
+    header{
+      background:linear-gradient(100deg,var(--ag-brand),var(--ag-brand-2))!important;
+      border-bottom:none!important; box-shadow:0 2px 10px rgba(0,0,0,.25)!important;
+      padding:8px 18px!important; gap:14px!important;
+    }
+    header h1{color:#fff!important; font-size:15px!important; font-weight:700!important; letter-spacing:.1px}
+    header .authSlogan,header small,header #brandTitle p{color:rgba(255,255,255,.78)!important}
+    header #siteLogo{border-radius:9px; border:1px solid rgba(255,255,255,.28);
+      background:rgba(255,255,255,.12); padding:3px}
+    /* sayaç kartları üst çubukla uyumlu */
+    #count .cnt-card{background:rgba(255,255,255,.12)!important; border:1px solid rgba(255,255,255,.2)!important;
+      border-radius:9px!important}
+    #count .cnt-num{color:#fff!important}
+    #count .cnt-label{color:rgba(255,255,255,.78)!important}
+    /* kullanıcı çubuğu */
+    #userBar button{background:rgba(255,255,255,.14)!important; color:#fff!important;
+      border:1px solid rgba(255,255,255,.22)!important; border-radius:8px!important}
+    #userBar button:hover{background:rgba(255,255,255,.24)!important}
+    #userBar #userName{color:#fff!important}
+
+    /* ---- Araç çubuğu ---- */
+    .toolbar{background:var(--ag-bd)!important; border-bottom:1px solid #d6dde8!important;
+      padding:10px 18px!important; gap:8px!important; box-shadow:0 1px 2px rgba(16,24,40,.04)!important}
+    /* Tüm araç çubuğu butonları: yuvarlak, ince kenarlıklı; satır içi
+       background renkleri (ör. Excel butonları) geçersiz kılınır. */
+    .toolbar button{
+      background:#fff!important; color:#344054!important; border:1px solid var(--ag-bd)!important;
+      border-radius:var(--ag-r)!important; padding:8px 13px!important; font-weight:600!important;
+      box-shadow:0 1px 2px rgba(16,24,40,.05)!important; transition:.15s!important;
+    }
+    .toolbar button:hover{border-color:var(--ag-link)!important; color:var(--ag-link)!important}
+    /* birincil eylem (Kaydet) turuncu */
+    .toolbar button.primary{background:var(--ag-accent)!important; color:var(--ag-accent-tx)!important;
+      border-color:transparent!important; box-shadow:0 1px 0 rgba(0,0,0,.2)!important}
+    .toolbar button.primary:hover{filter:brightness(1.07)}
+    /* tehlikeli eylem (Temizle) kırmızı kenarlık */
+    .toolbar button.danger:hover{border-color:#dc2626!important; color:#dc2626!important}
+    /* Excel indir/yükle tonları */
+    .toolbar button.excel-btn:hover{border-color:var(--ag-link)!important}
+    /* onaya gönder */
+    .toolbar #onayGonderBtn{background:#16a34a!important; color:#fff!important; border-color:transparent!important}
+    .toolbar #onayGonderBtn:hover{filter:brightness(1.07)}
+    /* FMEA seçim kutusu */
+    .toolbar .sel-btn{background:#fff!important; border:1px solid var(--ag-bd)!important;
+      border-radius:var(--ag-r)!important; font-weight:600!important; color:#344054!important;
+      box-shadow:0 1px 2px rgba(16,24,40,.05)!important}
+    .toolbar .sel-wrap .sel-menu{border-radius:12px!important; box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+      border-color:var(--ag-bd)!important}
+    .toolbar .sel-wrap .sel-menu button:hover{background:#f3f5f9!important}
+
+    /* ---- Akış paneli başlığı / düğmeleri ---- */
+    .panel-head{background:#fff!important; border-bottom:1px solid var(--ag-bd)!important}
+    .panel{border-radius:12px!important; border-color:var(--ag-bd)!important}
+    .add-btns button{background:#fff!important; color:#344054!important; border:1px solid var(--ag-bd)!important;
+      border-radius:var(--ag-r)!important; font-weight:600!important; box-shadow:0 1px 2px rgba(16,24,40,.05)!important}
+    .add-btns button:hover{border-color:var(--ag-link)!important; color:var(--ag-link)!important}
+    .add-btns button.primary{background:var(--ag-accent)!important; color:var(--ag-accent-tx)!important; border-color:transparent!important}
+
+    /* ---- Fokus halkası erişilebilirlik ---- */
+    .toolbar button:focus-visible,.add-btns button:focus-visible,.sel-btn:focus-visible{
+      outline:2px solid #7cb2ff!important; outline-offset:2px!important}
+    /* ---- Dar ekranda üst çubuk ---- */
+    @media (max-width:900px){
+      header{gap:10px!important}
+      header h1{font-size:14px!important}
+      .toolbar{padding:10px 12px!important}
+      .toolbar button{padding:7px 10px!important; font-size:13px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -6639,9 +6717,16 @@ let rows = '';
       if (s.indexOf('Aylık') === 0) return 'Aylık';
       return '';
     }
+    /* Periyot kaydi KULLANICI + FORM TIPI + AKTIF FMEA projesine gore ayrilir.
+       ONEMLI: once anahtar yalnizca kullanici + form tipi idi; boylece bir
+       FMEA'da secilen periyot (orn. "Günlük") diger TUM FMEA'larda da
+       rozet olarak gorunuyordu. Artik her FMEA kendi kaydini tutar. */
     function pkPeriyotAnahtari() {
       const k = (typeof cloudUser !== 'undefined' && cloudUser && cloudUser.id) || 'anon';
-      return 'pkPeriyot::' + k + '::' + (pkDurum.anahtar || '');
+      let proje = '';
+      try { proje = pkAktifProjeAd(); } catch (e) { proje = ''; }
+      if (!proje) { try { proje = aktifProjeAd(); } catch (e2) { proje = ''; } }
+      return 'pkPeriyot::' + k + '::' + (pkDurum.anahtar || '') + '::' + proje;
     }
     /* Madde kodu -> secildigi periyotlar. */
     function pkPeriyotYukle() {
