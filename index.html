@@ -1036,36 +1036,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        Asagida kucuk ekranlarda sarma ve okunakli yazigeri alir.
        ================================================================== */
     @media (max-width:1100px){
-      .toolbar{flex-wrap:wrap!important; align-items:stretch!important; align-content:flex-start!important; gap:8px!important}
+      .toolbar{flex-wrap:wrap!important; align-items:stretch!important; align-content:flex-start!important; gap:6px!important}
       .toolbar > button, .toolbar .sel-wrap > button, .toolbar .sel-btn,
       .toolbar .sel-wrap > .sel-btn{
-        flex:1 1 calc(50% - 4px)!important;
+        flex:1 1 calc(50% - 3px)!important;
         max-width:none!important; min-width:0!important;
-        height:auto!important; min-height:46px!important;
-        padding:8px 10px!important;
-        font-size:12.5px!important; line-height:1.25!important;
+        height:auto!important; min-height:38px!important;
+        padding:4px 7px!important;
+        font-size:11.5px!important; line-height:1.2!important;
         white-space:normal!important; overflow-wrap:anywhere; word-break:normal;
         overflow:visible!important;
       }
-      .toolbar .sel-wrap{flex:1 1 calc(50% - 4px)!important; max-width:none!important; min-width:0!important}
+      .toolbar .sel-wrap{flex:1 1 calc(50% - 3px)!important; max-width:none!important; min-width:0!important}
       /* Adim sekmelerinde yazi gizlenmesin (1100px altinda .lb gizleniyordu) */
-      .ag-step .lb{display:inline!important; max-width:none!important}
-      .ag-steps{height:auto!important; min-height:44px!important; padding:4px!important}
+      .ag-step .lb{display:inline!important; max-width:none!important; font-size:11px!important}
+      .ag-steps{height:auto!important; min-height:36px!important; padding:3px!important; gap:3px!important}
     }
     @media (max-width:640px){
-      .toolbar{padding:8px!important; gap:8px!important}
+      .toolbar{padding:5px 6px!important; gap:5px!important}
       .toolbar > button, .toolbar .sel-wrap > button, .toolbar .sel-btn,
       .toolbar .sel-wrap > .sel-btn{
-        flex:1 1 100%!important; min-height:48px!important;
-        font-size:13px!important; padding:10px 12px!important;
+        /* 3 sutun: 11 buton 4 satira iner, arac cubugu ~240px yerine
+           ~150px olur; ekranin daha cok kismi icerige kalir. */
+        flex:1 1 calc(33.333% - 4px)!important; min-height:32px!important;
+        font-size:10.5px!important; padding:3px 5px!important;
       }
       .toolbar .sel-wrap{flex:1 1 100%!important}
       .toolbar .sel-menu{max-width:92vw!important}
-      .ag-steps{flex-wrap:wrap!important; height:auto!important; border-radius:14px!important}
-      .ag-step{flex:1 1 calc(33.333% - 6px)!important; height:42px!important}
-      .ag-step .lb{max-width:none!important; font-size:11.5px!important}
-      h1{font-size:19px!important; line-height:1.3!important}
-      .authSlogan{font-size:13px!important}
+      .ag-steps{flex-wrap:wrap!important; height:auto!important; border-radius:10px!important; gap:3px!important}
+      .ag-step{flex:1 1 calc(33.333% - 4px)!important; height:32px!important; padding:0 3px!important}
+      .ag-step .lb{max-width:none!important; font-size:10.5px!important}
+      h1{font-size:16px!important; line-height:1.25!important}
+      .authSlogan{font-size:11.5px!important}
     }
     /* Sayfa yatayda tasmasin; genis tablolar kendi icinde kaydirilsin */
     @media (max-width:900px){
@@ -1078,6 +1080,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         -webkit-overflow-scrolling:touch;
       }
       .izgara,.pk-izgara{min-width:640px}
+    }
+
+    /* ---- Baslik ve sayac kartlari da ekrani yemesin ---- */
+    @media (max-width:900px){
+      header{padding:4px 8px!important; gap:6px!important}
+      #siteLogo{height:38px!important}
+      #brandTitle h1,header h1{font-size:13px!important; line-height:1.25!important;
+        margin:0!important; letter-spacing:0!important}
+      /* Slogan ve alt yazi en cok yer kaplayan kisimlar; mobilde gizlenir */
+      header p.authSlogan,header #brandTitle p,header .authSlogan{display:none!important}
+      header small{display:none!important}
+      /* Sayac kartlari: alt alta degil yana yana, kucuk ve sig */
+      .count-cards,#count{gap:5px!important; width:auto!important; margin-left:auto!important}
+      .cnt-card{flex-direction:row!important; align-items:baseline!important; gap:4px!important;
+        padding:3px 8px!important; border-radius:8px!important; min-width:0!important}
+      .cnt-card .cnt-num{font-size:14px!important; line-height:1!important}
+      .cnt-card .cnt-label{font-size:9.5px!important; margin-top:0!important}
+    }
+    @media (max-width:640px){
+      #siteLogo{height:30px!important}
+      header h1{font-size:11.5px!important}
+      header{padding:3px 6px!important}
+      .count-cards,#count{margin-left:auto!important; width:auto!important; gap:4px!important}
+      .cnt-card{padding:3px 7px!important; border-radius:7px!important; gap:4px!important;
+        min-width:0!important; flex-direction:row!important; align-items:baseline!important}
+      .cnt-card .cnt-num{font-size:12.5px!important; line-height:1!important; font-weight:700!important}
+      .cnt-card .cnt-label{font-size:8.5px!important; margin-top:0!important; letter-spacing:.2px!important}
     }
   </style>
   <header>
