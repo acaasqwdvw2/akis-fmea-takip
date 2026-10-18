@@ -1812,19 +1812,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        "..." ve alt sekme çubuğu kalıcı olarak kayboluyordu.
        Artık yalnızca AÇIK durumu ifade eden seçiciler kullanılıyor;
        gerçek görünürlük kontrolü JS tarafında (computed style) yapılır. */
+    /* YALNIZCA gerçek "AÇIK" durumu ifade eden sınıflar.
+       #cpOverlay / #faOverlay / #auth gibi "varlık" kontrolleri KALDIRILDI:
+       pencereler kapanınca DOM'da kalıyor (display:false uygulanarak), bu
+       yüzden varlık kontrolü butonların kalıcı gizlenmesine yol açıyordu
+       (FMEA ve Kontrol Planı görüntülemeden çıkınca "..." ve alt
+       sekme çubuğu geri gelmiyordu).
+       Görünürlük kontrolü JS tarafında computed style ile yapılır; burada
+       yalnızca sınıfla ifade edilen açık durumlar için anında gizleme
+       bırakılmıştır. */
     body:has(.fmea-overlay.open) .pk-more,
     body:has(.fmea-modal.open) .pk-more,
-    body:has(.pk-sheet.show) .pk-more,
-    body:has(#faOverlay[style*="display: block"]) .pk-more,
-    body:has(#cpOverlay:not([style*="display: none"])) .pk-more,
-    body:has(#authScreen:not([style*="display: none"])) .pk-more{display:none!important}
-
+    body:has(.pk-sheet.show) .pk-more{display:none!important}
     body:has(.fmea-overlay.open) .ag-steps,
     body:has(.fmea-modal.open) .ag-steps,
-    body:has(.pk-sheet.show) .ag-steps,
-    body:has(#faOverlay[style*="display: block"]) .ag-steps,
-    body:has(#cpOverlay:not([style*="display: none"])) .ag-steps,
-    body:has(#authScreen:not([style*="display: none"])) .ag-steps{display:none!important}
+    body:has(.pk-sheet.show) .ag-steps{display:none!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -11590,6 +11592,17 @@ rows(); fit();
             var O = n3(ckAlan(h, ['o', 'olasilik', 'O']));
             var D = n3(ckAlan(h, ['d', 'tespit', 'D']));
             var tamam = bittiMetin ? fTarih(bittiMetin) : null;
+            /* Kullanici istegi: "aksiyonlar alınmış ama hala açık gözüküyor".
+               FMEA'da "Aksiyon Sonuçları" basligi 'aksiyon' alanina duser
+               (pkFmeaAlanSiniflaT) - yani oru yazmak aksiyonu DOLDURMAK demek,
+               tamamlandi isareti degil. Tamamlandi isareti ya
+               "Gerçekleşen Tarih" ya da aksiyon sonrasi risk degerlerinin
+               (Şiddet/Olasılık/Tespit -> s2/o2/d2) dolu olmasidir.
+               Aksiyon uygulandiysa (s2/o2/d2 dolu) da "Tamamlandı" sayilir;
+               aksi halde uygulanmis aksiyonlar "Devam ediyor" olarak
+               gorunuyordu. */
+            var s2v = h.s2 ? n3(h.s2) : null, o2v = h.o2 ? n3(h.o2) : null, d2v = h.d2 ? n3(h.d2) : null;
+            var uygulandi = !!(s2v && o2v && d2v);
             var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
             R.push({
               id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
@@ -11599,9 +11612,11 @@ rows(); fit();
               S: S, O: O, D: D,
               faaliyet: faaliyet, aksiyon: aksiyon,
               sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
-              termin: hd, durum: tamam ? 'Tamamlandı' : 'Devam ediyor', tamam: tamam,
-              kalanGun: kalanGun, gecGun: (!tamam && kalanGun < 0) ? -kalanGun : 0,
-              S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
+              termin: hd, durum: (tamam || uygulandi) ? 'Tamamlandı' : 'Devam ediyor',
+              tamam: tamam, uygulandi: uygulandi,
+              kalanGun: kalanGun,
+              gecGun: ((!tamam && !uygulandi) && kalanGun < 0) ? -kalanGun : 0,
+              S2: s2v, O2: o2v, D2: d2v
             });
           }
         }
