@@ -1221,6 +1221,66 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       #hdrSelYuva .sel-menu{background:#fff!important; color:#1b2433!important}
       #hdrSelYuva .sel-menu button{color:#1b2433!important}
     }
+
+    /* ================================================================
+       MOBIL BASLIK = masaustu (web) gorunumunun ORANTILI KUCULTULMUSU
+       1) logo metnin SOLUNDA, baslik+slogan'in iki satirini kapsayacak
+          yukseklikte (2 satir)
+       2) "..." dugmesi sayfalarin ONUNE CIKMASIN -> sabit (fixed)
+          degil, basligin icinde mutlak konumlanir; sayfa kaydirilirken
+          da icerigin ustune binmez
+       3) slogan yeniden gosterilir (once mobilde gizlenmisti)
+       ================================================================ */
+    @media (max-width:640px){
+      header{position:relative!important; display:flex!important; align-items:stretch!important;
+        gap:8px!important; padding:7px 10px 7px 9px!important;
+        padding-right:46px!important;   /* "..." icin yer ac */
+      }
+      /* 1) LOGO: iki satirlik (baslik + slogan) yuksekligi kadar */
+      #siteLogo{height:auto!important; align-self:center!important; flex:none!important;
+        align-self:stretch!important; max-height:52px!important; width:auto!important;
+        object-fit:contain!important; border-radius:8px!important}
+      /* Baslik + slogan blogu: webdeki duzeni birebir, ama kucuk */
+      #brandTitle{flex:1 1 auto!important; min-width:0!important; display:flex!important;
+        flex-direction:column!important; justify-content:center!important; gap:2px!important}
+      header h1{font-size:12px!important; line-height:1.22!important; color:#fff!important;
+        margin:0!important; white-space:normal!important; overflow:visible!important;
+        text-overflow:clip!important; letter-spacing:0!important}
+      header p.authSlogan, header #brandTitle p, header .authSlogan{
+        display:block!important; font-size:10px!important; line-height:1.24!important;
+        color:rgba(255,255,255,.8)!important; margin:0!important; max-width:none!important}
+      /* 2) "..." sabit degil -> icerigin uzerine binmez */
+      .pk-more{position:absolute!important; top:8px!important; right:8px!important;
+        width:32px!important; height:32px!important; font-size:19px!important;
+        border-radius:10px!important; background:rgba(255,255,255,.16)!important}
+      /* 3) sayac kartlari webdeki yerde, kucuk */
+      .count-cards, #count{order:2!important; flex:0 1 auto!important; margin-left:0!important;
+        width:auto!important; gap:4px!important; align-self:center!important}
+      .cnt-card{padding:2px 6px!important; border-radius:7px!important; gap:4px!important;
+        min-width:0!important; flex-direction:row!important; align-items:baseline!important}
+      .cnt-card .cnt-num{font-size:11px!important; line-height:1!important}
+      .cnt-card .cnt-label{font-size:8px!important; margin-top:0!important}
+      /* FMEA secici, sayac kartlarinin TAM SOLUNDA (kullanici istegi).
+         Siralama: logo | baslik+slogan | FMEA secici | sayaclar | "..."
+         Yer daralirsa secici ve sayaclar birlikte alt satira gecer, yine
+         yan yana kalirlar (secici solda, sayaclar sagda). */
+      #hdrSelYuva{flex:1 1 auto!important; order:2!important; max-width:56%!important;
+        min-width:0!important; margin-top:0!important}
+      #hdrSelYuva .sel-btn{height:30px!important; font-size:12px!important;
+        border-radius:9px!important; margin-top:0!important}
+      .count-cards, #count{order:3!important}
+    }
+
+    /* Panel kapatma butonu: "Kapat (Esc)" yerine X */
+    .mhead .pk-x{display:inline-flex!important; align-items:center; justify-content:center;
+      width:34px!important; height:34px!important; min-width:34px!important; padding:0!important;
+      border-radius:10px!important; border:1px solid #d8dee8!important; background:#fff!important;
+      color:#5b6676!important; font-size:17px!important; line-height:1!important; cursor:pointer;
+      vertical-align:middle!important}
+    .mhead .pk-x:hover{background:#f3f5f9!important; border-color:#c3ccd8!important; color:#26323f!important}
+    @media (max-width:640px){
+      .mhead .pk-x{width:30px!important; height:30px!important; min-width:30px!important; font-size:15px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -5961,7 +6021,6 @@ let rows = '';
          basilmaz. FMEA onizlemesi 1.7 MB HTML ve ~1850 form denetimi uretir;
          her acilista innerHTML'i yeniden yazmak en pahali is. */
       const yeniHtml = `<div class="fmea-modal">
-        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div><button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button> <button onclick="closeFmeaPreview()">Kapat (Esc)</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
           <div class="fmeta">${metaHtml}</div>
@@ -7393,7 +7452,7 @@ let rows = '';
         'display:flex;flex-direction:column;background:#fff">' +
         '<div class="mhead"><h3>Kontrol Planı\'ndan Seç</h3>' +
         '<div><button class="pk-dl" onclick="pkSecOnayla(\'' + anahtar + '\')">Seçilenleri Forma Aktar</button> ' +
-        '<button onclick="pkSecKapat()">Kapat (Esc)</button></div></div>' +
+        '<button onclick="pkSecKapat()" class="pk-x" title="Kapat (Esc)" aria-label="Kapat">✕</button></div></div>' +
         '<div class="pk-sec-info">Kaynak: Kontrol Planı · KP No: <b>' + esc(kaynak.kpNo || '—') +
         '</b> · ' + s.length + ' satır listelendi · Satırın yanındaki rozet, o maddenin hangi periyotlarda kontrol edildiğini gösterir</div>' +
         '<div class="pk-sec-scroll"><table class="fmea-table cptable"><thead><tr>' +
@@ -8082,7 +8141,7 @@ function pkSatirEkle(tablo) {
         '<select id="pkSilSatir" class="pk-sec-btn" title="Silinecek form satırı" style="background:#fff;color:#2e6b4f;max-width:210px;padding:5px 8px;font-weight:400;overflow:hidden"></select> ' +
         '<button class="pk-sec-btn" style="background:#a33;color:#fff;" onclick="pkSeciliSatiriSil()">🗑 Satırı Sil</button> ' +
         '<button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
-        '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
+        '<button onclick="closeProsesKontrolFormu()" class="pk-x" title="Kapat (Esc)" aria-label="Kapat">✕</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
         '</div>';
       document.body.appendChild(ov);
@@ -8749,8 +8808,7 @@ const cpMetaDef = isParcaCP
         <div class="mhead"><h3>Kontrol Planı — Önizleme</h3><div>
           <select id="cpSilSatir" class="pk-sec-btn" style="background:#fff;color:#2e6b4f;max-width:340px;padding:5px 8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;">${silSecenek || '<option value="">— satır yok —</option>'}</select>
           <button class="pk-sec-btn" style="background:#a33;color:#fff;" onclick="cpSeciliSatiriSil()"${rows.length ? '' : ' disabled'}>🗑 Seçili Satırı Sil</button>
-          <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
-          <button onclick="closeControlPlanPreview()">Kapat (Esc)</button></div></div>
+          <button onclick="closeControlPlanPreview()" class="pk-x" title="Kapat (Esc)" aria-label="Kapat">✕</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaCP ? 'Parça Bazlı' : 'Proses Bazlı'} Kontrol Planı</div>
           <div class="fmeta">${cpMetaHtml}</div>
