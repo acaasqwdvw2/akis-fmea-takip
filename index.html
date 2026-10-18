@@ -1718,6 +1718,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       border:0!important; border-radius:8px!important; cursor:pointer!important}
     .hdr-sel-yuva .sel-menu .sel-pick:hover{background:#f3f5f9!important}
     .hdr-sel-yuva .sel-menu .sel-pick.current{background:#e7f3ec!important; font-weight:700!important}
+
+    /* Kullanici istegi: "telefonda 3 nokta hala diger penceredeyken onde
+       kaliyor; sadece ana sayfada olsun, FMEA vs tikladigimda altta kalsin".
+       Bir pencere (FMEA / Kontrol Plani / Form / Aksiyon Takip / Admin)
+       acildiginda "..." butonu ve alt sekme cubugu gizlenir; pencere
+       kapaninca geri gelir. */
+    body.pk-pencere .pk-more,
+    body.pk-pencere .ag-steps{display:none!important}
+    @media (max-width:640px){
+      body.pk-pencere .layout{padding-bottom:8px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1979,8 +1990,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           .observe(document.body, { childList: true, subtree: true });
       }
     }
+    /* Acik pencere takibi: bir modal/overlay gorunur oldugunda
+       body.pk-pencere eklenir -> "..." ve alt sekme cubugu gizlenir.
+       Mobilde menuler ve panel acilmalari da sayilir. */
+    function pencereDurumu() {
+      var acik = false;
+      var sec = ['#pkOverlay', '#faOverlay', '#fmeaOverlay', '#cpOverlay',
+        '#adminModal', '#adminPage', '.fmea-modal.open', '.fmea-overlay.open',
+        '#pkSecOverlay', '#fmeaAyarlariOverlay'];
+      for (var i = 0; i < sec.length; i++) {
+        var e = document.querySelector(sec[i]);
+        if (!e) continue;
+        var cs = getComputedStyle(e);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        if (e.style && e.style.display === 'none') continue;
+        acik = true; break;
+      }
+      if (!acik && document.querySelector('.pk-sheet.show')) acik = true;
+      document.body.classList.toggle('pk-pencere', acik);
+    }
+    function pencereTakibiKur() {
+      try {
+        pencereDurumu();
+        if (window.MutationObserver) {
+          new MutationObserver(function () { pencereDurumu(); })
+            .observe(document.body, { childList: true, subtree: true, attributes: true,
+              attributeFilter: ['class', 'style'] });
+        }
+        setInterval(pencereDurumu, 700);
+      } catch (e) {}
+    }
+
     function hazir() {
       basla(); sagBlokKur(); seciciTasi(); baslikYazilariniSigdir();
+      setTimeout(pencereTakibiKur, 300);
       setTimeout(function () { sagBlokKur(); seciciTasi(); baslikYazilariniSigdir(); }, 400);
       setTimeout(function () { sagBlokKur(); seciciTasi(); baslikYazilariniSigdir(); }, 1200);
       setTimeout(function () { baslikYazilariniSigdir(); }, 2200);
