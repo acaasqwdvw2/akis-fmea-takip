@@ -1567,7 +1567,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .hdr-sag{flex:0 1 auto!important; margin-left:auto!important;
         max-width:min(700px,52vw)!important; overflow:visible!important;
         justify-content:flex-end!important; height:96px!important;
-        flex-wrap:nowrap!important; align-items:center!important; gap:10px!important}
+        flex-wrap:nowrap!important; gap:10px!important}
       /* SARMAMA YAPILMAZ: flex-wrap başlığı 96px'den 222px'e şişiriyordu.
          Bunun yerine seçici ESNER (flex:1 1 auto + min-width:0 + taşma
          gizli) ve yazısı üç nokta ile kırpılır; hesap KISILMAZ.
@@ -1714,8 +1714,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        Düğmenin kendi sınıfı olmadığı için kimliğiyle hedefleniyor.) */
     .pk-sheet #userBar button:not([style*="display:none"]):not([style*="display: none"]),
     .pk-sheet .pk-user-grp #userBar button:not([style*="display:none"]):not([style*="display: none"]),
-    .pk-user-grp #userBar button:not([style*="display:none"]):not([style*="display: none"]),
-    #userBar button:not([style*="display:none"]):not([style*="display: none"]){
+    .pk-user-grp #userBar button:not([style*="display:none"]):not([style*="display: none"]){
       width:100%!important; display:flex!important; align-items:center!important;
       justify-content:center!important; gap:8px!important; height:46px!important;
       min-height:46px!important; padding:0 10px!important; margin:0 0 6px!important;
@@ -1725,7 +1724,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       cursor:pointer!important; -webkit-text-fill-color:#000!important;
       text-shadow:none!important; border:0!important; box-shadow:none!important}
     .pk-sheet #userBar button:not([style*="display:none"]):hover,
-    #userBar button:not([style*="display:none"]):hover{background:#e2e8f0!important}
+    .pk-user-grp #userBar button:not([style*="display:none"]):hover{background:#e2e8f0!important}
     .pk-sheet .pk-sitem.danger,.pk-sheet .pk-sitem.danger:hover{color:#8a1010!important}
     .pk-sheet .pk-sitem.primary,.pk-sheet .pk-sitem.primary:hover{color:#2b1b00!important}
 
@@ -1846,6 +1845,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     body:has(.fmea-overlay.open) .ag-steps,
     body:has(.fmea-modal.open) .ag-steps,
     body:has(.pk-sheet.show) .ag-steps{display:none!important}
+    /* Kullanici: "cikis butonu buyumus?" — panel kurali (#userBar button,
+       46px) onek olmadigi icin BASLIKTAKI Cikis butonuna da uygulaniyordu.
+       Yukarida panele kapsamlandirildi. Basliktaki Cikis burada seciciyle
+       ayni yukseklige ve hizaya getirilir. #userBar baslikta
+       header > .hdr-sag > .hdr-sag-ust > #userBar yolundadir. */
+    header .hdr-sag-ust > #userBar{align-self:center!important}
+    header .hdr-sag-ust > #userBar > button{height:36px!important; min-height:0!important;
+      box-sizing:border-box!important; padding:0 12px!important; margin:0!important;
+      font-size:12.5px!important; line-height:34px!important; border-radius:6px!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
