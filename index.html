@@ -1655,8 +1655,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       line-height:46px!important; border:0!important; border-radius:12px!important;
       padding:0 10px!important; margin:0!important; cursor:pointer!important;
       overflow:visible!important; flex:0 0 auto!important; min-height:46px!important}
-    .pk-user-grp button:hover{background:#e2e8f0!important}
+    .pk-user-grp button:hover{background:#e2e8f0!important; color:#000!important}
     .pk-user-grp button:active{background:#dbe2ec!important}
+
+    /* ONEMLI - Yönetici Kokpiti ve Onay Yönetimi butonlari SADECE yönetici
+       hesabinda gorunmelidir; uygulama bunlari `style="display:none"` ile
+       gizler ve yalnizca cloudIsAdmin oldugunda gorunur yapar. Yukaridaki
+       genel "button{display:block!important}" kurali o gizlemeyi EZDI ve
+       butonlar herkese cikiyordu. Inline gizlemeye saygi duyuyoruz. */
+    .pk-user-grp button[style*="display:none"],
+    .pk-user-grp button[style*="display: none"]{display:none!important}
+
+    /* Yazi rengi: butonlarda siyah (okunmuyordu) */
+    .pk-sitem,.pk-sitem:hover,.pk-sitem:active,
+    .pk-user-grp button,.pk-user-grp button:hover,.pk-user-grp button:active,
+    .pk-user-grp #userName{color:#000!important}
+    .pk-sheet .pk-sitem.danger,.pk-sheet .pk-sitem.danger:hover{color:#8a1010!important}
+    .pk-sheet .pk-sitem.primary,.pk-sheet .pk-sitem.primary:hover{color:#2b1b00!important}
 
     /* FMEA secim listesi (telefon): secici dar (118px) oldugu icin liste
        onun genisligine bagli kalip EKRANIN SAGINDAN TASIYORDU ve ogeler
@@ -1729,6 +1744,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     @media (max-width:640px){
       body.pk-pencere .layout{padding-bottom:8px!important}
     }
+
+    /* ANINDA gizleme: JS denetim arasi 700 ms bekleyebiliyordu; bu yuzden
+       "..." butonu pencere acildiktan sonra kisa sureliikle gorunuyordu.
+       CSS :has() ile herhangi bir pencere DOM'da bulundugu AN gizlenir
+       (JS'e bagli kalmaz). Modern tarayicilarda aninda gecerli.
+       Kapsananlar: Proses Kontrol Formlari, FMEA onizleme, Kontrol Plani
+       onizleme, Kontrol Sec, FMEA Ayarlari, Aksiyon Takip, Admin,
+       "Daha fazla" paneli. */
+    body:has(#pkOverlay) .pk-more,
+    body:has(#faOverlay) .pk-more,
+    body:has(#cpOverlay) .pk-more,
+    body:has(#pkSecOverlay) .pk-more,
+    body:has(#fmeaAyarlariOverlay) .pk-more,
+    body:has(#fmeaOverlay) .pk-more,
+    body:has(.fmea-overlay.open) .pk-more,
+    body:has(.fmea-modal) .pk-more,
+    body:has(.pk-sheet.show) .pk-more{display:none!important}
+    body:has(#pkOverlay) .ag-steps,
+    body:has(#faOverlay) .ag-steps,
+    body:has(#cpOverlay) .ag-steps,
+    body:has(#pkSecOverlay) .ag-steps,
+    body:has(#fmeaAyarlariOverlay) .ag-steps,
+    body:has(#fmeaOverlay) .ag-steps,
+    body:has(.fmea-overlay.open) .ag-steps,
+    body:has(.fmea-modal) .ag-steps,
+    body:has(.pk-sheet.show) .ag-steps{display:none!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
