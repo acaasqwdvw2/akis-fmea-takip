@@ -1118,6 +1118,88 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     @media (max-width:900px){
       #hdrFmeaSecWrap{font-size:11px;padding:2px 7px;margin-top:3px;border-radius:7px}
     }
+
+    /* ==================================================================
+       TELEFON KABUKU  (telefon_tasarim.html referansina gore)
+       Yukari bar (gradient) + alt sekme cubugu + FAB + alttan panel.
+       Butonlar TASIHR (DOM tasima) -> onclick handler'lari bozulmaz.
+       Sadece max-width:640px icinde gecerlidir; masaustu degismez.
+       ================================================================== */
+    @media (max-width:640px){
+      body{background:var(--ag-bg,#eef1f6)}
+      /* --- gradient ust bar --- */
+      header{background:linear-gradient(100deg,#0f2a52,#1b3d78)!important;
+        border-bottom:0!important; padding:max(6px,env(safe-area-inset-top)) 10px 8px!important;
+        gap:8px!important; align-items:center!important}
+      #siteLogo{height:32px!important; border-radius:9px!important}
+      #brandTitle{flex:1 1 auto!important; min-width:0!important}
+      header h1{font-size:15px!important; color:#fff!important; line-height:1.2!important;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+      /* FMEA secim gostergesi: gradient uzerinde acik ton */
+      #hdrFmeaSecWrap{background:rgba(255,255,255,.15)!important; border-color:rgba(255,255,255,.25)!important;
+        color:#fff!important; font-size:11px!important; margin-top:3px!important}
+      #hdrFmeaSecWrap .hdr-fmea-lb{color:#ffd27a!important}
+      .cnt-card{background:rgba(255,255,255,.14)!important}
+      /* FMEA secici arac cubugunda gorunur kalsin */
+      .toolbar{display:none!important}
+      /* --- icerik: alt cubuga yer birak --- */
+      .layout{padding-bottom:76px!important}
+      /* --- ALT SEKME CUBUGU --- */
+      .ag-steps{position:fixed!important; left:0!important; right:0!important; bottom:0!important;
+        z-index:9000!important; margin:0!important; height:auto!important; min-height:0!important;
+        display:grid!important; grid-template-columns:repeat(5,1fr)!important; gap:0!important;
+        background:#fff!important; border-top:1px solid #e3e8f0!important; border-radius:0!important;
+        padding:4px 3px calc(4px + env(safe-area-inset-bottom))!important; box-sizing:content-box}
+      .ag-step{position:relative!important; height:52px!important; border-radius:0!important;
+        background:none!important; flex-direction:column!important; gap:1px!important;
+        padding:3px 1px!important; min-width:0!important}
+      .ag-step .n{display:none!important}
+      .ag-step .lb{display:block!important; font-size:9.5px!important; font-weight:600!important;
+        line-height:1.1!important; color:#6b7488!important; max-width:none!important;
+        white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important}
+      .ag-step.on{color:#2563eb!important; background:none!important}
+      .ag-step.on .lb{color:#2563eb!important}
+      .ag-step.on::before{content:""; position:absolute; top:-4px; left:50%; transform:translateX(-50%);
+        width:26px; height:4px; border-radius:0 0 4px 4px; background:#2563eb}
+      .ag-step::after{content:attr(data-tip); display:block; font-size:15px; line-height:1; margin-bottom:2px}
+      /* --- FAB --- */
+      .pk-fab{position:fixed!important; right:14px!important; z-index:9100!important;
+        bottom:calc(64px + env(safe-area-inset-bottom))!important;
+        height:48px!important; padding:0 18px!important; border-radius:999px!important;
+        background:#f5a524!important; color:#2b1b00!important; font-weight:800!important; font-size:13px!important;
+        border:0!important; box-shadow:0 6px 18px rgba(0,0,0,.3)!important; display:none!important}
+      body.pk-mobil .pk-fab{display:inline-flex!important; align-items:center; gap:6px}
+      /* --- "Daha fazla" alt paneli --- */
+      .pk-back{position:fixed; inset:0; background:rgba(5,10,25,.5); opacity:0; pointer-events:none;
+        transition:.2s; z-index:9500; display:none}
+      .pk-back.show{opacity:1; pointer-events:auto}
+      .pk-sheet{position:fixed; left:0; right:0; bottom:0; background:#fff;
+        border-radius:22px 22px 0 0; padding:8px 12px calc(14px + env(safe-area-inset-bottom));
+        transform:translateY(105%); transition:.28s cubic-bezier(.2,.8,.2,1); z-index:9600; display:none;
+        max-height:78vh; overflow-y:auto; box-sizing:border-box}
+      .pk-sheet.show{transform:none}
+      body.pk-mobil .pk-back,body.pk-mobil .pk-sheet{display:block}
+      .pk-sheet .grab{width:40px; height:5px; border-radius:3px; background:#e3e8f0; margin:4px auto 8px}
+      .pk-sheet h4{margin:10px 6px 4px; font-size:11.5px; color:#6b7488; text-transform:uppercase; letter-spacing:.4px}
+      .pk-sheet .pk-sitem{width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+        height:46px; border-radius:12px; font-size:14px; font-weight:600; margin-bottom:6px;
+        background:#eef1f6!important; color:#1b2433!important; border:0!important; padding:0 10px!important;
+        overflow:visible!important; min-height:46px!important; flex:0 0 auto!important}
+      .pk-sheet .pk-sitem.primary{background:#f5a524!important; color:#2b1b00!important}
+      .pk-sheet .pk-sitem.danger{background:#fee2e2!important; color:#b91c1c!important}
+      /* FMEA secici panel icinde tam genislik */
+      .pk-sheet .sel-wrap{display:block!important; max-width:none!important; width:100%!important; margin-bottom:8px}
+      .pk-sheet .sel-btn{width:100%!important; max-width:none!important; height:46px!important;
+        font-size:14px!important; background:#fff!important; color:#1b2433!important;
+        border:1px solid #e3e8f0!important; border-radius:12px!important}
+      /* onek ikon */
+      .pk-more{position:fixed!important; right:12px!important; top:max(8px,env(safe-area-inset-top))!important;
+        z-index:9300!important; width:40px!important; height:40px!important; border-radius:12px!important;
+        background:rgba(255,255,255,.16)!important; border:1px solid rgba(255,255,255,.28)!important;
+        color:#fff!important; font-size:22px!important; line-height:1!important; display:none!important;
+        align-items:center; justify-content:center; cursor:pointer}
+      body.pk-mobil .pk-more{display:inline-flex!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1139,6 +1221,110 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div id="userBar"><span id="userName"></span><button id="cockpitBtn" onclick="openCockpit()" style="display:none">Yönetici Kokpiti</button><button id="adminBtn" onclick="openAdminModal()" style="display:none">Onay Yönetimi</button><button onclick="doLogout()">Çıkış</button></div>
     <div id="verinfo" style="display:none"></div>
   </header>
+  <script>
+  /* ===== TELEFON KABUGU =====
+     Arayuzu telefon_tasarim.html referansina uyarlar:
+       gradient ust bar | alt sekme cubugu (mevcut 5 adim butonu TASINIR)
+       FAB | "Daha fazla" alt paneli (arac cubugu butonlari TASINIR)
+     Butonlar DOM icinde TASINDIGI icin onclick handler'lari aynen korunur.
+     Yalnizca max-width:640px'da etkin; masaustune hic dokunmaz.
+     Genislik degisince elemanlar geri yerine konur. */
+  (function () {
+    var MQ = '(max-width:640px)';
+    var tb = null, steps = null, fab = null, more = null, sheet = null, back = null, ev = null;
+    function el(tag, cls, txt) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (txt) e.textContent = txt;
+      return e;
+    }
+    function olustur() {
+      /* --- FAB --- */
+      fab = el('button', 'pk-fab'); fab.innerHTML = '<span>+</span><span>Adım ekle</span>';
+      fab.onclick = function () {
+        try { addNode('process'); } catch (e) { alert('Adım eklenemedi.'); }
+      };
+      /* --- "Daha fazla" dugmesi --- */
+      more = el('button', 'pk-more', '⋯'); more.setAttribute('aria-label', 'Daha fazla');
+      more.onclick = function () { sheet.classList.add('show'); back.classList.add('show'); };
+      /* --- panel --- */
+      back = el('div', 'pk-back'); back.onclick = kapat;
+      sheet = el('div', 'pk-sheet');
+      sheet.appendChild(el('div', 'grab'));
+    }
+    function kapat() { if (sheet) sheet.classList.remove('show'); if (back) back.classList.remove('show'); }
+    function tasiKur() {
+      /* arac cubugunu gizle, cocuklarini panele tasi */
+      var g = el('div', 'pk-sgroup'); g.style.margin = '0';
+      var selWrap = tb.querySelector('.sel-wrap');
+      if (selWrap) sheet.appendChild(selWrap);
+      Array.prototype.slice.call(tb.children).forEach(function (c) {
+        if (c === selWrap) return;
+        /* .ag-steps arac cubugunun ICINDE olabilir; o zaten ayri olarak
+           alt nav'a tasiyor, panelde ikinci kez (dev metinli) gosterilmesin. */
+        if (c.classList && c.classList.contains('ag-steps')) return;
+        if (c.querySelector && c.querySelector('.ag-steps')) return;
+        if (c.id === 'onayGonderBtn' && c.style.display === 'none') return;
+        var lbl = (c.innerText || '').trim();
+        if (!lbl) return;
+        var b = el('button', 'pk-sitem' + (/Sil|Temizle/.test(lbl) ? ' danger' : ''), lbl);
+        b.onclick = function () { kapat(); c.click(); };
+        g.appendChild(b);
+      });
+      sheet.appendChild(g);
+      /* alt sekme cubugu: mevcut .ag-steps tasinir */
+      document.body.appendChild(steps);
+      /* ust bar: "daha fazla" dugmesi */
+      var hd = document.querySelector('header');
+      if (hd) hd.appendChild(more);
+      document.body.appendChild(fab);
+      document.body.appendChild(back);
+      document.body.appendChild(sheet);
+    }
+    function tasiKaldir() {
+      kapat();
+      /* arac cubugu cocuklarini geri koy */
+      var g = sheet.querySelector('.pk-sgroup');
+      if (g) Array.prototype.slice.call(g.children).forEach(function () { tb.appendChild(this); });
+      var selWrap = sheet.querySelector('.sel-wrap');
+      if (selWrap) tb.insertBefore(selWrap, tb.firstChild);
+      sheet.removeChild(g);
+      /* adimlari geri koy */
+      var yer = document.querySelector('.toolbar');
+      if (yer) yer.parentNode.insertBefore(steps, yer.nextSibling); else document.body.appendChild(steps);
+      /* eklediklerimizi kaldir */
+      [fab, more, back, sheet].forEach(function (n) { if (n && n.parentNode) n.parentNode.removeChild(n); });
+    }
+    var aktif = null;
+    function uygula() {
+      var mq = window.matchMedia(MQ).matches;
+      if (mq && aktif !== true) {
+        tb = document.querySelector('.toolbar');
+        steps = document.querySelector('.ag-steps');
+        if (!tb || !steps) return;
+        olustur(); tasiKur();
+        document.body.classList.add('pk-mobil');
+        aktif = true;
+      } else if (!mq && aktif === true) {
+        document.body.classList.remove('pk-mobil');
+        tasiKaldir(); aktif = false;
+      }
+    }
+    function basla() {
+      uygula();
+      var t = null;
+      window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(uygula, 150); });
+      if (window.MutationObserver) {
+        /* adim sayisi degisirse (yeni adim eklenirse) paneli tazele */
+        new MutationObserver(function () { if (aktif === true) setTimeout(function () {
+          var s2 = document.querySelector('.ag-steps'); if (s2) steps = s2; }, 0); })
+          .observe(document.body, { childList: true, subtree: true });
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', basla);
+    else basla();
+  })();
+  </script>
   <script>
   /* Basliktaki FMEA yazisi, arac cubugundaki projectSelBtn ile senkron.
      MutationObserver sayesinde secimi HANGI kod yolu degistirirse
