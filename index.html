@@ -1149,23 +1149,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         z-index:9000!important; margin:0!important; height:auto!important; min-height:0!important;
         display:grid!important; grid-template-columns:repeat(5,1fr)!important; gap:0!important;
         background:#fff!important; border-top:1px solid #e3e8f0!important; border-radius:0!important;
-        padding:4px 3px calc(4px + env(safe-area-inset-bottom))!important; box-sizing:content-box}
+        padding:4px 3px calc(4px + env(safe-area-inset-bottom))!important; box-sizing:border-box!important;
+        overflow:hidden!important; width:100%!important; max-width:100%!important}
+      /* ONEMLI: burada data-tip ile "ikon" yapma denemesi vardi; data-tip
+         kisa metin DEGIL ("FMEA Görüntüle" gibi uzun aciklama) oldugu icin
+         alt cubukta uzun metinler basilip etiketlerin USTUNE BINDIYDI.
+         Simdi yalnizca .lb kisa etiketi gosterilir, tek satir, tasma yok.
+         .n (1..5 sayaci) gizli; kutu esit ve icerigi kirpilarak ellipsis. */
       .ag-step{position:relative!important; height:52px!important; border-radius:0!important;
-        background:none!important; flex-direction:column!important; gap:1px!important;
-        padding:3px 1px!important; min-width:0!important}
+        background:none!important; min-width:0!important; max-width:100%!important;
+        padding:0 2px!important; display:flex!important; align-items:center!important;
+        justify-content:center!important; overflow:hidden!important; box-sizing:border-box!important}
       .ag-step .n{display:none!important}
-      .ag-step .lb{display:block!important; font-size:9.5px!important; font-weight:600!important;
-        line-height:1.1!important; color:#6b7488!important; max-width:none!important;
-        white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important}
+      .ag-step .lb{display:block!important; width:100%!important; font-size:9.5px!important;
+        font-weight:600!important; line-height:1.15!important; color:#6b7488!important;
+        max-width:100%!important; min-width:0!important; text-align:center!important;
+        white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important;
+        word-break:normal!important; hyphens:none!important; margin:0!important; padding:0!important}
       .ag-step.on{color:#2563eb!important; background:none!important}
       .ag-step.on .lb{color:#2563eb!important}
       .ag-step.on::before{content:""; position:absolute; top:-4px; left:50%; transform:translateX(-50%);
         width:26px; height:4px; border-radius:0 0 4px 4px; background:#2563eb}
-      .ag-step::after{content:attr(data-tip); display:block; font-size:15px; line-height:1; margin-bottom:2px}
       /* --- FAB --- */
-      .pk-fab{position:fixed!important; right:14px!important; z-index:9100!important;
-        bottom:calc(64px + env(safe-area-inset-bottom))!important;
-        height:48px!important; padding:0 18px!important; border-radius:999px!important;
+      .pk-fab{position:fixed!important; right:12px!important; z-index:9100!important;
+        bottom:calc(70px + env(safe-area-inset-bottom))!important;
+        max-width:calc(100vw - 24px)!important; white-space:nowrap!important;
+        height:46px!important; padding:0 16px!important; border-radius:999px!important;
         background:#f5a524!important; color:#2b1b00!important; font-weight:800!important; font-size:13px!important;
         border:0!important; box-shadow:0 6px 18px rgba(0,0,0,.3)!important; display:none!important}
       body.pk-mobil .pk-fab{display:inline-flex!important; align-items:center; gap:6px}
@@ -1199,8 +1208,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         color:#fff!important; font-size:22px!important; line-height:1!important; display:none!important;
         align-items:center; justify-content:center; cursor:pointer}
       body.pk-mobil .pk-more{display:inline-flex!important}
-      /* Ust bar: secici baslikla ayni satira sigsin */
-      #hdrSelYuva{flex:1 1 100%!important; order:9; margin-top:6px}
+      /* Ust bar: FMEA secici en ustte, logonun YANINDA (ilk satir).
+         Once order:9 ile basligin altina ikinci satira itiliyordu;
+         kullanici secim kutusunu yukari tasiyor. Baslik tek satira
+         sigmayan uzun metin oldugu icin tam genislikte kalir. */
+      #siteLogo{order:0!important}
+      #hdrSelYuva{flex:0 1 auto!important; max-width:64%!important; order:0!important;
+        margin-top:0!important; min-width:0!important}
+      #brandTitle{order:1!important; flex:1 1 100%!important; min-width:0!important}
       #hdrSelYuva .sel-btn{height:36px!important; font-size:12.5px!important; background:rgba(255,255,255,.15)!important;
         color:#fff!important; border-color:rgba(255,255,255,.28)!important; border-radius:10px!important}
       #hdrSelYuva .sel-menu{background:#fff!important; color:#1b2433!important}
@@ -1215,8 +1230,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <!-- Gercek FMEA secici (projectSelWrap) mobilde BURAYA tasinir;
            masaustunde arac cubugunda kalir. Sadece isim yazan ayri bir
            gostergeye gerek yok - secici zaten secmeyi sagliyor. -->
-      <span id="hdrSelYuva" class="hdr-sel-yuva"></span>
     </div>
+    <!-- FMEA secici yuva: header in dogrudan cocugu (marka ile ayni satir) -->
+    <span id="hdrSelYuva" class="hdr-sel-yuva"></span>
     <div id="count" class="count-cards">
       <div class="cnt-card" data-key="proses"><span class="cnt-num">0</span><span class="cnt-label">Proses</span></div>
       <div class="cnt-card" data-key="islem"><span class="cnt-num">0</span><span class="cnt-label">İşlem</span></div>
