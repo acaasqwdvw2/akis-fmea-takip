@@ -1397,6 +1397,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .ayar-del:hover:not(:disabled){background:#8a2b2b!important}
     .ayar-del:disabled{background:#d9c2c2!important; color:#7a6a6a!important;
       cursor:not-allowed!important}
+
+    /* ================================================================
+       SAG UST: FMEA secimi (sol) + Hesap/Çıkış (sag) ayni satirda,
+       altinda BUYUTULMUS sayac kartlari.
+       ================================================================ */
+    @media (min-width:641px){
+      .hdr-sag-ust{display:flex!important; align-items:center!important;
+        justify-content:space-between!important; gap:10px!important;
+        min-width:0!important}
+      .hdr-sag-ust .hdr-sel-yuva{order:1!important; flex:1 1 auto!important;
+        max-width:100%!important; min-width:0!important}
+      .hdr-sag-ust #userBar{order:2!important; flex:0 0 auto!important;
+        white-space:nowrap!important; display:flex!important;
+        align-items:center!important; gap:6px!important}
+
+      /* --- sayac kartlari BUYUTULDU --- */
+      .hdr-sag .cnt-card{padding:4px 12px!important; border-radius:10px!important;
+        min-height:34px!important; gap:6px!important; border-width:1.5px!important}
+      .hdr-sag .cnt-card .cnt-num{font-size:20px!important; line-height:1!important;
+        font-weight:800!important}
+      .hdr-sag .cnt-card .cnt-label{font-size:10.5px!important; margin-top:0!important;
+        letter-spacing:.3px!important; font-weight:700!important}
+      .hdr-sag #count{gap:6px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1457,7 +1481,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* arac cubugunu gizle, cocuklarini panele tasi */
       var g = el('div', 'pk-sgroup'); g.style.margin = '0';
       Array.prototype.slice.call(tb.children).forEach(function (c) {
-        if (c === selWrap) return;
+        /* NOT: burada daha once "if (c === selWrap) return;" vardi ve
+           selWrap tanimi bir baska adimda kaldirilmisit. Bu satIR
+           ReferenceError firlatiyordu; tasiKur() yarida kesildigi icin
+           body.pk-mobil hic eklenmiyor, .toolbar display:none kaldigi
+           icin telefonda TUM butonlar (Yeni FMEA, 1-5 adimlar, Excel
+           Yukle/Indir, FMEA Ayarlari) kayboluyordu. Artik selWrap'a
+           hic degisiklik yok - secici zaten basliktaki yuvada. */
         /* .ag-steps arac cubugunun ICINDE olabilir; o zaten ayri olarak
            alt nav'a tasiyor, panelde ikinci kez (dev metinli) gosterilmesin. */
         if (c.classList && c.classList.contains('ag-steps')) return;
@@ -1527,10 +1557,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           sag.className = 'hdr-sag';
           hd.appendChild(sag);
         }
-        ['userBar', 'hdrSelYuva', 'count'].forEach(function (id) {
-          const e = document.getElementById(id);
-          if (e && e.parentNode !== sag) sag.appendChild(e);
-        });
+        /* Kullanici istegi: "fmea secimini hesap:abdullah01 kisminin
+           SOLUNA al" + "Proses / İşlem / Hata kismini buyut".
+           Duzen:
+             ust satir : [FMEA seçimi] .......... [Hesap: abdullah01 / Çıkış]
+             alt satir : [Proses] [İşlem] [Hata]   (daha buyuk)
+           Yani secici hesabin solunda ayni satirda durur. */
+        let ust = sag.querySelector('.hdr-sag-ust');
+        if (!ust) {
+          ust = document.createElement('div');
+          ust.className = 'hdr-sag-ust';
+          sag.appendChild(ust);
+        }
+        const sel = document.getElementById('hdrSelYuva');
+        const user = document.getElementById('userBar');
+        const cnt = document.getElementById('count');
+        if (sel && sel.parentNode !== ust) ust.appendChild(sel);
+        if (user && user.parentNode !== ust) ust.appendChild(user);
+        if (cnt && cnt.parentNode !== sag) sag.appendChild(cnt);
       } catch (e) {}
     }
     function seciciTasi() {
@@ -4413,6 +4457,32 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       if (String(eski == null ? '' : eski).trim() !== String(v == null ? '' : v).trim()) {
         ckLogEkle('fmea', 'FMEA bilgileri güncellendi (' + (CK_META_ADI[k] || k) + ')',
           'meta|' + (currentProject || '') + '|' + k);
+
+        /* Kullanici istegi: "fmea bilgileri girildiginde fmea secim kismi
+           HEMEN guncellensin, adi gelsin; ancak baska fmeaya gecince geliyor".
+           Sebep: FMEA secim etiketi pkProjeEtiket(p) ile uretiliyor ve o,
+           aktif proje kaydinin (projects[].fmeaMeta) icindeki firmayi okuyor.
+           setMeta sadece global fmeaMeta'yi guncelliyordu; proje kaydi
+           guncellenmedigi icin etiket baska FMEA'ya gecilene kadar eski
+           kaliyordu.
+           COZUM:
+             1) aktif proje kaydinin fmeaMeta'si tazelenir ve kaydedilir,
+             2) secici (ve basliktaki yuva) yeniden cizilir.
+           Firma / proses adi degistikce yurutulur (250 ms) - her tus
+           basildiginda tam yeniden cizim yapilmaz. */
+        if (currentProject) {
+          const pr = projects.find(function (x) { return x.name === currentProject; });
+          if (pr) {
+            pr.fmeaMeta = Object.assign({}, pr.fmeaMeta || {}, fmeaMeta);
+            try { localStorage.setItem(projectsKey, JSON.stringify(projects)); } catch (e) {}
+          }
+        }
+        if (k === 'firma' || k === 'prosesAdi' || k === 'parcaAdi') {
+          clearTimeout(window.__pkSelT);
+          window.__pkSelT = setTimeout(function () {
+            try { refreshProjectSel(); } catch (e) {}
+          }, 250);
+        }
       }
       localStorage.setItem(metaKey, JSON.stringify(fmeaMeta));
       scheduleCloudSync();
@@ -4621,16 +4691,70 @@ function save() {
     function deleteProject(name) {
       const p = projects.find(x => x.name === name);
       if (!p) return;
-      if (name === currentProject) {
-        alert('Aktif tedarikçi silinemez. Önce başka bir tedarikçi seçin.');
-        return;
+      /* ONCE AKTIF FMEA'I SILMEK SERBEST: kullanici sordu
+         "aktif fmea neden silinemez silinir yapilsa riskli mi".
+         Risk suydu: currentProject silinen projeyi gosterir ve uygulama
+         tutarsiz kalirdi (seici bos, ekrandaki veri kayitsiz, sonraki
+         kayitta veri yanlis projeye karisirdi).
+         COZUM: silmeden ONCE guvenli bir hedefe gecilir -
+           1) listede baska bir FMEA varsa ona gecilir,
+           2) liste bosalacaksa bos yeni bir FMEA olusturulur.
+         Boylece currentProject her zaman gecerli bir FMEA'yi gosterir. */
+      const etiket = ((p.fmeaMeta && p.fmeaMeta.firma) || p.name);
+      const ekUyari = (name === currentProject)
+        ? '\n\n⚠ Bu, ŞU AN SEÇİLİ OLAN FMEA. Sildikten sonra uygulama ' +
+          (projects.length > 1 ? 'listedeki başka bir FMEA\'ya geçecek.\n' : 'boş yeni bir FMEA açacak.\n')
+        : '';
+      if (!confirm('"' + etiket + '" FMEA\'sı ve tüm verileri silinsin mi?' + ekUyari)) return;
+
+      const silinenAktif = (name === currentProject);
+      const kalan = projects.filter(x => x.name !== name);
+      if (silinenAktif) {
+        /* currentProject'i silinen kayitla ayni isimde BIRAKMA.
+           Silinen projeye ait form/veri depolarini da temizle ki
+           yeni projeye gecildiginde eski veri sizmasin. */
+        try { pkProjeDepolariniTemizle(name); } catch (e) {}
+        currentProject = '';
       }
-      if (!confirm('"' + ((p.fmeaMeta && p.fmeaMeta.firma) || p.name) + '" tedarikçisi ve tüm verileri silinsin mi?')) return;
-      projects = projects.filter(x => x.name !== name);
+      projects = kalan;
       localStorage.setItem(projectsKey, JSON.stringify(projects));
       ckLogEkle('proje', 'FMEA silindi: ' + name, 'proje-sil|' + name);
+
+      if (silinenAktif) {
+        /* Hedefi sec: once kalan listeden, yoksa bos yeni FMEA. */
+        const sonraki = projects.length ? projects[0].name : '';
+        if (sonraki) {
+          try { selectProject(sonraki); } catch (e) {}
+        } else {
+          try { newProject(); } catch (e) { ensureCurrentProject(); }
+        }
+        ckBildir('"' + etiket + '" silindi.', 'oldu');
+      }
       refreshProjectSel();
-      save();
+      try { save(); } catch (e) {}
+    }
+
+    /* Silinen FMEA'nin tarayicida birakmis oldugu tum depolar
+       (form duzenlemeleri, periyot vb.) temizlenir; boylece yeni
+       projeye gecildiginde o veriler sizmaz. Kullanici degilse
+       (coklu kullanicili bulut) dokunulmaz. */
+    function pkProjeDepolariniTemizle(ad) {
+      const anahtarlar = ['pkEdits:', 'pkPeriyot:'];
+      anahtarlar.forEach(function (onek) {
+        try {
+          const anahtar = onek + ad;
+          try { localStorage.removeItem(anahtar); } catch (e) {}
+          /* kullaniciya ozel on eki varsa o da temizlenir */
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.indexOf(ad) >= 0 && k.indexOf('pk') >= 0) {
+                try { localStorage.removeItem(k); } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        } catch (e) {}
+      });
     }
 
     function selectProject(name) {
