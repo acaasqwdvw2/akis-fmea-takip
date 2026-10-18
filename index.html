@@ -6509,6 +6509,8 @@ return metin + '(otomatik öneri)';
         ckAkisAlanLog('akis', k, sub[k], v);
         sub[k] = v;
       } else {
+        const sub = n.altProsesler[sIdx];
+        if (!sub) return;
         let h = sub.hatalar && sub.hatalar[hIdx];
         if (!h) {
           if (hIdx < 0) return;
