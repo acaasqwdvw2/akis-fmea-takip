@@ -1588,6 +1588,50 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* otomatik kucultme icin */
       [data-fit]{overflow:hidden!important}
     }
+
+    /* ================================================================
+       TELEFON BASLIGI - v3
+       1) Baslik daha da kisir (otomatik kucultme en kucuk 7px'e iner)
+       2) FMEA secimi ve Hesap ("Hesap: abdullah01") AYNI font - secici
+          bir daha otomatik kucultulmez, tasarsa uc nokta ile kirpilir
+          (aksi halde secici hesaptan kucuk kalirdi)
+       3) "..." butonu Proses / İşlem / Hata ile AYNI yatay hizada
+       ================================================================ */
+    @media (max-width:640px){
+      /* 1) baslik: daha cok yer, daha cok kuculebilir */
+      header #brandTitle{flex:1 1 130px!important}
+      header h1{font-size:13px!important}
+
+      /* 2) secici + hesap ayni font (10px) */
+      .hdr-sag .hdr-sel-yuva .sel-btn,
+      .hdr-sag #userBar,
+      .hdr-sag #userBar span,
+      .hdr-sag #userBtn,
+      .hdr-sag #userBar button{font-size:10px!important; line-height:1.2!important}
+      .hdr-sag .hdr-sel-yuva{max-width:130px!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{max-width:130px!important}
+
+      /* 3) "..." sayac satirinin en saginda */
+      .pk-more{position:absolute!important; order:9!important;
+        right:8px!important; bottom:5px!important; margin-left:0!important;
+        align-self:auto!important}
+      /* sayaclar "..." icin yer birakir */
+      .hdr-sag #count{padding-right:34px!important}
+    }
+
+    /* Baslik cok uzun ("Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma
+       Uygulaması"). Tek satira zorlaninca 7px'e kadar kuculup yine de
+       kirpiliyordu. Mobilde 2 SATIRA izin veriyoruz: baslik tamamen
+       okunur, diger ogeler 1. satirda kalir. */
+    @media (max-width:640px){
+      header h1{font-size:12px!important; line-height:1.18!important;
+        white-space:normal!important; overflow:hidden!important;
+        display:-webkit-box!important; -webkit-line-clamp:2!important;
+        -webkit-box-orient:vertical!important}
+      header #brandTitle{flex:1 1 140px!important}
+      .hdr-sag .hdr-sel-yuva{max-width:118px!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{max-width:118px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1734,11 +1778,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     function baslikYazilariniSigdir() {
       try {
+        /* Baslik 2 satira sigabildigi icin (line-clamp) kucultme gerekmiyor;
+           yine de sigmazsa asagi kadar kucultulur. */
         hdrYaziSigdir(document.querySelector('header h1'), 9);
+        /* NOT: projectSelBtn ve userBar OTOMATIK KUCULTULMEZ. Kullanici
+           "fmea seciminde kullanilan yazinin, hesap:abdullah01'deki yazi
+           buyuklugunu kullanmasini" istedi; secici kuculurse hesaptan
+           farkli olurdu. Ikisi de sabit 10px kalir, tasarsa uc nokta ile
+           kirpilir. Otomatik kucultme sadece BASLIKTA uygulanir. */
         const b = document.getElementById('projectSelBtn');
-        if (b) { b.setAttribute('data-fit', '1'); hdrYaziSigdir(b, 8); }
+        if (b) { b.style.fontSize = ''; b.removeAttribute('data-fit'); }
         const u = document.getElementById('userBar');
-        if (u) { u.setAttribute('data-fit', '1'); hdrYaziSigdir(u, 8); }
+        if (u) { u.style.fontSize = ''; u.removeAttribute('data-fit'); }
         document.querySelectorAll('.hdr-sag .cnt-card .cnt-num').forEach(function (e) {
           hdrYaziSigdir(e, 9);
         });
@@ -11172,21 +11223,46 @@ rows(); fit();
                Şiddet / Olasılık / Tespit   -> h.s / h.o / h.d
                RPN                           -> S x O x D
           */
-          var faaliyet = String(h.faaliyet || '').trim();
-          var aksiyon = String(h.aksiyon || '').trim();
-          if (!aksiyon && !faaliyet) return;          /* aksiyonsuz hata -> atla */
+          /* Kullanici istegi: "adminde aksiyonlari hangi mantikla yaptiysan
+             o mantigi kullan". Admin'in kendi mantigi ckAksiyonTaramasi():
+               - alanlar ckAlan() ile TAKMA ADLARINDAN cozulur
+                 (aksiyon/alinanAksiyon/alinanAksiyonlar/aksiyonlar/...
+                  faaliyet/onerilenFaaliyet/onerilen/...)
+               - ne aksiyonu ne faaliyeti olan hata LISTELENMEZ
+               - HEDEF TARIHI BOSSA listelenmez
+               - kalanGun / gecGun hesaplanir
+             Burada ayni cozucu ve ayni filtreler kullanilir; fark yalnizca
+             tamamlananlarin "Tamamlandı" olarak gosterilmesidir (admin
+             taramasinda tamamlananlar zaten liste disidir, pano ise
+             tamamlanma oranini de gostermesi gerekir).
+          */
+          var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
+          var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
+          if (!aksiyon && !faaliyet) return;                       /* aksiyonu yok */
+          var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
+          var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
+          var hd = typeof ckTarihCoz === 'function' ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
+          if (!hd) return;                                         /* hedef tarihi bos */
+          /* Guvenlik: mantiksal olmayan bir hedef tarihi (orn. 1901/1899)
+             "9302 gün gecikti" gibi sahte gecikmeler uretiyordu. 20 yildan
+             eski tarihler gecersiz sayilir; gercek bir termin o kadar
+             gecmisde olmaz. (ckTarihCoz admin icin DEGISTIRILMEDI.) */
+          if (TODAY - hd > 20 * 365.25 * 864e5) return;
           id++;
-          var S = n3(h.s), O = n3(h.o), D = n3(h.d);
-          var tamam = fTarih(h.gerceklesenTarih);
-          var termin = fTarih(h.hedefTarih);
-          var durum = tamam ? 'Tamamlandı' : (aksiyon ? 'Devam ediyor' : 'Başlamadı');
+          var S = n3(ckAlan(h, ['s', 'siddet', 'S']));
+          var O = n3(ckAlan(h, ['o', 'olasilik', 'O']));
+          var D = n3(ckAlan(h, ['d', 'tespit', 'D']));
+          var tamam = bittiMetin ? fTarih(bittiMetin) : null;
+          var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
+          var durum = tamam ? 'Tamamlandı' : 'Devam ediyor';
           R.push({
             id: 'A-' + (id < 100 ? (id < 10 ? '0' + id : '' + id) : id),
             firma: firma, adim: sub.title || sub.code || '',
-            hata: h.tur || '', S: S, O: O, D: D,
+            hata: ckAlan(h, ['tur', 'hataTuru']), S: S, O: O, D: D,
             faaliyet: faaliyet, aksiyon: aksiyon,
-            sor: String(h.sorumlu || '').trim(),
-            termin: termin, durum: durum, tamam: tamam,
+            sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
+            termin: hd, durum: durum, tamam: tamam,
+            kalanGun: kalanGun, gecGun: (!tamam && kalanGun < 0) ? -kalanGun : 0,
             S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
           });
         });
@@ -11195,8 +11271,9 @@ rows(); fit();
     R.forEach(function (r) {
       r.rpn = r.S * r.O * r.D;
       r.rpn2 = r.S2 ? r.S2 * r.O2 * r.D2 : null;
-      r.k = r.durum === 'Tamamlandı' ? 'tamam' : r.durum === 'Devam ediyor' ? 'devam' : 'bas';
-      r.late = r.k !== 'tamam' && r.termin && r.termin < TODAY ? Math.round((TODAY - r.termin) / 864e5) : 0;
+      r.k = r.durum === 'Tamamlandı' ? 'tamam' : 'devam';
+      /* admin mantigiyla gecGun (hedef gecmis ve tamamlanmamis) */
+      r.late = r.gecGun || 0;
       r.high = r.k !== 'tamam' && r.rpn >= 100;
     });
     return R;
