@@ -1177,7 +1177,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         height:46px!important; padding:0 16px!important; border-radius:999px!important;
         background:#f5a524!important; color:#2b1b00!important; font-weight:800!important; font-size:13px!important;
         border:0!important; box-shadow:0 6px 18px rgba(0,0,0,.3)!important; display:none!important}
-      body.pk-mobil .pk-fab{display:inline-flex!important; align-items:center; gap:6px}
+      /* .pk-fab: telefon devresinde uretilmiyor (bak. olustur()) */
       /* --- "Daha fazla" alt paneli --- */
       .pk-back{position:fixed; inset:0; background:rgba(5,10,25,.5); opacity:0; pointer-events:none;
         transition:.2s; z-index:9500; display:none}
@@ -1281,6 +1281,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     @media (max-width:640px){
       .mhead .pk-x{width:30px!important; height:30px!important; min-width:30px!important; font-size:15px!important}
     }
+
+    /* ================================================================
+       FMEA secici HER ekranda baslikta ve sayac kartlarinin SOLUNDA.
+       Kullanici istegi: once telefonda, sonra "pc de de" istendi.
+       Siralama: logo | baslik+slogan | FMEA secici | sayaclar
+       Once secici masaustunde arac cubugundaydi; artik baslikta.
+       ================================================================ */
+    header #siteLogo{order:0!important}
+    header #brandTitle{order:1!important; flex:1 1 auto!important; min-width:0!important}
+    .hdr-sel-yuva{order:2!important; flex:0 1 auto!important; min-width:0!important;
+      max-width:340px!important; display:inline-flex!important; align-items:center!important}
+    header .count-cards, header #count{order:3!important; flex:0 0 auto!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1320,10 +1332,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     function olustur() {
       /* --- FAB --- */
-      fab = el('button', 'pk-fab'); fab.innerHTML = '<span>+</span><span>Adım ekle</span>';
-      fab.onclick = function () {
-        try { addNode('process'); } catch (e) { alert('Adım eklenemedi.'); }
-      };
+      /* "+ Adım ekle" FAB'i telefonda KALDIRILDI (kullanici istegi):
+         Proses Akış panelinin icinde zaten "+ Başlangıç / + Proses /
+         "+ Karar / Şart" / "+ Bitiş" butonlari var; mobilde ekranin
+         sag altini gereksiz yere kapliyordu. Masaustu icin de bir
+         degisiklik yok (FAB zaten sadece telefonda uretiliyordu).
+         Dilediginizde geri almak icin asagidaki iki satiri geri
+         acar ve .pk-fab CSS'ini geri etkinlestirmek yeterlidir. */
+      fab = null;
       /* --- "Daha fazla" dugmesi --- */
       more = el('button', 'pk-more', '⋯'); more.setAttribute('aria-label', 'Daha fazla');
       more.onclick = function () { sheet.classList.add('show'); back.classList.add('show'); };
@@ -1336,12 +1352,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function tasiKur() {
       /* arac cubugunu gizle, cocuklarini panele tasi */
       var g = el('div', 'pk-sgroup'); g.style.margin = '0';
-      /* FMEA secici artik panele DEGIL ust bara gider (kullanici istegi:
-         "fmea secimini yukari tasi, alttaki butonu sil"). Paneldeki
-         ikinci kopya tamamen kaldirilir. */
-      var selWrap = tb.querySelector('.sel-wrap');
-      var yuva = document.getElementById('hdrSelYuva');
-      if (selWrap && yuva) yuva.appendChild(selWrap);
       Array.prototype.slice.call(tb.children).forEach(function (c) {
         if (c === selWrap) return;
         /* .ag-steps arac cubugunun ICINDE olabilir; o zaten ayri olarak
@@ -1361,7 +1371,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* ust bar: "daha fazla" dugmesi */
       var hd = document.querySelector('header');
       if (hd) hd.appendChild(more);
-      document.body.appendChild(fab);
+      if (fab) document.body.appendChild(fab);
       document.body.appendChild(back);
       document.body.appendChild(sheet);
     }
@@ -1370,10 +1380,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* arac cubugu cocuklarini geri koy */
       var g = sheet.querySelector('.pk-sgroup');
       if (g) Array.prototype.slice.call(g.children).forEach(function () { tb.appendChild(this); });
-      var selWrap = document.querySelector('#hdrSelYuva .sel-wrap');
-      if (selWrap) tb.insertBefore(selWrap, tb.firstChild);
-      var yuva2 = document.getElementById('hdrSelYuva');
-      if (yuva2 && yuva2.firstChild) yuva2.removeChild(yuva2.firstChild);
       sheet.removeChild(g);
       /* adimlari geri koy */
       var yer = document.querySelector('.toolbar');
@@ -1396,7 +1402,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         tasiKaldir(); aktif = false;
       }
     }
+    /* FMEA seciciyi baslik yuvasina tasi - BUTUN EKRANLARDA (kullanici
+       istegi: "fmea secmeyi pc de de Proses / İşlem / Hata kisminin
+       soluna al"). Arac cubugunda ikinci kopyasi KALMAZ; boylece tek
+       kopya olur ve hangi ekran boyutunda olursak olalim yer degistirmez. */
+    function seciciTasi() {
+      try {
+        var sel = document.querySelector('#projectSelWrap');
+        var yuva = document.getElementById('hdrSelYuva');
+        if (!sel || !yuva) return false;
+        if (sel.parentNode === yuva) return true;
+        yuva.appendChild(sel);
+        return true;
+      } catch (e) { return false; }
+    }
     function basla() {
+      seciciTasi();
       uygula();
       var t = null;
       window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(uygula, 150); });
@@ -1407,8 +1428,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           .observe(document.body, { childList: true, subtree: true });
       }
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', basla);
-    else basla();
+    function hazir() { basla(); seciciTasi(); setTimeout(seciciTasi, 400); setTimeout(seciciTasi, 1200); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hazir);
+    else hazir();
   })();
   </script>
   <div id="ckPage" style="display:none">
@@ -6021,6 +6043,8 @@ let rows = '';
          basilmaz. FMEA onizlemesi 1.7 MB HTML ve ~1850 form denetimi uretir;
          her acilista innerHTML'i yeniden yazmak en pahali is. */
       const yeniHtml = `<div class="fmea-modal">
+        <div class="mhead"><h3>${isParcaPrev ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA'} — Önizleme</h3><div>
+          <button onclick="closeFmeaPreview()" class="pk-x" title="Kapat (Esc)" aria-label="Kapat">✕</button></div></div>
         <div class="fmea-body">
           <div class="fmea-title">${isParcaPrev ? 'Parça Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)' : 'Proses Bazlı FMEA (Potansiyel Hata Türleri ve Etkileri Analizi)'}</div>
           <div class="fmeta">${metaHtml}</div>
