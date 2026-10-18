@@ -2366,6 +2366,9 @@ let nodes = [], selected = null;
     let metaKey = 'proses_fmea_meta_v30';
     let projectsKey = 'proses_fmea_projects_v31';
     let currentKey = 'proses_fmea_current_v31';
+    /* Yerel son-degisiklik damgasi: bulut eski olsa bile taze yerel verinin
+       sayfa yenilemesinde silinmesini onler (bkz. loadCloudData). */
+    let tsKey = 'proses_fmea_ts_v1';
     const KP_BASE = 'kpEdits';
     function scopeOf(uid) { return uid ? ('__u' + String(uid).replace(/-/g, '').slice(0, 12)) : ''; }
     function scopeKeysForUser(uid) {
@@ -2374,6 +2377,13 @@ let nodes = [], selected = null;
       metaKey = 'proses_fmea_meta_v30' + s;
       projectsKey = 'proses_fmea_projects_v31' + s;
       currentKey = 'proses_fmea_current_v31' + s;
+      tsKey = 'proses_fmea_ts_v1' + s;
+    }
+    function yerelZamanYaz(t) {
+      try { localStorage.setItem(tsKey, String(t || Date.now())); } catch (e) {}
+    }
+    function yerelZamanOku() {
+      try { return parseInt(localStorage.getItem(tsKey) || '0', 10) || 0; } catch (e) { return 0; }
     }
     function kpKey() { return KP_BASE + scopeOf(cloudUser ? cloudUser.id : null); }
     /* --- KONTROL PLANI: PROJE (TEDARIKCI) BAZLI DEPO ---------------------------
@@ -2889,7 +2899,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       try {
         const { data, error } = await sbClient
           .from('fmea_user_data')
-          .select('data')
+          .select('data,updated_at')
           .eq('user_id', cloudUser.id)
           .maybeSingle();
         if (error) return false;
@@ -2897,6 +2907,15 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         const d = fixTrDeep(data.data) || {};   // bozuk kodlanmis eski veri onarilir
         // Hesap reddi isareti data.hesapReddi icinde tasir; kayit sirasinda silinmesin
         cloudReddi = d.hesapReddi || null;
+        /* TAZE YEREL VERI ESKI BULUT KOPYASIYLA EZILMESIN (sayfa yenilemede
+           girilen veri kaybini onler): yerel son degisiklik buluttaki kayittan
+           yeni ise bulut verisi UYGULANMAZ; yerel korunup yukari itilir. */
+        const bulutZaman = data.updated_at ? Date.parse(data.updated_at) : 0;
+        const yerelZaman = yerelZamanOku();
+        if (yerelZaman && yerelZaman > bulutZaman + 1000) {
+          scheduleCloudSync(300);
+          return true;
+        }
         // BOS BULUT VERISI YEREL VERIYI EZMESIN (tedarikci kaybi onlemi)
         if (d.nodes && d.nodes.length) {
           try { localStorage.setItem(key, JSON.stringify(d.nodes)); } catch (e) {}
@@ -5120,9 +5139,35 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       });
     }
 
+    /* Bir prosesin numarasi (nodes icindeki kacinci 'process' dugumu). */
+    function prosesNumarasi(id) {
+      let no = 0;
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i] && nodes[i].type === 'process') {
+          no++;
+          if (nodes[i].id === id) return no;
+        }
+      }
+      return 0;
+    }
+    /* Islem adimi (alt proses) kodlarini sirali yeniden numaralar: bir adim
+       silindiginde kalanlar 10, 20, 30... seklinde otomatik kaydirilir. */
+    function islemAdimlariniNumarala(p) {
+      if (!p || !Array.isArray(p.altProsesler)) return;
+      const pno = prosesNumarasi(p.id);
+      if (!pno) return;
+      let son = 0;
+      p.altProsesler.forEach(function (sub) {
+        if (!sub) return;
+        son += 10;
+        sub.code = pno + '.' + son;
+      });
+    }
+
 function save() {
       autoNumberNodes();
       try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+      yerelZamanYaz();
       try { localStorage.setItem(currentKey, currentProject || ''); } catch (e) {}
       scheduleCloudSync();
       refreshProjectSel();
@@ -5613,6 +5658,7 @@ function toggleFmeaMeta(forceOpen) {
     function updateVisualsOnly() {
       autoNumberNodes();
       localStorage.setItem(key, JSON.stringify(nodes));
+      yerelZamanYaz();
       scheduleCloudSync();
       let flow = document.getElementById('flow');
       if (!nodes.length) {
@@ -6089,6 +6135,7 @@ form.innerHTML = showMeta ? `
     /* Yerel + bulut kaydi: ekrani yeniden CIZMEZ (yazarken imlec korunur) */
     function ckYerelKaydet() {
       try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+      yerelZamanYaz();
       scheduleCloudSync();
     }
     /* FMEA karti ust alanlari: baslik, hedef surec vb. */
@@ -6197,6 +6244,7 @@ form.innerHTML = showMeta ? `
       let p = nodes.find(n => n.id === selected);
       if (!p) return;
       p.altProsesler.splice(sIdx, 1);
+      islemAdimlariniNumarala(p);
       ckLogEkle('akis', 'Akıştan alt proses silindi', 'akis-sil|' + (currentProject || '') + '|' + (selected || '') + '|' + sIdx);
       save();
     }
@@ -6276,6 +6324,7 @@ function editHata(sIdx, i, k, v) {
         if (k === 's' || k === 'o' || k === 'd') autoSuggestFaaliyet(sIdx, i);
       } else {
         try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+        yerelZamanYaz();
         scheduleCloudSync();
       }
     }
@@ -6481,6 +6530,7 @@ return metin + '(otomatik öneri)';
       }
       fitCell(el);
       try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+      yerelZamanYaz();
       scheduleCloudSync();
     }
 
@@ -11723,8 +11773,9 @@ rows(); fit();
       '<div class="mut">Rapor tarihi: ' + fd(TODAY) + ' · RPN = Şiddet × Olasılık × Tespit</div></div>' +
       '<button class="pk-x" onclick="faKapat()" title="Kapat (Esc)" aria-label="Kapat">✕</button></div>' +
       '<div class="chips" id="faChips"></div><div class="sum" id="faSum"></div>' +
-      /* Kullanici istegi: "Aksiyon durumu" ozet satiri (Aksiyon / Tamamlandi /
-         Devam ediyor / Geciken KPI kutulari) tamamen kaldirildi. */
+      /* Kullanici istegi: ust KPI kartlari (Aksiyon / Tamamlandi / Devam
+         ediyor / Geciken) geri getirildi. */
+      '<div class="kpis" id="faKpis"></div>' +
       '<div class="card" style="margin-top:12px"><h2>Geciken veya Yüksek Riskli Aksiyonlar</h2><div id="faPri"></div></div>' +
       '<div class="card" style="margin-top:12px"><h2>Haftalık termin ↔ kapanış <span class="mut">(hafta Pazartesi başlar)</span></h2>' +
       '<div class="legend" style="margin:0 0 4px"><span><i class="dot" style="background:var(--run)"></i>Termini o hafta olan</span>' +
@@ -11830,8 +11881,14 @@ rows(); fit();
         (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
         (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
 
-      /* Kullanici istegi: "Aksiyon durumu" ozet satiri (KPI kutulari)
-         tamamen kaldirildi. */
+      /* Ust KPI kartlari: Aksiyon / Tamamlandi / Devam ediyor / Geciken.
+         ("Baslamadi" kaldirildi - kullanici istegi.) */
+      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', tamamSayisi], ['devam', 'Devam ediyor', cnt('devam')],
+        ['late', 'Geciken', late.length]];
+      $('faKpis').innerHTML = KP.map(function (k) {
+        return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
+          (k[0] === 'late' && k[2] ? ' class="late"' : '') + '>' + k[2] + '</b><span>' + k[1] + '</span></button>';
+      }).join('');
 
       var pri = V.filter(function (r) { return r.late || r.high; })
         .sort(function (a, b) { return (b.late > 0) - (a.late > 0) || b.rpn * (1 + b.late / 30) - a.rpn * (1 + a.late / 30); })
@@ -11902,6 +11959,7 @@ rows(); fit();
         .filter(function (v, i, a) { return a.indexOf(v) === i; })
         .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
     $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
+    $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
     render();
   }
   document.addEventListener('keydown', function (e) {
