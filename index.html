@@ -1805,26 +1805,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        Kapsananlar: Proses Kontrol Formlari, FMEA onizleme, Kontrol Plani
        onizleme, Kontrol Sec, FMEA Ayarlari, Aksiyon Takip, Admin,
        "Daha fazla" paneli. */
-    body:has(#pkOverlay) .pk-more,
-    body:has(#faOverlay) .pk-more,
-    body:has(#cpOverlay) .pk-more,
-    body:has(#pkSecOverlay) .pk-more,
-    body:has(#fmeaAyarlariOverlay) .pk-more,
-    body:has(#fmeaOverlay) .pk-more,
+    /* DİKKAT: burada "elementin DOM'DA VARLIĞINA" değil, "AÇIK olduğuna"
+       bakılmalı. Önceki sürüm #pkOverlay / .fmea-modal gibi sadece varlığı
+       kontrol ediyordu; pencere kapanınca eleman DOM'da kaldığı için
+       (display/ya da sınıf değişimiyle gizleniyor) kurallar tetikleniyor,
+       "..." ve alt sekme çubuğu kalıcı olarak kayboluyordu.
+       Artık yalnızca AÇIK durumu ifade eden seçiciler kullanılıyor;
+       gerçek görünürlük kontrolü JS tarafında (computed style) yapılır. */
     body:has(.fmea-overlay.open) .pk-more,
-    body:has(.fmea-modal) .pk-more,
-    body:has(.pk-sheet.show) .pk-more{display:none!important}
-    body:has(#pkOverlay) .ag-steps,
-    body:has(#faOverlay) .ag-steps,
-    body:has(#cpOverlay) .ag-steps,
-    body:has(#pkSecOverlay) .ag-steps,
-    body:has(#fmeaAyarlariOverlay) .ag-steps,
-    body:has(#fmeaOverlay) .ag-steps,
-    body:has(.fmea-overlay.open) .ag-steps,
-    body:has(.fmea-modal) .ag-steps,
-    body:has(.pk-sheet.show) .ag-steps,
-    body:has(#authScreen:not([style*="display: none"])) .ag-steps{display:none!important}
+    body:has(.fmea-modal.open) .pk-more,
+    body:has(.pk-sheet.show) .pk-more,
+    body:has(#faOverlay[style*="display: block"]) .pk-more,
+    body:has(#cpOverlay:not([style*="display: none"])) .pk-more,
     body:has(#authScreen:not([style*="display: none"])) .pk-more{display:none!important}
+
+    body:has(.fmea-overlay.open) .ag-steps,
+    body:has(.fmea-modal.open) .ag-steps,
+    body:has(.pk-sheet.show) .ag-steps,
+    body:has(#faOverlay[style*="display: block"]) .ag-steps,
+    body:has(#cpOverlay:not([style*="display: none"])) .ag-steps,
+    body:has(#authScreen:not([style*="display: none"])) .ag-steps{display:none!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -2091,8 +2091,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        Mobilde menuler ve panel acilmalari da sayilir. */
     function pencereDurumu() {
       var acik = false;
-      var sec = ['#pkOverlay', '#faOverlay', '#fmeaOverlay', '#cpOverlay',
-        '#adminModal', '#adminPage', '.fmea-modal.open', '.fmea-overlay.open',
+      var sec = ['.fmea-overlay.open', '.fmea-modal.open', '#faOverlay',
+        '#cpOverlay', '#pkOverlay', '#adminModal', '#adminPage',
         '#pkSecOverlay', '#fmeaAyarlariOverlay'];
       for (var i = 0; i < sec.length; i++) {
         var e = document.querySelector(sec[i]);
@@ -2101,6 +2101,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
         if (e.style && e.style.display === 'none') continue;
         acik = true; break;
+      }
+      /* Kapanan pencereler bazi kod yollarinda DOM'da kalir veya
+         gorunmez halde durur; yine de "acik" sayilabilirdi. Kapali
+         gorunmus overlay'ler icin ek kontrol: gercek bir cizim oluyormu
+         (offsetParent / genislik>0) degilse acik sayma. */
+      if (!acik) {
+        var kapali = document.querySelectorAll('.fmea-overlay, .fmea-modal');
+        for (var q = 0; q < kapali.length; q++) {
+          var k2 = kapali[q];
+          var st = getComputedStyle(k2);
+          if (st.display !== 'none' && st.visibility !== 'hidden' &&
+              k2.offsetParent !== null && k2.getBoundingClientRect().height > 0 &&
+              !k2.classList.contains('open')) continue;
+        }
       }
       if (!acik && document.querySelector('.pk-sheet.show')) acik = true;
       /* ÇIKIŞ YAPILDI: giris ekrani gorunur durumdaysa alt sekme cubugu ve
