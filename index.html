@@ -395,6 +395,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 @media(min-width:900px){.stk table.t td:nth-child(-n+3){position:sticky;z-index:2}.stk table.t td:nth-child(1){left:0}.stk table.t td:nth-child(2){left:28px}.stk table.t td:nth-child(3){left:126px;box-shadow:2px 0 0 var(--bd)}.stk table.t th.s1{left:0;z-index:5}.stk table.t th.s2{left:28px;z-index:5}.stk table.t th.s3{left:126px;z-index:5}}
 
 </style>
+
+<style id="faStil">
+/* FMEA Aksiyon Takip Panosu - telefon_tasarim / fmea_aksiyon_dashboard referansi */
+.fa{--bg:#f4f6f9;--card:#fff;--tx:#1c2433;--mut:#667085;--bd:#e1e6ee;--ok:#16a34a;--okb:#dcfce7;
+ --run:#2563eb;--runb:#dbeafe;--bad:#dc2626;--badb:#fee2e2;--ora:#d97706;--orab:#fef3c7;--wait:#98a2b3;--waitb:#eef0f4;
+ font:14px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;color:var(--tx);background:var(--bg);
+ padding:16px;border-radius:12px}
+@media(prefers-color-scheme:dark){.fa{--bg:#10141c;--card:#1a2030;--tx:#e7ebf3;--mut:#9aa4b8;--bd:#2a3246;--okb:#12341f;--runb:#16294d;--badb:#3d1717;--orab:#3a2c0d;--waitb:#262d3f}}
+.fa,.fa *{box-sizing:border-box}.fa h1{font-size:21px;margin:0}.fa h2{font-size:15px;margin:0 0 8px}.fa .mut{color:var(--mut);font-size:12px}
+.fa .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.fa .sum{font-size:15px;line-height:1.55;border-left:4px solid var(--run);padding:8px 14px;margin:12px 0;background:var(--card);border-radius:0 10px 10px 0}
+.fa .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
+.fa .kpi{background:var(--card);border:2px solid var(--bd);border-radius:12px;padding:10px 12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.fa .kpi.on{border-color:var(--run);background:var(--runb)}.fa .kpi b{display:block;font-size:26px;line-height:1.1}.fa .kpi span{font-size:12px;color:var(--mut)}
+.fa .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin:12px 0}
+.fa .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;min-width:0}
+.fa .stack{display:flex;height:28px;border-radius:8px;overflow:hidden;background:var(--waitb)}.fa .stack div{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px}
+.fa .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--mut)}.fa .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.fa .mini{display:flex;align-items:center;gap:8px;margin:7px 0}.fa .mini .nm{width:90px;font-size:13px}.fa .mini .stack{flex:1;height:20px}
+.fa .pri{margin:0!important;border:1px solid var(--bd);border-left:5px solid var(--bad);border-radius:8px;padding:8px 10px;margin:6px 0}
+.fa .pri .t{display:flex;justify-content:space-between;gap:8px;font-weight:700}.fa .late{color:var(--bad);font-weight:700}
+.fa .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.fa select,.fa input{font:inherit;padding:6px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx)}
+.fa .wrap{max-height:430px;overflow:auto;border:1px solid var(--bd);border-radius:10px}
+.fa table{border-collapse:collapse;width:100%;min-width:900px}.fa th{position:sticky;top:0;background:var(--waitb);text-align:left;padding:8px 10px;font-size:12px;z-index:1}
+.fa td{padding:9px 10px;border-top:1px solid var(--bd);vertical-align:top}
+.fa .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.fa .b-tamam{background:var(--okb);color:var(--ok)}.fa .b-devam{background:var(--runb);color:var(--run)}.fa .b-bas{background:var(--waitb);color:var(--mut)}
+.fa tr.gr td{background:var(--waitb);font-size:13px;padding:6px 10px}.fa .rpn{display:inline-block;min-width:38px;text-align:center;border-radius:6px;padding:1px 6px;font-weight:700}
+.fa .r-h{background:var(--badb);color:var(--bad)}.fa .r-m{background:var(--orab);color:var(--ora)}.fa .r-l{background:var(--okb);color:var(--ok)}
+.fa svg text{fill:var(--tx);font-size:11px}
+.fa .chips{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 0}.fa .chip{border:1px solid var(--bd);background:var(--card);border-radius:99px;padding:5px 12px;cursor:pointer;font:inherit;color:inherit}
+.fa .chip.on{background:var(--run);border-color:var(--run);color:#fff}.fa .chip small{opacity:.75;margin-left:4px}
+.fa .sc{overflow-x:auto}.fa table.cmp{min-width:760px}.fa table.cmp tbody tr{cursor:pointer}.fa table.cmp tbody tr:hover td{background:rgba(120,140,180,.08)}
+.fa table.cmp tr.sel td{background:var(--runb)}.fa table.cmp tr.dim td{opacity:.45}.fa table.cmp .stack{height:16px;min-width:140px}.fa table.cmp .stack div{font-size:11px}
+.fa .pb{height:8px;background:var(--waitb);border-radius:4px;overflow:hidden;width:90px;display:inline-block;vertical-align:middle;margin-right:6px}.fa .pb i{display:block;height:100%;background:var(--ok)}
+@media(max-width:560px){.fa{padding:10px}.fa h1{font-size:17px}.fa .kpis{grid-template-columns:repeat(2,1fr)}.fa .grid{grid-template-columns:1fr}}
+</style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <body>
@@ -1528,6 +1565,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* "..." en sagda */
       .pk-more{margin-left:6px!important}
     }
+
+    /* ================================================================
+       TELEFON BASLIGI - v2
+       • baslik (h1) BUYUK font
+       • digerleri (FMEA secimi, hesap, cikis, sayaclar) KUCUK ve EŞIT
+       • sigmayan yazilarin fontu OTOMATIK kuculur (data-fit, JS)
+       • "..." butonu EN SAGA
+       ================================================================ */
+    @media (max-width:640px){
+      header h1{font-size:13.5px!important; line-height:1.15!important}
+      /* kucuk + esit: secim butonu, hesap, cikis */
+      .hdr-sag .hdr-sel-yuva .sel-btn{font-size:10px!important}
+      .hdr-sag #userBar,
+      .hdr-sag #userBar span,
+      .hdr-sag #userBar button{font-size:10px!important; line-height:1.2!important}
+      /* sayaclar esit */
+      .hdr-sag .cnt-card .cnt-num{font-size:13px!important}
+      .hdr-sag .cnt-card .cnt-label{font-size:9px!important}
+      /* ... butonu tamamen en saga */
+      .pk-more{order:9!important; margin-left:auto!important; align-self:center!important}
+      /* otomatik kucultme icin */
+      [data-fit]{overflow:hidden!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1654,6 +1714,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
          3) 19 Proses / 97 İşlem / 113 Hata            (sayaçlar)
        Bu ucu ortak bir "sag blok" icine topluyoruz; blogun yuksekligi
        logonun yuksekligine esitlenir, icerik esit aralikla dagitilir. */
+    /* Sigmayan baslik/etiket yazilarini OTOMATIK kucultur.
+       Kullanici istegi: "sığmayan yazıların fontları otomatik küçülsün".
+       Yontem: elemanin gercek fontu olusturulur, sigmiyorsa 0.5px azaltilir
+       (en kucuk 8px'e kadar). Ekranda olce olcutulur; boylece ilk
+       gosterimde dogru boyut gelir, sonra degismez. */
+    function hdrYaziSigdir(elm, enKucuk) {
+      if (!elm) return;
+      const min = enKucuk || 8;
+      elm.style.fontSize = '';
+      elm.removeAttribute('data-fit-b');
+      let f = parseFloat(getComputedStyle(elm).fontSize) || 12;
+      elm.setAttribute('data-fit-b', f);
+      let guard = 0;
+      while ((elm.scrollWidth > elm.clientWidth + 1 || elm.scrollHeight > elm.clientHeight + 1) && f > min && guard++ < 40) {
+        f -= 0.5;
+        elm.style.fontSize = f + 'px';
+      }
+    }
+    function baslikYazilariniSigdir() {
+      try {
+        hdrYaziSigdir(document.querySelector('header h1'), 9);
+        const b = document.getElementById('projectSelBtn');
+        if (b) { b.setAttribute('data-fit', '1'); hdrYaziSigdir(b, 8); }
+        const u = document.getElementById('userBar');
+        if (u) { u.setAttribute('data-fit', '1'); hdrYaziSigdir(u, 8); }
+        document.querySelectorAll('.hdr-sag .cnt-card .cnt-num').forEach(function (e) {
+          hdrYaziSigdir(e, 9);
+        });
+      } catch (e) {}
+    }
     function sagBlokKur() {
       try {
         const hd = document.querySelector('header');
@@ -1698,7 +1788,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       seciciTasi();
       uygula();
       var t = null;
-      window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(uygula, 150); });
+      window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { uygula(); baslikYazilariniSigdir(); }, 150); });
       if (window.MutationObserver) {
         /* adim sayisi degisirse (yeni adim eklenirse) paneli tazele */
         new MutationObserver(function () { if (aktif === true) setTimeout(function () {
@@ -1707,9 +1797,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
     function hazir() {
-      basla(); sagBlokKur(); seciciTasi();
-      setTimeout(function () { sagBlokKur(); seciciTasi(); }, 400);
-      setTimeout(function () { sagBlokKur(); seciciTasi(); }, 1200);
+      basla(); sagBlokKur(); seciciTasi(); baslikYazilariniSigdir();
+      setTimeout(function () { sagBlokKur(); seciciTasi(); baslikYazilariniSigdir(); }, 400);
+      setTimeout(function () { sagBlokKur(); seciciTasi(); baslikYazilariniSigdir(); }, 1200);
+      setTimeout(function () { baslikYazilariniSigdir(); }, 2200);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hazir);
     else hazir();
@@ -1839,7 +1930,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     </div>
     <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
       <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
-    <button class="light" onclick="fmeaAyarlariAc()">⚙ FMEA Ayarları</button>
+    <button class="light" onclick="fAksiyonAc()">📈 Aksiyon Takip</button>
+  <button class="light" onclick="fmeaAyarlariAc()">⚙ FMEA Ayarları</button>
     </div>
   
   <div class="layout">
@@ -4502,7 +4594,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
                 try { if (usb) usb.style.display = 'flex'; } catch (e) {}
                 try { paintAccount(); } catch (e) {}
                 try { autoNumberNodes(); } catch (e) {}
-                try { refreshProjectSel(); } catch (e) {}
+                try { refreshProjectSel(); baslikYazilariniSigdir(); } catch (e) {}
         try { render(); } catch (e) { console.error('render:', e); }
         try { ckSurekliSyncBaslat(); } catch (e) {}
         // yonetici girisi: kokpit otomatik acilsin
@@ -4587,7 +4679,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         if (k === 'firma' || k === 'prosesAdi' || k === 'parcaAdi') {
           clearTimeout(window.__pkSelT);
           window.__pkSelT = setTimeout(function () {
-            try { refreshProjectSel(); } catch (e) {}
+            try { refreshProjectSel(); baslikYazilariniSigdir(); } catch (e) {}
           }, 250);
         }
       }
@@ -11015,5 +11107,263 @@ rows(); fit();
 
 })();
   </script>
+
+<script>
+/* =====================================================================
+   FMEA AKSIYON TAKIP PANOSU
+   Referans: fmea_aksiyon_dashboard.html (kullanicinin attigi ornek tasarim).
+   Burada ORNEK VERI yerine gercek FMEA verisi kullanilir:
+     nodes[].altProsesler[].hatalar[] -> hata turu, S/O/D, aksiyon,
+     sorumlu, hedef tarih, gerceklesen tarih, aksiyon sonrasi S2/O2/D2.
+   Durum, gerceklesen/aksiyon alanlarindan turetilir:
+     gerceklesenTarih dolu -> Tamamlandı
+     aksiyon dolu, tarih bos -> Devam ediyor
+     aksiyon da bos         -> Başlamadı
+   ===================================================================== */
+(function () {
+  var ST = { tamam: ['Tamamlandı', 'var(--ok)'], devam: ['Devam ediyor', 'var(--run)'], bas: ['Başlamadı', 'var(--wait)'] };
+  var TODAY = new Date();
+  function gun(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  /* ExcelJS tarihleri Date verir; bazi dosyalarda seri numara veya
+     "dd.mm.yyyy" metni olabilir - hepsini destekle. */
+  function fTarih(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date) return isNaN(v) ? null : gun(v);
+    if (typeof v === 'number') {
+      /* Excel seri numarasi: 1900 sonrasi makul bir araliktadir (bugun
+         ~46000). Kucuk sayilar (5, 20, -5 gibi "gun farki" veya kucuk
+         degerler) TARIH DEGILDIR; onlari seri sanmak 1899 yilina goturup
+         "46344 gun gecikti" gibi sahte gecikmeler uretiyordu. */
+      if (!isFinite(v) || v < 1000 || v > 100000) return null;
+      return gun(new Date(Date.UTC(1899, 11, 30) + v * 864e5));
+    }
+    var t = String(v).trim();
+    var m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    var d = new Date(t);
+    return isNaN(d) ? null : gun(d);
+  }
+  var fd = function (d) { return d ? d.toLocaleDateString('tr-TR') : ''; };
+  var n3 = function (v) { var n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+
+  /* ---- veri toplama ---- */
+  function veriTopla() {
+    var R = [], id = 0;
+    var firma = ((typeof fmeaMeta !== 'undefined' && fmeaMeta.firma) || '').trim()
+      || ((typeof currentProject !== 'undefined' && currentProject) || 'FMEA').trim();
+    var kok = (typeof nodes !== 'undefined' && nodes) ? nodes : [];
+    kok.forEach(function (n) {
+      if (n.type !== 'process') return;
+      (n.altProsesler || []).forEach(function (sub) {
+        (sub.hatalar || []).forEach(function (h) {
+          id++;
+          var S = n3(h.s), O = n3(h.o), D = n3(h.d);
+          var aksiyon = String(h.aksiyon || h.faaliyet || '').trim();
+          var tamam = fTarih(h.gerceklesenTarih);
+          var termin = fTarih(h.hedefTarih);
+          var durum = tamam ? 'Tamamlandı' : (aksiyon ? 'Devam ediyor' : 'Başlamadı');
+          R.push({
+            id: 'A-' + (id < 100 ? (id < 10 ? '0' + id : '' + id) : id),
+            firma: firma, adim: sub.title || sub.code || '',
+            hata: h.tur || '', S: S, O: O, D: D,
+            aksiyon: aksiyon, sor: String(h.sorumlu || '').trim(),
+            termin: termin, durum: durum, tamam: tamam,
+            S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
+          });
+        });
+      });
+    });
+    R.forEach(function (r) {
+      r.rpn = r.S * r.O * r.D;
+      r.rpn2 = r.S2 ? r.S2 * r.O2 * r.D2 : null;
+      r.k = r.durum === 'Tamamlandı' ? 'tamam' : r.durum === 'Devam ediyor' ? 'devam' : 'bas';
+      r.late = r.k !== 'tamam' && r.termin && r.termin < TODAY ? Math.round((TODAY - r.termin) / 864e5) : 0;
+      r.high = r.k !== 'tamam' && r.rpn >= 100;
+    });
+    return R;
+  }
+
+  var ESC = function (x) { return String(x === null || x === undefined ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  function ac() {
+    var eski = document.getElementById('faOverlay');
+    if (eski && eski.parentNode) eski.parentNode.removeChild(eski);
+    var R = veriTopla();
+    var ov = document.createElement('div');
+    ov.id = 'faOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:10px';
+    ov.innerHTML =
+      '<div class="fa" style="max-width:1200px;width:100%;max-height:94vh;overflow:auto">' +
+      '<div class="top"><div><h1>FMEA Aksiyon Takip Panosu <span style="font-weight:400;color:var(--mut)">· ' + ESC(R.length ? R[0].firma : 'FMEA') + '</span></h1>' +
+      '<div class="mut">Rapor tarihi: ' + fd(TODAY) + ' · RPN = Şiddet × Olasılık × Tespit</div></div>' +
+      '<button class="pk-x" onclick="faKapat()" title="Kapat (Esc)" aria-label="Kapat">✕</button></div>' +
+      '<div class="chips" id="faChips"></div><div class="sum" id="faSum"></div>' +
+      '<div class="kpis" id="faKpis"></div>' +
+      '<div class="card" style="margin-top:12px"><h2>Geciken veya Yüksek Riskli Aksiyonlar</h2><div id="faPri"></div></div>' +
+      '<div class="card" style="margin-top:12px"><h2>Aksiyon durumu</h2><div class="stack" id="faStack"></div><div class="legend" id="faLegend"></div>' +
+      '<h2 style="margin-top:16px">Sorumlu bazında</h2><div id="faSor"></div></div>' +
+      '<div class="card" style="margin-top:12px"><h2>Haftalık termin ↔ kapanış <span class="mut">(hafta Pazartesi başlar)</span></h2>' +
+      '<div class="legend" style="margin:0 0 4px"><span><i class="dot" style="background:var(--run)"></i>Termini o hafta olan</span>' +
+      '<span><i class="dot" style="background:var(--ok)"></i>O hafta tamamlanan</span><span><i class="dot" style="background:var(--ora)"></i>Bu hafta</span></div>' +
+      '<div style="overflow-x:auto" id="faTrend"></div></div>' +
+      '<div class="card" style="margin-top:12px"><h2>Tüm aksiyonlar <span class="mut" id="faTtl"></span></h2>' +
+      '<div class="filters"><input type="search" id="faQ" placeholder="Hata modu, aksiyon, süreç ara…">' +
+      '<select id="faSor"></select><span class="mut" id="faCnt" style="align-self:center"></span></div>' +
+      '<div class="wrap"><table><thead><tr><th>No</th><th>Firma · Proses adımı</th><th>Hata modu</th><th>RPN</th>' +
+      '<th>Aksiyon</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead><tbody id="faTb"></tbody></table></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) { if (e.target === ov) faKapat(); });
+    ciz(R);
+  }
+  function faKapat() { var o = document.getElementById('faOverlay'); if (o && o.parentNode) o.parentNode.removeChild(o); }
+  window.faKapat = faKapat;
+  window.fAksiyonAc = ac;
+
+  function ciz(R) {
+    var fs = '', fk = 'all';
+    var $ = function (id) { return document.getElementById(id); };
+    var STk = ST, rc = function (v) { return v >= 200 ? 'r-h' : v >= 100 ? 'r-m' : 'r-l'; };
+    var now = function (r) { return (r.k === 'tamam' && r.rpn2 != null) ? r.rpn2 : r.rpn; };
+    var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
+    var stackHtml = function (rs) {
+      return ['tamam', 'devam', 'bas'].map(function (k) {
+        var c = rs.filter(function (r) { return r.k === k; }).length;
+        return c ? '<div style="width:' + (c / rs.length * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + c + '">' + c + '</div>' : '';
+      }).join('');
+    };
+    var FIRMS = R.map(function (r) { return r.firma; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+    var supStats = function (f) {
+      var rs = R.filter(function (r) { return r.firma === f; }), dn = rs.filter(function (r) { return r.k === 'tamam'; });
+      return { f: f, rs: rs, n: rs.length, done: dn.length, pct: dn.length / rs.length * 100,
+        late: rs.filter(function (r) { return r.late; }).length, high: rs.filter(function (r) { return r.high; }).length,
+        b: avg(rs.map(function (r) { return r.rpn; })), a: avg(rs.map(now)) };
+    };
+
+    function tbl() {
+      var q = ($('faQ').value || '').toLocaleLowerCase('tr'), sr = $('faSor').value;
+      var rs = R.filter(function (r) {
+        return (!fs || r.firma === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
+          && (!sr || r.sor === sr) && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma).toLocaleLowerCase('tr').indexOf(q) >= 0);
+      }).sort(function (a, b) { return a.firma.localeCompare(b.firma, 'tr') || (b.late > 0) - (a.late > 0) || b.late - a.late || b.rpn - a.rpn; });
+      $('faCnt').textContent = rs.length + ' aksiyon';
+      $('faTtl').textContent = fs ? '· ' + fs : (R.length ? '· tüm veriler' : '');
+      var h = '', last = null;
+      rs.forEach(function (r) {
+        h += '<tr><td class="mut" style="white-space:nowrap">' + ESC(r.id) + '</td>' +
+          '<td><b>' + ESC(r.adim) + '</b><div class="mut">' + ESC(r.firma) + '</div></td>' +
+          '<td>' + ESC(r.hata) + '<div class="mut">S' + r.S + ' · O' + r.O + ' · D' + r.D + '</div></td>' +
+          '<td><span class="rpn ' + rc(r.rpn) + '">' + r.rpn + '</span>' +
+          (r.rpn2 != null ? ' → <span class="rpn ' + rc(r.rpn2) + '">' + r.rpn2 + '</span>' : '') + '</td>' +
+          '<td style="max-width:260px">' + (r.aksiyon ? ESC(r.aksiyon) : '<span class="mut">—</span>') + '</td>' +
+          '<td>' + (r.sor ? ESC(r.sor) : '<span class="mut">—</span>') + '</td>' +
+          '<td>' + (r.termin ? fd(r.termin) : '<span class="mut">—</span>') +
+          (r.late ? '<div class="late">' + r.late + ' gün gecikti</div>' : (r.tamam ? '<div class="mut">tamam: ' + fd(r.tamam) + '</div>' : '')) + '</td>' +
+          '<td><span class="badge b-' + r.k + '">' + STk[r.k][0] + '</span></td></tr>';
+      });
+      $('faTb').innerHTML = h || '<tr><td colspan="8" class="mut" style="padding:18px">Sonuç yok.</td></tr>';
+    }
+
+    function render() {
+      var V = fs ? R.filter(function (r) { return r.firma === fs; }) : R;
+      if (!V.length) { $('faSum').textContent = 'Gösterilecek aksiyon yok.'; tbl(); return; }
+      var N = V.length, cnt = function (k) { return V.filter(function (r) { return r.k === k; }).length; };
+      var late = V.filter(function (r) { return r.late; });
+      var done = V.filter(function (r) { return r.k === 'tamam' && r.rpn2 != null; });
+      var red = done.reduce(function (a, r) { return a + r.rpn - r.rpn2; }, 0);
+      var redPct = done.length ? avg(done.map(function (r) { return (r.rpn - r.rpn2) / r.rpn; })) * 100 : null;
+      var SS = FIRMS.map(supStats).sort(function (a, b) { return b.late - a.late || a.pct - b.pct; });
+
+      $('faChips').innerHTML = '<button class="chip ' + (fs ? '' : 'on') + '" data-f="">Tüm tedarikçiler<small>' + R.length + '</small></button>' +
+        SS.map(function (x) { return '<button class="chip ' + (fs === x.f ? 'on' : '') + '" data-f="' + ESC(x.f) + '">' + ESC(x.f) + '<small>' + x.n + (x.late ? ' · ⚠' + x.late : '') + '</small></button>'; }).join('');
+
+      $('faSum').innerHTML = (fs ? '<b>' + ESC(fs) + ':</b> ' : '') +
+        '<b>' + N + ' aksiyonun</b> ' + cnt('tamam') + "'i tamamlandı (%" + Math.round(cnt('tamam') / N * 100) + '), ' +
+        cnt('devam') + "'i devam ediyor, " + cnt('bas') + "'i başlamadı. " +
+        (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
+        (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
+
+      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', cnt('tamam')], ['devam', 'Devam ediyor', cnt('devam')],
+        ['bas', 'Başlamadı', cnt('bas')], ['late', 'Geciken', late.length]];
+      $('faKpis').innerHTML = KP.map(function (k) {
+        return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
+          (k[0] === 'late' && k[2] ? ' class="late"' : '') + '>' + k[2] + '</b><span>' + k[1] + '</span></button>';
+      }).join('');
+
+      var pri = V.filter(function (r) { return r.late || r.high; })
+        .sort(function (a, b) { return (b.late > 0) - (a.late > 0) || b.rpn * (1 + b.late / 30) - a.rpn * (1 + a.late / 30); })
+        .slice(0, 6);
+      $('faPri').innerHTML = pri.map(function (r) {
+        return '<div class="pri"><div class="t"><span>' + ESC(r.id) + ' · ' + ESC(r.firma) + '</span><span class="rpn ' + rc(r.rpn) + '">RPN ' + r.rpn + '</span></div>' +
+          '<div>' + ESC(r.hata) + ' <span class="mut">(' + ESC(r.adim) + ')</span></div>' +
+          '<div class="mut">' + (r.aksiyon ? ESC(r.aksiyon) : 'Aksiyon girilmemiş') + '</div>' +
+          '<div style="margin-top:3px">' + (r.late ? '<span class="late">' + r.late + ' gün gecikti</span> · ' : '') +
+          'termin ' + (r.termin ? fd(r.termin) : '—') + (r.sor ? ' · ' + ESC(r.sor) : '') + '</div></div>';
+      }).join('') || '<span class="mut">Öncelikli aksiyon yok 🎉</span>';
+
+      var segs = ['tamam', 'devam', 'bas'].filter(function (k) { return cnt(k); });
+      $('faStack').innerHTML = segs.map(function (k) {
+        return '<div style="width:' + (cnt(k) / N * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + cnt(k) + '">' + cnt(k) + '</div>';
+      }).join('');
+      $('faLegend').innerHTML = segs.map(function (k) { return '<span><i class="dot" style="background:' + STk[k][1] + '"></i>' + STk[k][0] + ' ' + cnt(k) + '</span>'; }).join('') +
+        (late.length ? '<span style="color:var(--bad)">⚠ ' + late.length + ' geciken</span>' : '');
+
+      var sm = {};
+      V.forEach(function (r) { var k = r.sor || '(atanmamış)'; (sm[k] = sm[k] || []).push(r); });
+      $('faSor').innerHTML = Object.keys(sm).sort(function (a, b) { return sm[b].length - sm[a].length; }).map(function (n) {
+        var rs = sm[n], lg = rs.filter(function (r) { return r.late; }).length;
+        return '<div class="mini"><span class="nm">' + ESC(n) + '</span><div class="stack">' + stackHtml(rs) + '</div>' +
+          '<span class="' + (lg ? 'late' : 'mut') + '" style="width:70px;font-size:12px">' + (lg ? lg + ' geciken' : '—') + '</span></div>';
+      }).join('') || '<span class="mut">Sorumlu atanmamış.</span>';
+
+      /* haftalik trend */
+      var wk = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)); };
+      var W7 = 7 * 864e5, wt = wk(TODAY).getTime();
+      var dsw = V.reduce(function (a, r) { return a.concat([r.termin, r.tamam]); }, []).filter(Boolean).map(function (d) { return wk(d).getTime(); });
+      var w0, w1;
+      if (dsw.length) { w0 = Math.min(Math.min.apply(null, dsw), wt - 9 * W7); w1 = Math.max(Math.max.apply(null, dsw), wt + 3 * W7); }
+      else { w0 = wt - 9 * W7; w1 = wt + 3 * W7; }
+      w0 = Math.min(w0, wt); w1 = Math.max(w1, wt);
+      var nw = Math.round((w1 - w0) / W7) + 1, d0 = new Date(w0);
+      var weeks = []; for (var i = 0; i < nw; i++) weeks.push(new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 7 * i));
+      var inW = function (d, w) { return d && wk(d).getTime() === w.getTime(); };
+      var tv = weeks.map(function (w) { return V.filter(function (r) { return inW(r.termin, w); }).length; });
+      var dv = weeks.map(function (w) { return V.filter(function (r) { return inW(r.tamam, w); }).length; });
+      var tm = Math.max(1, Math.max.apply(null, tv), Math.max.apply(null, dv)), H = 150, gw = 44, SW = nw * gw + 36;
+      $('faTrend').innerHTML = '<svg width="' + SW + '" height="' + (H + 30) + '">' +
+        [0, 1, 2, 3, 4].map(function (i2) { return '<line x1="24" x2="' + SW + '" y1="' + (H - (H - 14) * i2 / 4) + '" y2="' + (H - (H - 14) * i2 / 4) + '" stroke="var(--bd)"/>'; }).join('') +
+        weeks.map(function (w, i2) {
+          var x = 32 + i2 * gw, h1 = tv[i2] / tm * (H - 14), h2 = dv[i2] / tm * (H - 14);
+          var cur = w.getTime() === wt;
+          var lb = String(w.getDate()).padStart(2, '0') + '.' + String(w.getMonth() + 1).padStart(2, '0');
+          var end = new Date(w.getFullYear(), w.getMonth(), w.getDate() + 6);
+          return (cur ? '<rect x="' + (x - 4) + '" y="2" width="' + (gw - 2) + '" height="' + (H + 14) + '" rx="5" fill="var(--ora)" opacity=".12"/>' : '') +
+            '<rect x="' + x + '" y="' + (H - h1) + '" width="15" height="' + h1 + '" rx="3" fill="var(--run)"><title>' + fd(w) + ' – ' + fd(end) + ': termin ' + tv[i2] + '</title></rect>' +
+            '<rect x="' + (x + 16) + '" y="' + (H - h2) + '" width="15" height="' + h2 + '" rx="3" fill="var(--ok)"><title>' + fd(w) + ' – ' + fd(end) + ': tamamlanan ' + dv[i2] + '</title></rect>' +
+            '<text x="' + x + '" y="' + (H + 14) + '"' + (cur ? ' style="font-weight:700;fill:var(--ora)"' : '') + '>' + lb + '</text>' +
+            '<text x="' + (x + 4) + '" y="' + (H - h1 - 3) + '">' + (tv[i2] || '') + '</text>' +
+            '<text x="' + (x + 20) + '" y="' + (H - h2 - 3) + '">' + (dv[i2] || '') + '</text>';
+        }).join('') + '</svg>';
+
+      tbl();
+    }
+
+    $('faSor').innerHTML = '<option value="">Tüm sorumlular</option>' +
+      R.map(function (r) { return r.sor; }).filter(function (v) { return v; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; })
+        .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
+    $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
+    $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
+    $('faQ').oninput = tbl; $('faSor').oninput = tbl;
+    render();
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.getElementById('faOverlay')) faKapat();
+  });
+})();
+</script>
 </body>
 </html>
