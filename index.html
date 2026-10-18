@@ -1550,8 +1550,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       header #siteLogo{flex:0 0 auto!important}
       header #brandTitle{flex:1 1 auto!important; min-width:0!important; height:96px!important}
       /* margin-left:auto ile blok mutlaka en saga yaslanir */
+      /* ONEMLI - burada once "overflow:hidden" vardi ve FMEA secim
+         LISTESINI KIRPIYORDU: menu .hdr-sag'nin icinde oldugu icin
+         overflow:hidden onu kesiyor, "basinca alta liste aciliyor" ama
+         GORUNMUYORDU. Artik overflow:visible; tasma olusursa alt cubuk
+         zaten esnek. */
       .hdr-sag{flex:0 0 auto!important; margin-left:auto!important;
-        max-width:min(700px,52vw)!important; overflow:hidden!important;
+        max-width:min(700px,52vw)!important; overflow:visible!important;
         justify-content:flex-end!important; height:96px!important}
       .hdr-sag-ust{width:100%!important; justify-content:flex-end!important}
       .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; min-width:0!important; max-width:none!important}
