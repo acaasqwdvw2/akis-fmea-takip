@@ -1555,9 +1555,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
          overflow:hidden onu kesiyor, "basinca alta liste aciliyor" ama
          GORUNMUYORDU. Artik overflow:visible; tasma olusursa alt cubuk
          zaten esnek. */
-      .hdr-sag{flex:0 0 auto!important; margin-left:auto!important;
+      /* Kullanici istegi: "Ermet - Magnezyum Kaplama Prosesi ve
+         hesap:abdullah01 üst üste gözüküyor pcde".
+         Iki oge de esnek (flex) oldugu icin daralan blokta birbirinin
+         USTUNE biniyordu. Artik:
+           - secici esner (flex:1 1 auto + min-width:0)
+           - hesap KISILMAZ (flex:0 0 auto)
+           - blok daralirsa SARMALAR (flex-wrap:wrap + gap) -> üst üste
+             binmek yerine alt satıra geçer
+         (overflow:visible kaldı; hidden listeyi kırpıyordu) */
+      .hdr-sag{flex:0 1 auto!important; margin-left:auto!important;
         max-width:min(700px,52vw)!important; overflow:visible!important;
-        justify-content:flex-end!important; height:96px!important}
+        justify-content:flex-end!important; height:96px!important;
+        flex-wrap:nowrap!important; align-items:center!important; gap:10px!important}
+      /* SARMAMA YAPILMAZ: flex-wrap başlığı 96px'den 222px'e şişiriyordu.
+         Bunun yerine seçici ESNER (flex:1 1 auto + min-width:0 + taşma
+         gizli) ve yazısı üç nokta ile kırpılır; hesap KISILMAZ.
+         Böylece üst üste binme olmaz, başlık yüksekliği korunur. */
+      .hdr-sel-yuva{flex:1 1 auto!important; min-width:0!important; max-width:100%!important;
+        overflow:hidden!important}
+      .hdr-sel-yuva .sel-btn{min-width:0!important; max-width:100%!important;
+        overflow:hidden!important; text-overflow:ellipsis!important; white-space:nowrap!important}
+      .hdr-sag #userBar{flex:0 0 auto!important; max-width:100%!important}
       .hdr-sag-ust{width:100%!important; justify-content:flex-end!important}
       .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; min-width:0!important; max-width:none!important}
       .hdr-sag .hdr-sel-yuva .sel-btn{width:100%!important; max-width:none!important}
@@ -11581,6 +11600,23 @@ rows(); fit();
     if (!varlar && acik) {
       list.push({ name: acik, fmeaMeta: (typeof fmeaMeta !== 'undefined' ? fmeaMeta : null), nodes: (typeof nodes !== 'undefined' ? nodes : null) });
     }
+      /* ADMININ CANLI VERI KAYNAGI DA TARANIR.
+         Sorun: proje kopyalari (projects[].nodes) BAYAT olabiliyor; bu yuzden
+         baska FMEA'lardaki TAMAMLANMIS aksiyonlar sayilmiyor ve "Tamamlandı"
+         0 gorunuyordu. Admin ayni veriyi window.__ckSatir uzerinden okuyor
+         (her kullanici, her proje, canli). O kaynagi da birlestiriyoruz ki
+         panel ile admin ayni sayiyi gostersin. */
+      try {
+        var st = window.__ckSatir || {};
+        Object.keys(st).forEach(function (uid) {
+          var pr = (st[uid] && st[uid].projler) || [];
+          pr.forEach(function (pj) {
+            var ham = pj.ham || {};
+            if (!ham.nodes || !ham.nodes.length) return;
+            list.push({ name: pj.ad || uid || 'FMEA', fmeaMeta: ham.fmeaMeta || {}, nodes: ham.nodes });
+          });
+        });
+      } catch (e) {}
 
     for (var gi = 0; gi < list.length; gi++) {
       var G = projeDuzenle(list[gi], gi);
