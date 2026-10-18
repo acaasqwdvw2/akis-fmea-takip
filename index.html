@@ -1645,21 +1645,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        gorunumde olsun (once ozel bir blok stili vardi ve Çıkış gozunmuyordu).
        .pk-sitem ile ayni zemin/yazi/yukseklik/kenarlik degerleri kullanilir;
        boylece panel butonlari tek parca gibi durur. */
+    /* Kullanici istegi: "o sayfadaki diğer butonlarla aynı biçim yap".
+       Hesap (kullanıcı adı) ve Çıkış düğmeleri, paneldeki Yeni FMEA /
+       Excel Yükle / Excel İndir / Aksiyon Takip / FMEA Ayarlari
+       düğmeleriyle (.pk-sitem) BİREBİR aynı ölçü ve görünümde:
+       46px yükseklik, 12px köşe, #eef1f6 zemin, 14px kalın yazı,
+       6px alt boşluk, ortalanmış. Artık ayrı bir özel stil yok. */
     .pk-user-grp{display:flex!important; flex-direction:column!important;
-      gap:6px!important; padding:0 0 10px!important; margin:0 0 6px!important;
+      gap:0!important; padding:0 0 6px!important; margin:0 0 6px!important;
       border-bottom:1px solid #e3e8f0!important; width:100%!important}
     .pk-user-grp #userBar{display:flex!important; flex-direction:column!important;
-      gap:6px!important; width:100%!important; margin:0!important; padding:0!important}
-    .pk-user-grp #userName{display:block!important; width:100%!important;
-      background:#eef2f7!important; color:#1b2433!important; font-size:14px!important;
-      font-weight:700!important; text-align:center!important; height:46px!important;
-      line-height:46px!important; border-radius:12px!important; padding:0 10px!important}
-    .pk-user-grp button{display:block!important; width:100%!important;
-      background:#eef2f7!important; color:#1b2433!important; font-size:14px!important;
-      font-weight:600!important; text-align:center!important; height:46px!important;
-      line-height:46px!important; border:0!important; border-radius:12px!important;
-      padding:0 10px!important; margin:0!important; cursor:pointer!important;
-      overflow:visible!important; flex:0 0 auto!important; min-height:46px!important}
+      gap:0!important; width:100%!important; margin:0!important; padding:0!important}
+    .pk-user-grp #userName,
+    .pk-user-grp button{
+      width:100%!important; display:flex!important; align-items:center!important;
+      justify-content:center!important; gap:8px!important; height:46px!important;
+      min-height:46px!important; padding:0 10px!important; margin:0 0 6px!important;
+      border-radius:12px!important; background:#eef1f6!important; color:#000!important;
+      font:600 14px/1 inherit!important; text-align:center!important;
+      overflow:visible!important; flex:0 0 auto!important; cursor:pointer!important;
+      -webkit-text-fill-color:#000!important}
     .pk-user-grp button:hover{background:#e2e8f0!important; color:#000!important}
     .pk-user-grp button:active{background:#dbe2ec!important}
 
@@ -1668,6 +1673,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        gizler ve yalnizca cloudIsAdmin oldugunda gorunur yapar. Yukaridaki
        genel "button{display:block!important}" kurali o gizlemeyi EZDI ve
        butonlar herkese cikiyordu. Inline gizlemeye saygi duyuyoruz. */
+    /* Yönetici Kokpiti / Onay Yönetimi SADECE yönetici hesabında görünür.
+       Uygulama bunlari style="display:none" ile gizler. Onceki koruma
+       (.pk-user-grp button[style*=...]) yetmiyordu: "#userBar button"
+       kurali ID'li oldugu icin daha YUKSEK onceliğe sahipti ve
+       display:flex ile gizlemeyi eziyordu. Ayni ID ile korunuyor. */
+    #userBar button[style*="display:none"],
+    #userBar button[style*="display: none"],
+    #userBar button[style*="display: none;"],
     .pk-user-grp button[style*="display:none"],
     .pk-user-grp button[style*="display: none"]{display:none!important}
 
@@ -1677,11 +1690,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-user-grp #userName{color:#000!important}
     /* Çıkış düğmesi: kural .toolbar/.pk-sec-btn kaynaklıydı ve yazı
        beyaz kalıyordu; en yüksek öncelikle siyaha sabitlenir. */
-    .pk-sheet #userBar button,
-    .pk-sheet .pk-user-grp #userBar button,
-    #pkUserMenu #userBar button,
-    #userBar button{color:#000!important; -webkit-text-fill-color:#000!important;
-      text-shadow:none!important}
+    /* Çıkış düğmesi .pk-sitem ile AYNI görünümde olsun. (Yalnızca renk
+       kuralı yetmiyordu; düğmenin zemini/kutusu ölçüsü de eşitlenmeli.
+       Düğmenin kendi sınıfı olmadığı için kimliğiyle hedefleniyor.) */
+    .pk-sheet #userBar button:not([style*="display:none"]):not([style*="display: none"]),
+    .pk-sheet .pk-user-grp #userBar button:not([style*="display:none"]):not([style*="display: none"]),
+    .pk-user-grp #userBar button:not([style*="display:none"]):not([style*="display: none"]),
+    #userBar button:not([style*="display:none"]):not([style*="display: none"]){
+      width:100%!important; display:flex!important; align-items:center!important;
+      justify-content:center!important; gap:8px!important; height:46px!important;
+      min-height:46px!important; padding:0 10px!important; margin:0 0 6px!important;
+      border-radius:12px!important; background:#eef1f6!important; color:#000!important;
+      font-size:14px!important; font-weight:600!important; line-height:1!important;
+      text-align:center!important; overflow:visible!important; flex:0 0 auto!important;
+      cursor:pointer!important; -webkit-text-fill-color:#000!important;
+      text-shadow:none!important; border:0!important; box-shadow:none!important}
+    .pk-sheet #userBar button:not([style*="display:none"]):hover,
+    #userBar button:not([style*="display:none"]):hover{background:#e2e8f0!important}
     .pk-sheet .pk-sitem.danger,.pk-sheet .pk-sitem.danger:hover{color:#8a1010!important}
     .pk-sheet .pk-sitem.primary,.pk-sheet .pk-sitem.primary:hover{color:#2b1b00!important}
 
