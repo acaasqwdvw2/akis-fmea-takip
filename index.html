@@ -2091,44 +2091,44 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* Acik pencere takibi: bir modal/overlay gorunur oldugunda
        body.pk-pencere eklenir -> "..." ve alt sekme cubugu gizlenir.
        Mobilde menuler ve panel acilmalari da sayilir. */
+    /* Acik pencere tespiti - GERCEK GOMERI OLCE.
+       Once secici listesi kullaniliyordu ve kapali pencereler de sayiliyordu
+       (DOM'da kaliyorlar), boylece "..." ve alt sekme cubugu PC'de de kalici
+       kayboluyordu. Artik bir overlay'in gercekten EKRANDA gorunur oldugu
+       olculuyor: display/visibility/opacity, konum (fixed/absolute) ve
+       genislik-yukseklik. Kapali olan hicbiri sayilmaz. */
     function pencereDurumu() {
       var acik = false;
-      var sec = ['.fmea-overlay.open', '.fmea-modal.open', '#faOverlay',
-        '#cpOverlay', '#pkOverlay', '#adminModal', '#adminPage',
-        '#pkSecOverlay', '#fmeaAyarlariOverlay'];
-      for (var i = 0; i < sec.length; i++) {
-        var e = document.querySelector(sec[i]);
-        if (!e) continue;
+      /* NOT: .fmea-x (panelin ic kaydirma cubugu) listeye ALINMADI; ana
+         sayfada da gorunur oldugu icin pencere sanilip butonlari kalici
+         gizliyordu. Yalnizca gercek pencereler sayilir. */
+      /* NOT: #adminPage bir sayfa bolumu (panel degil) ve .fmea-x panelin ic
+         kaydirma cubugu; ikisi de listeden cikarildi, yoksa ana sayfada
+         "pencere acik" sanilip butonlar kalici gizleniyordu.
+         .pk-sheet de yalnizca .show sinifi varken sayilir. */
+      var list = document.querySelectorAll(
+        '.fmea-overlay, .fmea-modal, .pk-sheet, #adminModal');
+      for (var i = 0; i < list.length; i++) {
+        var e = list[i];
         var cs = getComputedStyle(e);
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-        if (e.style && e.style.display === 'none') continue;
-        acik = true; break;
+        if (parseFloat(cs.opacity) === 0) continue;
+        var r = e.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        /* panel sinifi olmadan acik sayma */
+        if (e.classList.contains('pk-sheet') && !e.classList.contains('show')) continue;
+        if (e.classList.contains('fmea-overlay') && !e.classList.contains('open')) continue;
+        acik = true;
+        break;
       }
-      /* Kapanan pencereler bazi kod yollarinda DOM'da kalir veya
-         gorunmez halde durur; yine de "acik" sayilabilirdi. Kapali
-         gorunmus overlay'ler icin ek kontrol: gercek bir cizim oluyormu
-         (offsetParent / genislik>0) degilse acik sayma. */
-      if (!acik) {
-        var kapali = document.querySelectorAll('.fmea-overlay, .fmea-modal');
-        for (var q = 0; q < kapali.length; q++) {
-          var k2 = kapali[q];
-          var st = getComputedStyle(k2);
-          if (st.display !== 'none' && st.visibility !== 'hidden' &&
-              k2.offsetParent !== null && k2.getBoundingClientRect().height > 0 &&
-              !k2.classList.contains('open')) continue;
-        }
-      }
-      if (!acik && document.querySelector('.pk-sheet.show')) acik = true;
-      /* ÇIKIŞ YAPILDI: giris ekrani gorunur durumdaysa alt sekme cubugu ve
-         "..." butonu kalmamali. Kullanici istegi: "cikis yapsam bile
-         alttaki FMEA Bilgileri / Proses Akis / FMEA / Kontrol Plani
-         butonlari kaliyor, gitmesi lazim." */
+      /* Giris ekrani (cikis sonrasi) */
       if (!acik) {
         var au = document.getElementById('authScreen');
         if (au) {
-          var cs2 = getComputedStyle(au);
-          if (cs2.display !== 'none' && cs2.visibility !== 'hidden' &&
-              au.style.display !== 'none') acik = true;
+          var c2 = getComputedStyle(au);
+          if (c2.display !== 'none' && c2.visibility !== 'hidden' &&
+              au.offsetParent !== null &&
+              au.getBoundingClientRect().height > 0) acik = true;
         }
       }
       document.body.classList.toggle('pk-pencere', acik);
@@ -11602,7 +11602,11 @@ rows(); fit();
                aksi halde uygulanmis aksiyonlar "Devam ediyor" olarak
                gorunuyordu. */
             var s2v = h.s2 ? n3(h.s2) : null, o2v = h.o2 ? n3(h.o2) : null, d2v = h.d2 ? n3(h.d2) : null;
-            var uygulandi = !!(s2v && o2v && d2v);
+            /* Kullanici netlestirdi: "Gerçekleşen Tarih doluysa tamamlandı
+               say". Once s2/o2/d2 (aksiyon sonrasi risk degerleri) doluysa
+               da tamam sayiyorduk; bu kaldirildi - yalnizca gerceklesen
+               tarihi isaret. */
+            var uygulandi = false;
             var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
             R.push({
               id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
@@ -11651,8 +11655,7 @@ rows(); fit();
       '<div class="chips" id="faChips"></div><div class="sum" id="faSum"></div>' +
       '<div class="kpis" id="faKpis"></div>' +
       '<div class="card" style="margin-top:12px"><h2>Geciken veya Yüksek Riskli Aksiyonlar</h2><div id="faPri"></div></div>' +
-      '<div class="card" style="margin-top:12px"><h2>Aksiyon durumu</h2><div class="stack" id="faStack"></div><div class="legend" id="faLegend"></div>' +
-      '<h2 style="margin-top:16px">Sorumlu bazında</h2><div id="faSor"></div></div>' +
+      '<div class="card" style="margin-top:12px"><h2>Aksiyon durumu</h2><div class="stack" id="faStack"></div><div class="legend" id="faLegend"></div></div>' +
       '<div class="card" style="margin-top:12px"><h2>Haftalık termin ↔ kapanış <span class="mut">(hafta Pazartesi başlar)</span></h2>' +
       '<div class="legend" style="margin:0 0 4px"><span><i class="dot" style="background:var(--run)"></i>Termini o hafta olan</span>' +
       '<span><i class="dot" style="background:var(--ok)"></i>O hafta tamamlanan</span><span><i class="dot" style="background:var(--ora)"></i>Bu hafta</span></div>' +
@@ -11779,13 +11782,10 @@ rows(); fit();
       $('faLegend').innerHTML = segs.map(function (k) { return '<span><i class="dot" style="background:' + STk[k][1] + '"></i>' + STk[k][0] + ' ' + cnt(k) + '</span>'; }).join('') +
         (late.length ? '<span style="color:var(--bad)">⚠ ' + late.length + ' geciken</span>' : '');
 
-      var sm = {};
-      V.forEach(function (r) { var k = r.sor || '(atanmamış)'; (sm[k] = sm[k] || []).push(r); });
-      $('faSor').innerHTML = Object.keys(sm).sort(function (a, b) { return sm[b].length - sm[a].length; }).map(function (n) {
-        var rs = sm[n], lg = rs.filter(function (r) { return r.late; }).length;
-        return '<div class="mini"><span class="nm">' + ESC(n) + '</span><div class="stack">' + stackHtml(rs) + '</div>' +
-          '<span class="' + (lg ? 'late' : 'mut') + '" style="width:70px;font-size:12px">' + (lg ? lg + ' geciken' : '—') + '</span></div>';
-      }).join('') || '<span class="mut">Sorumlu atanmamış.</span>';
+      /* Kullanicinin istegi: "Sorumlu bazında kısmını kaldır" - bolum ve
+         icerigi kaldirildi. Sorumlu sutunu TUM AKSIYONLAR tablosunda ve
+         oncelik kartlarinda gorunmeye devam eder. */
+      void 0;
 
       /* haftalik trend */
       var wk = function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)); };
