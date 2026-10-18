@@ -9457,6 +9457,11 @@ const isParcaSel = (fmeaType === 'parca');
         }
         const wsFlow = workbook.addWorksheet('Proses Akış Şeması');
         const wsFmea = workbook.addWorksheet(isParcaSel ? 'Parça Bazlı FMEA' : 'Proses Bazlı FMEA');
+        /* Birlestirme listesi ve ciftler burada tanimlanir; veri dongusu
+           icindeki blogu sonra biter, birlestirme dongu DISINDA
+           uygulanir. Once burada tanimliydi ve kapsam disinda
+           kullanildigi icin export hata veriyordu. */
+        const pkFmeaBirlestir = [];
 
         wsFlow.views = [{ showGridLines: false }];
         wsFmea.views = [{ showGridLines: true }];
@@ -9800,7 +9805,20 @@ const isParcaSel = (fmeaType === 'parca');
 const pBase = () => {
                 const row = wsFmea.getRow(dataRow);
                 row.height = 30;
-                P_PAIRS.forEach(([a, b]) => mboxB(dataRow, a, dataRow, b));
+                /* ONEMLI - birlestirme artik ANLIK YAPILMIYOR, satir sonrasi
+           uygulanacak (asagida bkz.). Sebep: ExcelJS'te bir birlestirilmis
+           bolgenin SAĞ hucrelerine deger yazildiginda birlestirme DUSUYOR.
+           Oysa put(28/30/34/36/38) tam olarak bu sag hucrelere yaziyor;
+           yani anlik birlestirme 1400'e yakin birlestirmeyi (hepsini)
+           yazma sirasinda yok ediyordu - indirilen dosyada 1398 yerine
+           yalnizca 48 birlestirme kaliyordu. */
+        try {
+          /* (37,38) HARIC: iki tarafa da veri yaziliyor (Olasilik2 /
+             Tespit2). Birlestirilse Tespit SILINIRDI. */
+          const pkPairs = P_PAIRS.filter(function (q) { return !(q[0] === 37 && q[1] === 38); });
+          pkPairs.forEach(function (q) { pkFmeaBirlestir.push([dataRow, q[0], q[1]]); });
+        } catch (e) {}
+        pkFmeaBirlestir.push(dataRow);
                 P_SINGLES.forEach(cc => borderAll(wsFmea.getCell(dataRow, cc)));
                 pp(2, takipNo, true); wsFmea.getCell(dataRow, 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
                 pp(3, procNum, false, true);
@@ -9873,6 +9891,35 @@ const pBase = () => {
               put(4, sub.title, false);
               put(6, sub.gerUrun || '', false);
               put(8, sub.gerProses || '', false);
+              /* ONEMLI - DATA_PAIRS/Data_SINGLES tanimliydi ama HIC
+                 KULLANILMIYORDU (olu kod). Bu yuzden FMEA sayfasindaki
+                 veri hucreleri hic birlestirilmiyordu: indirilen dosyada
+                 sablonun 1398 birlestirmesinden yalnizca 48'i kaliyordu
+                 (o 48 de ust bilgi bandindan geliyordu).
+                 Simdi her veri satirina 15 hucre cifti birlestiriliyor.
+                 Guvenli mi? Evet: DATA_PAIRS'in sol (master) sutunlari
+                 tam olarak verinin yazildigi sutunlar
+                 (4,6,8,10,12,16,18,21,24,26,28,30,32,34,39) ve sag
+                 sutunlara hicbir put() yazmiyor. Sag hucreye veri
+                 yazilirsa birlestirme dustugu icin, yine de bos
+                 degilse degeri sola tasiyoruz (veri kaybi olmasin).
+                 Indirme formulleri ve DATA_SINGLES sutunlari
+                 (2,3,14,15,20,23,36,37,38) dokunulmaz. */
+              DATA_PAIRS.forEach(function (q) {
+                try {
+                  const m = wsFmea.getCell(dataRow, q[0]);
+                  const sc = wsFmea.getCell(dataRow, q[1]);
+                  const bos = v => v === null || v === undefined || String(v).trim() === '';
+                  /* Veri varsa sola tasi (veri kaybi olmasin), sonra
+                     birlestir. Iki hucre de bossa da birlestirilir:
+                     sablonda o kutular da birlestirilmis ve cerceve
+                     tutarliligi icin gerekli; veri olmadigi icin
+                     guvenli. */
+                  if (bos(m.value) && !bos(sc.value)) m.value = sc.value;
+                  wsFmea.mergeCells(dataRow, q[0], dataRow, q[1]);
+                  m.border = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+                } catch (e) {}
+              });
             };
             if (sub.hatalar?.length) {
               sub.hatalar.forEach(h => {
@@ -9912,6 +9959,24 @@ const pBase = () => {
           for (let c = 2; c <= 40; c++) { wsFmea.getCell(dataRow, c).value = ''; }
           dataRow++;
         }
+
+        /* ---- VERI YAZILDIKTAN SONRA birlestirmeleri kur ----
+           Sira onemli: degerler yazilirken sag hucreye yazmak birlestirmeyi
+           dusuruyor. Bu yuzden once veri tamamen yazilir, sonra birlestirilir.
+           Birlestirmeden once master bos ise deger sola TASINIR; boylece
+           hicbir veri kaybolmaz. Indirme formulleri (sutun 25 ve 40) dokunulmaz. */
+        /* [satir, c1, c2] uculusu; mboxB kapsam ici degilse sessizce gecilir. */
+        pkFmeaBirlestir.forEach(function (rr) {
+          if (!Array.isArray(rr) || rr.length !== 3) return;
+          try {
+            const m = wsFmea.getCell(rr[0], rr[1]), sc = wsFmea.getCell(rr[0], rr[2]);
+            const bos = function (v) { return v === null || v === undefined || String(v).trim() === ''; };
+            if (bos(m.value) && !bos(sc.value)) m.value = sc.value;
+            if (bos(m.value) && bos(sc.value)) return;
+            if (typeof mboxB === 'function') mboxB(rr[0], rr[1], rr[0], rr[2]);
+            else wsFmea.mergeCells(rr[0], rr[1], rr[0], rr[2]);
+          } catch (err) {}
+        });
 
         wsFmea.views = [{ showGridLines: true }];
         wsFmea.pageSetup = { paperSize: 8, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
