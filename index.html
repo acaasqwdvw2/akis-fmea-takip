@@ -3326,7 +3326,12 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
                 const hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
                 const hd = ckTarihCoz(hdMetin);
                 if (!hd) return;                                            // hedef tarihi bos
-                const kalanGun = Math.round((hd.getTime() - bugun.getTime()) / 86400000);
+                /* Mantıksız hedef tarihi koruması (panel ile aynı):
+                 veri hatalıysa (orn. küçük sayı Excel seri no sanılıp
+                 1899'a düşerse) "46344 gün gecikti" gibi sahte gecikmeler
+                 üretiyordu. 20 yıldan eski termin geçersiz sayılır. */
+              if (bugun.getTime() - hd.getTime() > 20 * 365.25 * 86400000) return;
+              const kalanGun = Math.round((hd.getTime() - bugun.getTime()) / 86400000);
                 liste.push({
                   uid: uid, kisi: kisi, tedAdi: tedAdi, projeAd: p.ad || '(isimsiz)',
                   proses: String((n && n.title) || '').trim(),
@@ -11535,8 +11540,14 @@ rows(); fit();
        - ne aksiyonu ne faaliyeti olan hata listelenmez
        - hedef tarihi bos olan listelenmez
        - mantiksiz (20 yildan eski) tarihler elenir                      */
+  /* Tamamlanan aksiyon sayaci. Adminin mantigiyla uyum icin tamamlananlar
+     ANA LISTEDE YER ALMAZ; ancak "Tamamlanı" KPI'si gosterebilmek icin
+     ayrica sayilir (kullanicinin 1. secenegi). */
+  var FA_TAMAMLANDI = 0;
+
   function veriTopla() {
     var R = [], id = 0;
+    FA_TAMAMLANDI = 0;
     var list = [];
     try { if (Array.isArray(projects)) list = projects.slice(); } catch (e) {}
     var acik = '';
@@ -11583,6 +11594,11 @@ rows(); fit();
             var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
             if (!aksiyon && !faaliyet) continue;
             var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
+            /* ADMINLE AYNI: tamamlanan aksiyon liste disi (ckAksiyonTaramasi
+               da "if (ckAlan(h,[...gerceklesenTarih...])) return;" ile
+               ayni sekilde eler). Yalnizca "Tamamlanı" KPI sayacini
+               beslemek icin sayilir. */
+            if (bittiMetin) { FA_TAMAMLANDI++; continue; }
             var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
             var hd = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
             if (!hd) continue;
@@ -11673,7 +11689,7 @@ rows(); fit();
       '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', function (e) { if (e.target === ov) faKapat(); });
-    ciz(R);
+    ciz(R, FA_TAMAMLANDI);
   }
   function faKapat() { var o = document.getElementById('faOverlay'); if (o && o.parentNode) o.parentNode.removeChild(o); }
   window.faKapat = faKapat;
@@ -11692,7 +11708,8 @@ rows(); fit();
   }
   window.faYenile = faYenile;
 
-  function ciz(R) {
+  function ciz(R, tamamSayisi) {
+    if (typeof tamamSayisi !== 'number') tamamSayisi = FA_TAMAMLANDI;
     var fs = '', fk = 'all';
     var $ = function (id) { return document.getElementById(id); };
     var STk = ST, rc = function (v) { return v >= 200 ? 'r-h' : v >= 100 ? 'r-m' : 'r-l'; };
@@ -11754,12 +11771,15 @@ rows(); fit();
         SS.map(function (x) { return '<button class="chip ' + (fs === x.f ? 'on' : '') + '" data-f="' + ESC(x.f) + '">' + ESC(x.f) + '<small>' + x.n + (x.late ? ' · ⚠' + x.late : '') + '</small></button>'; }).join('');
 
       $('faSum').innerHTML = (fs ? '<b>' + ESC(fs) + ':</b> ' : '') +
-        '<b>' + N + ' aksiyonun</b> ' + cnt('tamam') + "'i tamamlandı (%" + Math.round(cnt('tamam') / N * 100) + '), ' +
+        '<b>' + N + ' açık aksiyon</b>; ayrıca <b>' + tamamSayisi + '</b> tamamlandı. ' +
         cnt('devam') + "'i devam ediyor, " + cnt('bas') + "'i başlamadı. " +
         (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
         (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
 
-      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', cnt('tamam')], ['devam', 'Devam ediyor', cnt('devam')],
+      /* "Tamamlandı" artık liste DEĞİL, ayrı sayaçtır (adminle aynı
+         davranış: tamamlananlar listede görünmez). Tıklanınca liste
+         süzgeçlenmez, yalnızca sayaç gösterilir. */
+      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', tamamSayisi], ['devam', 'Devam ediyor', cnt('devam')],
         ['bas', 'Başlamadı', cnt('bas')], ['late', 'Geciken', late.length]];
       $('faKpis').innerHTML = KP.map(function (k) {
         return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
