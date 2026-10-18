@@ -1675,6 +1675,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .pk-sitem,.pk-sitem:hover,.pk-sitem:active,
     .pk-user-grp button,.pk-user-grp button:hover,.pk-user-grp button:active,
     .pk-user-grp #userName{color:#000!important}
+    /* Çıkış düğmesi: kural .toolbar/.pk-sec-btn kaynaklıydı ve yazı
+       beyaz kalıyordu; en yüksek öncelikle siyaha sabitlenir. */
+    .pk-sheet #userBar button,
+    .pk-sheet .pk-user-grp #userBar button,
+    #pkUserMenu #userBar button,
+    #userBar button{color:#000!important; -webkit-text-fill-color:#000!important;
+      text-shadow:none!important}
     .pk-sheet .pk-sitem.danger,.pk-sheet .pk-sitem.danger:hover{color:#8a1010!important}
     .pk-sheet .pk-sitem.primary,.pk-sheet .pk-sitem.primary:hover{color:#2b1b00!important}
 
@@ -1790,7 +1797,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     body:has(#fmeaOverlay) .ag-steps,
     body:has(.fmea-overlay.open) .ag-steps,
     body:has(.fmea-modal) .ag-steps,
-    body:has(.pk-sheet.show) .ag-steps{display:none!important}
+    body:has(.pk-sheet.show) .ag-steps,
+    body:has(#authScreen:not([style*="display: none"])) .ag-steps{display:none!important}
+    body:has(#authScreen:not([style*="display: none"])) .pk-more{display:none!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -2069,6 +2078,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         acik = true; break;
       }
       if (!acik && document.querySelector('.pk-sheet.show')) acik = true;
+      /* ÇIKIŞ YAPILDI: giris ekrani gorunur durumdaysa alt sekme cubugu ve
+         "..." butonu kalmamali. Kullanici istegi: "cikis yapsam bile
+         alttaki FMEA Bilgileri / Proses Akis / FMEA / Kontrol Plani
+         butonlari kaliyor, gitmesi lazim." */
+      if (!acik) {
+        var au = document.getElementById('authScreen');
+        if (au) {
+          var cs2 = getComputedStyle(au);
+          if (cs2.display !== 'none' && cs2.visibility !== 'hidden' &&
+              au.style.display !== 'none') acik = true;
+        }
+      }
       document.body.classList.toggle('pk-pencere', acik);
     }
     function pencereTakibiKur() {
