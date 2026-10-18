@@ -1438,6 +1438,96 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         letter-spacing:.3px!important; font-weight:700!important}
       .hdr-sag #count{gap:6px!important}
     }
+
+    /* ================================================================
+       TELEFON BASLIGI - kullanicinin istedigi duzen (tek satir):
+         [logo] [Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma Uygulaması]
+                [FMEA seçimi] [Hesap] [Çıkış]
+         alt satır:
+                [Proses] [İşlem] [Hata]
+       Once logo+secici / baslik / sayaclar ayri satirlara sariliyordu;
+       slogan da yer kapliyordu. Slogan bu duzende gizlenir, sayaclar
+       ilk satirin ALTINA tam genislikte gecer.
+       ================================================================ */
+    @media (max-width:640px){
+      header{display:flex!important; align-items:center!important;
+        flex-wrap:wrap!important; gap:6px!important;
+        padding:6px 8px!important; padding-right:8px!important}
+
+      /* --- 1) logo --- */
+      header #siteLogo{flex:0 0 34px!important; width:34px!important; height:34px!important;
+        min-height:34px!important; max-height:34px!important; align-self:center!important;
+        border-radius:8px!important}
+
+      /* --- 2) baslik (tek satir, kirpilan) --- */
+      header #brandTitle{flex:1 1 80px!important; min-width:0!important; order:1!important;
+        display:block!important; align-self:center!important; height:auto!important}
+      header h1{font-size:10.5px!important; line-height:1.15!important; color:#fff!important;
+        margin:0!important; white-space:nowrap!important; overflow:hidden!important;
+        text-overflow:ellipsis!important}
+      /* Slogan bu duzende yer kapliyordu; gizlenir (ilk satira sigmasi icin) */
+      header p.authSlogan, header #brandTitle p, header .authSlogan{display:none!important}
+
+      /* --- 3) FMEA secimi + Hesap + Cikis: ayni satirin saginda --- */
+      .hdr-sag{flex:0 1 auto!important; width:auto!important; height:auto!important;
+        flex-direction:row!important; align-items:center!important;
+        gap:6px!important; order:2!important; min-width:0!important; padding:0!important}
+      .hdr-sag-ust{display:flex!important; align-items:center!important;
+        gap:6px!important; flex:0 1 auto!important; min-width:0!important}
+      .hdr-sag .hdr-sel-yuva{flex:0 1 auto!important; min-width:0!important; max-width:132px!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{width:100%!important; max-width:132px!important;
+        height:28px!important; font-size:10.5px!important; padding:3px 20px 3px 8px!important;
+        border-radius:8px!important; white-space:nowrap!important; overflow:hidden!important;
+        text-overflow:ellipsis!important}
+      .hdr-sag #userBar{flex:0 0 auto!important; display:flex!important; align-items:center!important;
+        gap:4px!important; font-size:10.5px!important; white-space:nowrap!important}
+
+      /* --- 4) sayaclar: ilk satirin ALTINDA, tam genislikte --- */
+      .hdr-sag #count{flex:1 0 100%!important; order:9!important; margin-top:5px!important;
+        justify-content:flex-start!important; gap:6px!important; width:100%!important}
+      .hdr-sag .cnt-card{padding:2px 9px!important; min-height:26px!important;
+        border-radius:8px!important; gap:5px!important}
+      .hdr-sag .cnt-card .cnt-num{font-size:14px!important; line-height:1!important}
+      .hdr-sag .cnt-card .cnt-label{font-size:9px!important; margin-top:0!important}
+
+      /* --- 5) "..." akisa girer, ustune binmez ve EN SONDA durur ---
+         order verilmedigi icin (0) logodan hemen sonra geliyordu;
+         kullanici duzeni: logo | baslik | FMEA secimi | hesap | cikis. */
+      .pk-more{position:static!important; order:3!important; flex:0 0 26px!important;
+        width:26px!important; height:26px!important; font-size:16px!important;
+        border-radius:9px!important; align-self:center!important}
+      /* basliga biraz daha yer (secici biraz daraltilir) */
+      header #brandTitle{flex:1 1 110px!important}
+      .hdr-sag .hdr-sel-yuva{max-width:118px!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{max-width:118px!important}
+    }
+
+    /* ================================================================
+       PC'de sag blok (FMEA secimi + Hesap/Cikis + sayaclar) EKRANIN
+       EN SAGINA daya; tasmasin, veriler duzgun gorsunsun.
+       (once header bosluga gore ortada kalabiliyordu)
+       ================================================================ */
+    @media (min-width:641px){
+      header{position:relative!important; display:flex!important; align-items:stretch!important;
+        column-gap:16px!important}
+      header #siteLogo{flex:0 0 auto!important}
+      header #brandTitle{flex:1 1 auto!important; min-width:0!important; height:96px!important}
+      /* margin-left:auto ile blok mutlaka en saga yaslanir */
+      .hdr-sag{flex:0 0 auto!important; margin-left:auto!important;
+        max-width:min(700px,52vw)!important; overflow:hidden!important;
+        justify-content:flex-end!important; height:96px!important}
+      .hdr-sag-ust{width:100%!important; justify-content:flex-end!important}
+      .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; min-width:0!important; max-width:none!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{width:100%!important; max-width:none!important}
+      /* sayaclar saga yasli, sabit bosluklu - veriler duzgun dursun */
+      .hdr-sag #count{justify-content:flex-end!important; gap:8px!important;
+        width:100%!important; margin-top:6px!important}
+      .hdr-sag .cnt-card{flex:0 0 auto!important; min-width:74px!important;
+        justify-content:center!important}
+      .hdr-sag .cnt-card .cnt-num{min-width:0!important}
+      /* "..." en sagda */
+      .pk-more{margin-left:6px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
