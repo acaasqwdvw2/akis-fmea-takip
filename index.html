@@ -11646,10 +11646,14 @@ rows(); fit();
      ANA LISTEDE YER ALMAZ; ancak "Tamamlanı" KPI'si gosterebilmek icin
      ayrica sayilir (kullanicinin 1. secenegi). */
   var FA_TAMAMLANDI = 0;
+  /* Panodaki FMEA secme aracindaki TUM FMEA etiketleri (acik aksiyonu
+     olmayanlar dahil). veriTopla() her cagirdiginda tazelenir. */
+  var FA_HEPSI = [];
 
   function veriTopla() {
     var R = [], id = 0;
     FA_TAMAMLANDI = 0;
+    FA_HEPSI = [];
     var list = [];
     try { if (Array.isArray(projects)) list = projects.slice(); } catch (e) {}
     var acik = '';
@@ -11670,6 +11674,11 @@ rows(); fit();
          proje kopyalarindan okunur (o kayitlardan gelir). */
       var canli = (typeof nodes !== 'undefined' && nodes && nodes.length) ? nodes : null;
       var nd = (p && p.name === acik && canli) ? canli : ((p && Array.isArray(p.nodes)) ? p.nodes : null);
+      /* FMEA secme aracinda GORUNSUN: acik aksiyonu olmayan (hic satiri
+         olmayan veya hepsi tamamlanmis) FME'lar da listeye alinir. */
+      if (!FA_HEPSI.some(function (x) { return x.ad === ad; })) {
+        FA_HEPSI.push({ ad: ad, acik: 0, gecik: 0 });
+      }
       return { ad: ad, firma: firma, nodes: (nd && nd.length) ? nd : [] };
     }
 
@@ -11699,11 +11708,38 @@ rows(); fit();
             var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
             var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
             var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
-            /* GERCEKLESEN TARIH ONCE kontrol edilir: tamamlanan bir aksiyonun
-               faaliyet/aksiyon metni bos olsa bile "Tamamlandi" sayaci artmali.
-               (Once "if(!aksiyon&&!faaliyet) continue" vardi ve bu tur
-               kayitlar sayilmadan eleniyordu -> sayac 0 kaliyordu.) */
-            if (bittiMetin) { FA_TAMAMLANDI++; continue; }
+            var tamamT = bittiMetin ? fTarih(bittiMetin) : null;
+            /* GERCEKLESEN TARIH ONCE: tamamlanan aksiyon ARTIK R'YE DE GIRER
+               (k='tamam'). Kullanici istekleri boyledi:
+                 - "Tamamlanan Aksiyon kartina tiklaninca tabloda gorunsun"
+                 - haftalik grafigin YESIL (tamamlanan) sutunlari adetle dolsun
+               (once yalnizca FA_TAMAMLANDI'na sayilip atlaniyordu -> yesil
+               sütunlar hep 0 kaliyordu). Mantiksiz (20 yildan eski) tarihler
+               grafigi yillara genisletmemesi icin R'ye almaz. */
+            if (bittiMetin) {
+              FA_TAMAMLANDI++;
+              if (tamamT && TODAY - tamamT <= 20 * 365.25 * 864e5) {
+                var hdM2 = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
+                var hdT = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdM2) : fTarih(hdM2);
+                id++;
+                R.push({
+                  id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
+                  fmea: G.ad, firma: G.firma,
+                  adim: (sub && (sub.title || sub.code)) || '',
+                  hata: ckAlan(h, ['tur', 'hataTuru']),
+                  S: n3(ckAlan(h, ['s', 'siddet', 'S'])),
+                  O: n3(ckAlan(h, ['o', 'olasilik', 'O'])),
+                  D: n3(ckAlan(h, ['d', 'tespit', 'D'])),
+                  faaliyet: faaliyet, aksiyon: aksiyon,
+                  sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
+                  termin: hdT || null, durum: 'Tamamlandı',
+                  tamam: tamamT, uygulandi: false,
+                  kalanGun: 0, gecGun: 0,
+                  S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
+                });
+              }
+              continue;
+            }
             if (!aksiyon && !faaliyet) continue;
             var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
             var hd = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
@@ -11756,6 +11792,13 @@ rows(); fit();
       r.k = (r.durum === 'Tamamlandı') ? 'tamam' : 'devam';
       r.late = r.gecGun || 0;
       r.high = (r.k !== 'tamam' && r.rpn >= 100);
+      /* FMEA secme araci icin acik/gecikme sayacini guncelle */
+      for (var fi = 0; fi < FA_HEPSI.length; fi++) {
+        if (FA_HEPSI[fi].ad === r.fmea) {
+          if (r.k !== 'tamam') { FA_HEPSI[fi].acik++; if (r.late) FA_HEPSI[fi].gecik++; }
+          break;
+        }
+      }
     }
     return R;
   }
@@ -11771,8 +11814,8 @@ rows(); fit();
     ov.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:10px';
     ov.innerHTML =
       '<div class="fa" style="max-width:1200px;width:100%;max-height:94vh;overflow:auto">' +
-      '<div class="top"><div><h1>FMEA Aksiyon Takip Panosu <span style="font-weight:400;color:var(--mut)">· ' + ESC(R.length ? R[0].firma : 'FMEA') + '</span></h1>' +
-      '<div class="mut">Rapor tarihi: ' + fd(TODAY) + ' · RPN = Şiddet × Olasılık × Tespit</div></div>' +
+      '<div class="top"><div><h1>FMEA Aksiyon Takip Panosu</h1>' +
+      '<div class="mut">Rapor tarihi: ' + fd(TODAY) + '</div></div>' +
       '<button class="pk-x" onclick="faKapat()" title="Kapat (Esc)" aria-label="Kapat">✕</button></div>' +
       '<div class="chips" id="faChips"></div><div class="sum" id="faSum"></div>' +
       /* Kullanici istegi: ust KPI kartlari (Aksiyon / Tamamlandi / Devam
@@ -11817,7 +11860,7 @@ rows(); fit();
 
   function ciz(R, tamamSayisi) {
     if (typeof tamamSayisi !== 'number') tamamSayisi = FA_TAMAMLANDI;
-    var fs = '', fk = 'all';
+    var fs = '', fk = 'acik';
     var $ = function (id) { return document.getElementById(id); };
     var STk = ST, rc = function (v) { return v >= 200 ? 'r-h' : v >= 100 ? 'r-m' : 'r-l'; };
     var now = function (r) { return (r.k === 'tamam' && r.rpn2 != null) ? r.rpn2 : r.rpn; };
@@ -11840,8 +11883,12 @@ rows(); fit();
     function tbl() {
       var q = ($('faQ').value || '').toLocaleLowerCase('tr');
       var rs = R.filter(function (r) {
-        /* yalnizca EN ÜSTTEKİ çip (fs) + KPI süzgeci + arama */
-        return (!fs || (r.fmea || r.firma) === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
+        /* yalnizca EN ÜSTTEKİ FMEA araci (fs) + KPI süzgeci + arama.
+           fk 'acik' (varsayilan): tamamlanmis satirlar tabloda GORUNMEZ
+           (onceki davranis); "Aksiyon Gerçekleşmiş" kartina basinca
+           fk='tamam' olur ve tamamlananlar listelenir. */
+        var fkOk = fk === 'belirlen' ? true : fk === 'tamam' ? r.k === 'tamam' : fk === 'gecikmis' ? !!r.late : fk === 'devam' ? (r.k === 'devam' && !r.late) : fk === 'high' ? r.high : (r.k !== 'tamam');
+        return (!fs || (r.fmea || r.firma) === fs) && fkOk
           && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma + ' ' + (r.fmea || '')).toLocaleLowerCase('tr').indexOf(q) >= 0);
       }).sort(function (a, b) { return a.firma.localeCompare(b.firma, 'tr') || (b.late > 0) - (a.late > 0) || b.late - a.late || b.rpn - a.rpn; });
       $('faCnt').textContent = rs.length + ' aksiyon';
@@ -11866,30 +11913,43 @@ rows(); fit();
 
     function render() {
       var V = R.filter(function (r) { return !fs || (r.fmea || r.firma) === fs; });
-      if (!V.length) { $('faSum').textContent = 'Gösterilecek aksiyon yok.'; tbl(); return; }
-      var N = V.length, cnt = function (k) { return V.filter(function (r) { return r.k === k; }).length; };
+      if (!V.length) { $('faSum').textContent = 'Gösterilecek aksiyon yok.'; $('faKpis').innerHTML = ''; tbl(); return; }
+      var cnt = function (k) { return V.filter(function (r) { return r.k === k; }).length; };
+      var tamamC = cnt('tamam');
       var late = V.filter(function (r) { return r.late; });
+      var devamC = V.length - tamamC - late.length;
       var done = V.filter(function (r) { return r.k === 'tamam' && r.rpn2 != null; });
       var red = done.reduce(function (a, r) { return a + r.rpn - r.rpn2; }, 0);
       var redPct = done.length ? avg(done.map(function (r) { return (r.rpn - r.rpn2) / r.rpn; })) * 100 : null;
-      var SS = FIRMS.map(supStats).sort(function (a, b) { return b.late - a.late || a.pct - b.pct; });
 
-      $('faChips').innerHTML = '<button class="chip ' + (fs ? '' : 'on') + '" data-f="">Tüm tedarikçiler<small>' + R.length + '</small></button>' +
-        SS.map(function (x) { return '<button class="chip ' + (fs === x.f ? 'on' : '') + '" data-f="' + ESC(x.f) + '">' + ESC(x.f) + '<small>' + x.n + (x.late ? ' · ⚠' + x.late : '') + '</small></button>'; }).join('');
+      /* FMEA SECTIRME ARACI (kullanici istegi: cipler yerine toolbox).
+         FA_HEPSI icerigi veriTopla'da doldurulur; acik aksiyonu OLMAYAN
+         FMEA'lar da listelenir (acik=0). */
+      $('faChips').innerHTML = '<select id="faFmeaSel" class="chip" style="min-width:340px;max-width:100%">' +
+        '<option value="">Tüm FMEA\'lar (' + R.length + ' aksiyon)</option>' +
+        FA_HEPSI.map(function (x) {
+          return '<option value="' + ESC(x.ad) + '"' + (fs === x.ad ? ' selected' : '') + '>' +
+            ESC(x.ad) + ' (' + x.acik + (x.gecik ? ' · ⚠' + x.gecik : '') + ')</option>';
+        }).join('') + '</select>';
 
       $('faSum').innerHTML = (fs ? '<b>' + ESC(fs) + ':</b> ' : '') +
-        '<b>' + N + ' açık aksiyon</b>; ayrıca <b>' + tamamSayisi + '</b> tamamlandı. ' +
-        cnt('devam') + "'i devam ediyor. " +
+        '<b>' + V.length + ' aksiyon</b>; <b>' + tamamC + '</b> gerçekleşmiş, <b>' + devamC + '</b> devam ediyor. ' +
         (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
         (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
 
-      /* Ust KPI kartlari: Aksiyon / Tamamlandi / Devam ediyor / Geciken.
-         ("Baslamadi" kaldirildi - kullanici istegi.) */
-      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', tamamSayisi], ['devam', 'Devam ediyor', cnt('devam')],
-        ['late', 'Geciken', late.length]];
+      /* Ust KPI kartlari: YONETICI KOKPITIYLE AYNI ANLAM
+         (ckAksiyonTaramasi / fmeaMetrikleri):
+           Aksiyon Belirlenmiş  = aksiyon veya faaliyet girilmis tum satirlar
+           Aksiyon Gerçekleşmiş = gerceklesen tarihi olanlar (k='tamam')
+           Aksiyon Devam Ediyor = belirlenmis - gerceklesen - gecikmis
+           Aksiyon Gecikmiş     = termini gecmis ve kapanmamis            */
+      var KP = [['belirlen', '📋', 'Aksiyon Belirlenmiş', V.length],
+        ['tamam', '✅', 'Aksiyon Gerçekleşmiş', tamamC],
+        ['devam', '⏳', 'Aksiyon Devam Ediyor', devamC],
+        ['gecikmis', '⚠️', 'Aksiyon Gecikmiş', late.length]];
       $('faKpis').innerHTML = KP.map(function (k) {
         return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
-          (k[0] === 'late' && k[2] ? ' class="late"' : '') + '>' + k[2] + '</b><span>' + k[1] + '</span></button>';
+          (k[0] === 'gecikmis' && k[3] ? ' class="late"' : '') + '>' + k[3] + '</b><span>' + k[1] + ' ' + k[2] + '</span></button>';
       }).join('');
 
       var pri = V.filter(function (r) { return r.late || r.high; })
@@ -11910,7 +11970,7 @@ rows(); fit();
       if (_fsEl || _flEl) {
         var segs = ['tamam', 'devam', 'bas'].filter(function (k) { return cnt(k); });
         if (_fsEl) _fsEl.innerHTML = segs.map(function (k) {
-          return '<div style="width:' + (cnt(k) / (N || 1) * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + cnt(k) + '">' + cnt(k) + '</div>';
+          return '<div style="width:' + (cnt(k) / (V.length || 1) * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + cnt(k) + '">' + cnt(k) + '</div>';
         }).join('');
         if (_flEl) _flEl.innerHTML = segs.map(function (k) { return '<span><i class="dot" style="background:' + STk[k][1] + '"></i>' + STk[k][0] + ' ' + cnt(k) + '</span>'; }).join('') +
           (late.length ? '<span style="color:var(--bad)">⚠ ' + late.length + ' geciken</span>' : '');
@@ -11953,14 +12013,11 @@ rows(); fit();
       tbl();
     }
 
-    /* FMEA filtresi (kullanicinin istegi): tum FMEA'lar listelenir */
-      R.map(function (r) { return r.fmea; })
-        .filter(function (v, i, a) { return a.indexOf(v) === i; })
-        .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
-      R.map(function (r) { return r.sor; }).filter(function (v) { return v; })
-        .filter(function (v, i, a) { return a.indexOf(v) === i; })
-        .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
-    $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
+    /* FMEA secme araci (toolbox): change olayi burada baglanir; render()
+       her cagirdiginda innerHTML yenilendigi icin eleman yeniden olusur. */
+    $('faChips').onchange = function (e) {
+      if (e.target && e.target.id === 'faFmeaSel') { fs = e.target.value; render(); }
+    };
     $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
     render();
   }
