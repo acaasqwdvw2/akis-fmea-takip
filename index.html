@@ -1702,11 +1702,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        - FMEA secici kalan yeri doldurur (esnek, en fazla ekranin %45'i)
        - "..." margin-left:auto ile EN SAĞA dayanır                    */
     @media (max-width:640px){
-      header #brandTitle{flex:1 1 70px!important}
-      .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; max-width:46%!important;
-        min-width:96px!important}
+      /* Baslik ONCELIKLIDIR: seciciyi %46'ya genisletince baslik ezildi ve
+         "Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma Uygulaması" okunmaz
+         oldu. Duzen:
+           1. satir : [logo] [başlık - 2 satır, esnek yer] [⋯]
+           2. satir : [FMEA seçimi - esnek] [21 PROSES] [24 İşlem] [97 HATA]
+         Boylece baslik yer bulur, secici de sayaclarin yaninda yer alir. */
+      header #brandTitle{flex:1 1 auto!important; min-width:0!important; order:1!important}
+      header h1{font-size:12.5px!important}
+      /* "..." 1. satirda (basligin saginda) kalsin: order 2, hdr-sag
+         (secici + sayaclar) order 3 ve tam genislik -> 2. satira gecer. */
+      .hdr-sag{flex:1 0 100%!important; order:3!important; width:100%!important;
+        max-width:100%!important; margin-left:0!important; height:auto!important;
+        flex-direction:row!important; align-items:center!important;
+        justify-content:space-between!important; gap:8px!important; margin-top:7px!important}
+      .hdr-sag-ust{flex:1 1 auto!important; min-width:0!important}
+      .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; max-width:none!important;
+        min-width:0!important}
       .hdr-sag .hdr-sel-yuva .sel-btn{max-width:100%!important; width:100%!important}
-      .pk-more{margin-left:auto!important; order:3!important}
+      .hdr-sag #count{flex:0 0 auto!important; order:9!important; margin-top:0!important;
+        padding-right:0!important; gap:5px!important}
+      .pk-more{margin-left:auto!important; order:2!important; flex:0 0 26px!important}
     }
 
     /* ================================================================
