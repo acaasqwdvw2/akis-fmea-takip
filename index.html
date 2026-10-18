@@ -1293,6 +1293,61 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     .hdr-sel-yuva{order:2!important; flex:0 1 auto!important; min-width:0!important;
       max-width:340px!important; display:inline-flex!important; align-items:center!important}
     header .count-cards, header #count{order:3!important; flex:0 0 auto!important}
+
+    /* FMEA Ayarlari listesi */
+    .ayar-liste{overflow:auto;padding:12px;display:flex;flex-direction:column;gap:6px;max-height:56vh}
+    .ayar-satir{display:flex;gap:6px;align-items:stretch;min-width:0}
+    .ayar-satir.current .ayar-sec{border-color:#2e6b4f;background:#eef6f2}
+    .ayar-sec{flex:1 1 auto!important; min-width:0!important; text-align:left!important;
+      overflow:hidden!important; text-overflow:ellipsis!important; white-space:nowrap!important}
+
+    /* ================================================================
+       BASLIKTA IKI BLOK AYNI YUKSEKLIKTE
+       Kullanici istegi: "Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma
+       Uygulaması / Önleyici yaklaşım... bu kısımla [FMEA seçimi + sayaçlar]
+       aynı yükseklikte olsun".
+       Sol blok (logo + başlık + slogan) ve sağ blok (FMEA seçimi +
+       Proses/İşlem/Hata kartları) esit yükseklikte olur: header esnere
+       alındığında tüm cocuklar esitlenir, icerikler kendi icinde
+       ortalanir. Böylece iki blok da aynı dikdörtgen gibi durur.
+       ================================================================ */
+    header{align-items:stretch!important}
+    header > *{align-self:stretch!important}
+    header #siteLogo{align-self:center!important}
+    header #brandTitle{display:flex!important; flex-direction:column!important;
+      justify-content:center!important; align-self:stretch!important}
+    .hdr-sel-yuva{align-self:center!important; display:flex!important;
+      align-items:center!important}
+    header .count-cards, header #count{align-self:center!important;
+      display:flex!important; align-items:stretch!important}
+    .cnt-card{display:flex!important; flex-direction:row!important;
+      align-items:center!important; justify-content:center!important}
+
+    /* ================================================================
+       SAG UST BLOK: [abdullah01 / Çıkış] / [FMEA seçimi] / [sayaçlar]
+       toplam yuksekligi LOGO ile ayni.
+       ================================================================ */
+    @media (min-width:641px){
+      .hdr-sag{display:flex!important; flex-direction:column!important;
+        align-items:stretch!important; justify-content:space-between!important;
+        gap:3px!important; order:3!important; flex:0 0 auto!important;
+        height:96px!important;                 /* #siteLogo ile ayni */
+        padding:2px 0!important; box-sizing:border-box!important}
+      .hdr-sag > *{flex:0 0 auto!important; margin:0!important}
+      .hdr-sag #userBar{display:flex!important; align-items:center!important;
+        justify-content:flex-end!important; gap:8px!important; white-space:nowrap!important}
+      .hdr-sag .hdr-sel-yuva{order:1!important; max-width:100%!important; min-width:0!important;
+        display:block!important}
+      .hdr-sag .hdr-sel-yuva .sel-btn{width:100%!important; height:30px!important;
+        text-align:left!important}
+      .hdr-sag #count{display:flex!important; align-items:stretch!important;
+        gap:4px!important; justify-content:flex-end!important}
+      .hdr-sag .cnt-card{padding:2px 8px!important; border-radius:8px!important;
+        flex:0 0 auto!important; min-height:26px!important}
+      /* Sol blok da ayni yukseklikte olsun */
+      header #brandTitle{height:96px!important; align-self:center!important}
+      header #siteLogo{height:96px!important}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1406,6 +1461,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
        istegi: "fmea secmeyi pc de de Proses / İşlem / Hata kisminin
        soluna al"). Arac cubugunda ikinci kopyasi KALMAZ; boylece tek
        kopya olur ve hangi ekran boyutunda olursak olalim yer degistirmez. */
+    /* Kullanici istegi: sag en ustte sirali olsun ve YUKSEKLIK TOPLAMI
+       LOGO ile ayni olsun:
+         1) abdullah01 / Çıkış
+         2) Aselsan Malatya - Elektronik Kart Üretimi  (FMEA seçimi)
+         3) 19 Proses / 97 İşlem / 113 Hata            (sayaçlar)
+       Bu ucu ortak bir "sag blok" icine topluyoruz; blogun yuksekligi
+       logonun yuksekligine esitlenir, icerik esit aralikla dagitilir. */
+    function sagBlokKur() {
+      try {
+        const hd = document.querySelector('header');
+        if (!hd) return;
+        let sag = hd.querySelector('.hdr-sag');
+        if (!sag) {
+          sag = document.createElement('div');
+          sag.className = 'hdr-sag';
+          hd.appendChild(sag);
+        }
+        ['userBar', 'hdrSelYuva', 'count'].forEach(function (id) {
+          const e = document.getElementById(id);
+          if (e && e.parentNode !== sag) sag.appendChild(e);
+        });
+      } catch (e) {}
+    }
     function seciciTasi() {
       try {
         var sel = document.querySelector('#projectSelWrap');
@@ -1428,7 +1506,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           .observe(document.body, { childList: true, subtree: true });
       }
     }
-    function hazir() { basla(); seciciTasi(); setTimeout(seciciTasi, 400); setTimeout(seciciTasi, 1200); }
+    function hazir() {
+      basla(); sagBlokKur(); seciciTasi();
+      setTimeout(function () { sagBlokKur(); seciciTasi(); }, 400);
+      setTimeout(function () { sagBlokKur(); seciciTasi(); }, 1200);
+    }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hazir);
     else hazir();
   })();
@@ -1536,6 +1618,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <div class="toolbar">
     <!-- Sayili adim sekmeleri (ust_menu_ornek tasarimi). Yalnizca GORSEL
          navigasyon; mevcut butonlarin tamami asagida KORUNMUStUR. -->
+    <!-- Kullanici istegi: "Yeni FMEA butonunu en basa al 1 den once olsun" -->
+    <button class="light" onclick="newProject()">Yeni FMEA</button>
     <nav class="ag-steps" aria-label="Adımlar">
       <button type="button" class="ag-step" data-adim="bilgi" onclick="agAdimSec('bilgi')" data-tip="FMEA Başlık Bilgileri"><span class="n">1</span><span class="lb">FMEA Bilgileri</span></button>
       <button type="button" class="ag-step on" data-adim="akis" onclick="agAdimSec('akis')" data-tip="Proses Akış Şeması"><span class="n">2</span><span class="lb">Proses Akış</span></button>
@@ -1553,13 +1637,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <button type="button" class="sel-btn" id="projectSelBtn" onclick="toggleProjectMenu(event)">-- FMEA Seçin --</button>
       <div class="sel-menu" id="projectSelMenu"></div>
     </div>
-    <button class="light" onclick="newProject()">Yeni FMEA</button>
     <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
-    <button id="onayGonderBtn" class="onay-btn" onclick="onayaGonder()" style="display:none">Onaya Gönder</button>
-    <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
-    <button class="primary" onclick="saveProject()">Kaydet</button>
-    <button class="danger" onclick="clearAll()">Temizle</button>
-  </div>
+      <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
+    <button class="light" onclick="fmeaAyarlariAc()">⚙ FMEA Ayarları</button>
+  <button class="primary" onclick="saveProject()">Kaydet</button>
+    </div>
   
   <div class="layout">
     <section class="panel">
@@ -4381,9 +4463,10 @@ function save() {
         projects.map(p => {
           const display = pkProjeEtiket(p);
           const tag = (p.type === 'parca') ? ' [Parça Bazlı]' : '';
-          return `<div class="sel-item${p.name === currentProject ? ' current' : ''}">
-            <button type="button" class="sel-pick" data-pick="${esc(p.name)}">${esc(display + tag)}</button>
-            <button type="button" class="sel-del" title="${p.name === currentProject ? 'Silme butonu devre dışı (aktif FMEA)' : 'FMEA\'yı sil'}" data-del="${esc(p.name)}"${p.name === currentProject ? ' disabled' : ''}>×</button>
+          /* Kullanici istegi: "fmea secim kismindaki carpilari kaldir ordan
+             silme yapilamasin". Bu menu artik SADECE secim yapar; silme
+             islemi "FMEA Ayarlari" penceresinden yapilir. */
+          return `<button type="button" class="sel-pick sel-pick-block${p.name === currentProject ? ' current' : ''}" data-pick="${esc(p.name)}">${esc(display + tag)}</button>
           </div>`;
         }).join('');
       try { paintOnayBtn(); } catch (e) {}
@@ -4422,6 +4505,64 @@ function save() {
       });
     })();
 
+    /* ===== FMEA AYARLARI =====
+       Kullanici istegi: "fmea secim kismindaki carpilari kaldir ordan silme
+       yapilamasin, temizle butonunu da kaldir, FMEA ayarlari diye buton koy
+       ordan secim yapilip silme yapilabilsin" ve
+       "onaya gonder de ordan yapilsin ana sayfadan onaya gonderi kaldir".
+       Bu pencerede: FMEA secimi + FMEA silme + Onaya Gonder bulunur.
+       Onaya Gonder butonunun id'si onayGonderBtn olarak korundu; boylece
+       paintOnayBtn() gorunurlugu (hazir/buton aktif mi) aynen calisir. */
+    function fmeaAyarlariKapat() {
+      const ov = document.getElementById('fmeaAyarlariOverlay');
+      if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    }
+    function fmeaAyarlariAc() {
+      try { ensureCurrentProject(); } catch (e) {}
+      const eski = document.getElementById('fmeaAyarlariOverlay');
+      if (eski && eski.parentNode) eski.parentNode.removeChild(eski);
+      const ov = document.createElement('div');
+      ov.id = 'fmeaAyarlariOverlay';
+      ov.className = 'fmea-modal';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.5);' +
+        'display:flex;align-items:center;justify-content:center;padding:12px';
+      const liste = projects.map(function (p) {
+        const et = pkProjeEtiket(p) + (p.type === 'parca' ? ' [Parça Bazlı]' : '');
+        const aktif = p.name === currentProject;
+        return '<div class="ayar-satir' + (aktif ? ' current' : '') + '">' +
+          '<button type="button" class="pk-sec-btn ayar-sec" data-ayar-sec="' + esc(p.name) + '"' +
+          (aktif ? ' disabled style="opacity:.75"' : '') + '>' + (aktif ? '● ' : '') + esc(et) + '</button>' +
+          '<button type="button" class="pk-sec-btn" style="background:#a33;color:#fff;flex:none" ' +
+          'data-ayar-del="' + esc(p.name) + '"' + (aktif ? ' disabled style="background:#c9a3a3"' : '') +
+          '>🗑 Sil</button></div>';
+      }).join('') || '<div class="pk-note">Kayıtlı FMEA bulunamadı.</div>';
+      ov.innerHTML = '<div class="pk-sec kutu" style="max-width:640px;width:100%;max-height:86vh;' +
+        'display:flex;flex-direction:column;background:#fff">' +
+        '<div class="mhead"><h3>FMEA Ayarları</h3><div>' +
+        '<button id="onayGonderBtn" class="onay-btn pk-dl" onclick="onayaGonder();fmeaAyarlariKapat()">Onaya Gönder</button> ' +
+        '<button class="pk-x" onclick="fmeaAyarlariKapat()" title="Kapat (Esc)" aria-label="Kapat">✕</button>' +
+        '</div></div>' +
+        '<div class="ayar-liste">' + liste + '</div>' +
+        '<div class="pk-sec-info">Seçmek için ada tıklayın, silmek için 🗑 Sil. Aktif FMEA silinemez; ' +
+        'önce başka bir FMEA seçin.</div></div>';
+      document.body.appendChild(ov);
+      try { paintOnayBtn(); } catch (e) {}
+      ov.addEventListener('click', function (e) {
+        if (e.target === ov) { fmeaAyarlariKapat(); return; }
+        const d2 = e.target.closest('[data-ayar-del]');
+        if (d2) {
+          if (d2.disabled) return;
+          deleteProject(d2.getAttribute('data-ayar-del'));
+          fmeaAyarlariAc();
+          return;
+        }
+        const s2 = e.target.closest('[data-ayar-sec]');
+        if (s2 && !s2.disabled) {
+          selectProject(s2.getAttribute('data-ayar-sec'));
+          fmeaAyarlariKapat();
+        }
+      });
+    }
     function deleteProject(name) {
       const p = projects.find(x => x.name === name);
       if (!p) return;
@@ -9227,6 +9368,25 @@ const cpMetaDef = isParcaCP
       return { gruplar: gruplar, meta: meta, tip: tip, cpByKey: cpByKey, cpKayitlar: cpKayitlar, cpHasNo: cpHasNo };
     }
     function fmeaExcelYukleAc() {
+      /* Kullanici istegi: "excel yukle dendiğinde secili fmea xxxx bu fmeaya
+         yuklemek istediginizden emin misiniz diye sorsun".
+         Yuklenen Excel verisi secili FMEA'nin UZERINE yazildigi icin
+         yanlis projeye yuklenmesini onlemek icin dosya secimi acilmadan
+         once secili FMEA'nin adini gostererek onay alinir.
+         - Bir FMEA secili DEGILSE sorulmaz, normal sekilde devam eder.
+         - Onaylanmazsa dosya penceresi HIC acilmaz. */
+      /* Etiket olarak once secicide gorunen tam ad kullanilir
+         ("Firma - Proses Adi"), o yoksa aktifProjeAd()'e dusulur. */
+      const _b = document.getElementById('projectSelBtn');
+      const _lbl = _b ? String(_b.innerText || _b.textContent || '').trim() : '';
+      let ad = (_lbl && _lbl.indexOf('Seçin') < 0) ? _lbl
+        : ((typeof aktifProjeAd === 'function') ? aktifProjeAd() : '');
+      if (ad) {
+        const ok = window.confirm('Seçili FMEA: ' + ad +
+          '\n\nBu FMEA\'ya yüklemek istediğinizden emin misiniz?' +
+          '\n\n(İptal derseniz dosya seçimi açılmayacak.)');
+        if (!ok) return;
+      }
       let inp = document.getElementById('fmeaExcelInput');
       if (!inp) {
         inp = document.createElement('input');
