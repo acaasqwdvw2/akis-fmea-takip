@@ -1348,6 +1348,55 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       header #brandTitle{height:96px!important; align-self:center!important}
       header #siteLogo{height:96px!important}
     }
+
+    /* ================================================================
+       SAYAÇ KARTLARI: yazilar biraz kucultuldu ve her kart renklendirildi
+       (kullanici istegi). Kisisellestirilmis zemin + renkli kenarlik +
+       rengine gore sayi ve etiket rengi:
+         Proses -> mavi | İşlem -> yeşil | Hata -> KIRMIZI
+       ================================================================ */
+    .hdr-sag .cnt-card{padding:1px 7px!important; border-radius:8px!important;
+      flex:0 0 auto!important; min-height:24px!important; gap:4px!important;
+      display:flex!important; flex-direction:row!important; align-items:center!important}
+    .hdr-sag .cnt-card .cnt-num{font-size:13px!important; line-height:1.1!important;
+      font-weight:800!important}
+    .hdr-sag .cnt-card .cnt-label{font-size:8.5px!important; margin-top:0!important;
+      letter-spacing:.2px!important; font-weight:700!important}
+
+    /* --- Proses: mavi --- */
+    .hdr-sag .cnt-card[data-key="proses"]{background:rgba(37,99,235,.16)!important;
+      border:1px solid rgba(37,99,235,.45)!important}
+    .hdr-sag .cnt-card[data-key="proses"] .cnt-num{color:#93c5fd!important}
+    .hdr-sag .cnt-card[data-key="proses"] .cnt-label{color:#bfdbfe!important}
+
+    /* --- İşlem: yeşil --- */
+    .hdr-sag .cnt-card[data-key="islem"]{background:rgba(22,163,74,.16)!important;
+      border:1px solid rgba(22,163,74,.45)!important}
+    .hdr-sag .cnt-card[data-key="islem"] .cnt-num{color:#86efac!important}
+    .hdr-sag .cnt-card[data-key="islem"] .cnt-label{color:#bbf7d0!important}
+
+    /* --- Hata: KIRMIZI --- */
+    .hdr-sag .cnt-card[data-key="hata"]{background:rgba(220,38,38,.26)!important;
+      border:1px solid rgba(255,90,90,.7)!important}
+    .hdr-sag .cnt-card[data-key="hata"] .cnt-num{color:#fff!important;
+      text-shadow:0 0 6px rgba(255,80,80,.6)}
+    .hdr-sag .cnt-card[data-key="hata"] .cnt-label{color:#fecaca!important}
+
+    /* FMEA Ayarlari listesi:
+       - secilmeyen: acik zemin + koyu yazi
+       - secilen    : koyu yesil zemin + beyaz yazi  (net kontrast)
+       Once .pk-sec-btn varsayilani yuzunden IKISI de koyu yeşildi ve
+       secim ayirt edilemiyordu. */
+    .ayar-sec{background:#eef2f7!important; color:#1b2433!important;
+      border:1px solid #d3dbe6!important}
+    .ayar-sec:hover:not(.secili){background:#e2e8f0!important}
+    .ayar-sec.secili{background:#1f6b4a!important; color:#fff!important;
+      border-color:#1f6b4a!important; opacity:1!important; font-weight:700!important}
+    .ayar-sec.secili:hover{background:#1a5a3e!important; color:#fff!important}
+    .ayar-del{background:#a33!important; color:#fff!important; flex:none!important}
+    .ayar-del:hover:not(:disabled){background:#8a2b2b!important}
+    .ayar-del:disabled{background:#d9c2c2!important; color:#7a6a6a!important;
+      cursor:not-allowed!important}
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
@@ -1640,7 +1689,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <button class="excel-btn" style="background:#2e7d32" onclick="fmeaExcelYukleAc()">📂 Excel Yükle</button>
       <button id="excelDlBtn" class="excel-btn" onclick="exportEditableExcel()">📊 Excel İndir</button>
     <button class="light" onclick="fmeaAyarlariAc()">⚙ FMEA Ayarları</button>
-  <button class="primary" onclick="saveProject()">Kaydet</button>
     </div>
   
   <div class="layout">
@@ -4529,11 +4577,16 @@ function save() {
       const liste = projects.map(function (p) {
         const et = pkProjeEtiket(p) + (p.type === 'parca' ? ' [Parça Bazlı]' : '');
         const aktif = p.name === currentProject;
+        /* ONEMLI - secili satir "disabled" DEGIL. disabled buton tarayicida
+           gri/kapatik kutu olarak cizilir ve acik zemine beyaz yazi
+           dusuyordu (okunmuyordu). Artik normal buton; secili durum
+           koyu zemin + beyaz yazi ile belli ediliyor.
+           Silme dugmesi pasif kaliyor (aktif FMEA silinemez). */
         return '<div class="ayar-satir' + (aktif ? ' current' : '') + '">' +
-          '<button type="button" class="pk-sec-btn ayar-sec" data-ayar-sec="' + esc(p.name) + '"' +
-          (aktif ? ' disabled style="opacity:.75"' : '') + '>' + (aktif ? '● ' : '') + esc(et) + '</button>' +
-          '<button type="button" class="pk-sec-btn" style="background:#a33;color:#fff;flex:none" ' +
-          'data-ayar-del="' + esc(p.name) + '"' + (aktif ? ' disabled style="background:#c9a3a3"' : '') +
+          '<button type="button" class="pk-sec-btn ayar-sec' + (aktif ? ' secili' : '') +
+          '" data-ayar-sec="' + esc(p.name) + '">' + (aktif ? '● ' : '○ ') + esc(et) + '</button>' +
+          '<button type="button" class="pk-sec-btn ayar-del" ' +
+          'data-ayar-del="' + esc(p.name) + '"' + (aktif ? ' disabled' : '') +
           '>🗑 Sil</button></div>';
       }).join('') || '<div class="pk-note">Kayıtlı FMEA bulunamadı.</div>';
       ov.innerHTML = '<div class="pk-sec kutu" style="max-width:640px;width:100%;max-height:86vh;' +
@@ -4557,9 +4610,11 @@ function save() {
           return;
         }
         const s2 = e.target.closest('[data-ayar-sec]');
-        if (s2 && !s2.disabled) {
+        if (s2) {
+          /* Kullanici sikayeti: "seçtiğimde sayfa kapanıyor". Panel ACIK
+             kalir, secilen FMEA isaretlenerek liste yeniden cizilir. */
           selectProject(s2.getAttribute('data-ayar-sec'));
-          fmeaAyarlariKapat();
+          fmeaAyarlariAc();
         }
       });
     }
