@@ -11600,23 +11600,10 @@ rows(); fit();
     if (!varlar && acik) {
       list.push({ name: acik, fmeaMeta: (typeof fmeaMeta !== 'undefined' ? fmeaMeta : null), nodes: (typeof nodes !== 'undefined' ? nodes : null) });
     }
-      /* ADMININ CANLI VERI KAYNAGI DA TARANIR.
-         Sorun: proje kopyalari (projects[].nodes) BAYAT olabiliyor; bu yuzden
-         baska FMEA'lardaki TAMAMLANMIS aksiyonlar sayilmiyor ve "Tamamlandı"
-         0 gorunuyordu. Admin ayni veriyi window.__ckSatir uzerinden okuyor
-         (her kullanici, her proje, canli). O kaynagi da birlestiriyoruz ki
-         panel ile admin ayni sayiyi gostersin. */
-      try {
-        var st = window.__ckSatir || {};
-        Object.keys(st).forEach(function (uid) {
-          var pr = (st[uid] && st[uid].projler) || [];
-          pr.forEach(function (pj) {
-            var ham = pj.ham || {};
-            if (!ham.nodes || !ham.nodes.length) return;
-            list.push({ name: pj.ad || uid || 'FMEA', fmeaMeta: ham.fmeaMeta || {}, nodes: ham.nodes });
-          });
-        });
-      } catch (e) {}
+      /* NOT: window.__ckSatir (/ window.__ckHam) TUM kullanicilarin verisini
+       icerir; panelde taranmaz. Aksiyon panosu yalnizca kullanicinin KENDI
+       projects[] kaydini okur. projects zaten yukleme sirasinda
+       ckCanliProjeler(d) ile canli ust duzey nodes ile birlestirilir. */
 
     for (var gi = 0; gi < list.length; gi++) {
       var G = projeDuzenle(list[gi], gi);
