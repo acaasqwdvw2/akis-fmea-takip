@@ -1109,14 +1109,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .cnt-card .cnt-label{font-size:8.5px!important; margin-top:0!important; letter-spacing:.2px!important}
     }
 
-    /* Basliktaki FMEA secimi gostergesi */
-    #hdrFmeaSecWrap{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;
-      color:#4a6470;background:#eef3f5;border:1px solid #d3e0e4;border-radius:9px;
-      padding:3px 10px;margin-top:5px;max-width:100%;overflow:hidden}
-    #hdrFmeaSecWrap .hdr-fmea-lb{font-weight:700;color:#2e6b4f;flex:none}
-    #hdrFmeaSec{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    /* Basliktaki FMEA secici yuvasi (mobilde secici buraya tasinir) */
+    .hdr-sel-yuva{display:inline-flex;align-items:center;min-width:0;max-width:100%}
+    .hdr-sel-yuva .sel-wrap{display:block;max-width:none;width:100%}
+    .hdr-sel-yuva .sel-btn{width:100%;height:34px;font-size:12.5px;padding:4px 26px 4px 10px;
+      border-radius:9px;background:#fff;color:#1b2433;border:1px solid #d3e0e4;text-align:left}
+    .hdr-sel-yuva .sel-btn.is-long{font-size:11.5px}
     @media (max-width:900px){
-      #hdrFmeaSecWrap{font-size:11px;padding:2px 7px;margin-top:3px;border-radius:7px}
+      .hdr-sel-yuva .sel-btn{height:30px;font-size:11.5px;padding:3px 24px 3px 8px;border-radius:8px}
     }
 
     /* ==================================================================
@@ -1199,6 +1199,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         color:#fff!important; font-size:22px!important; line-height:1!important; display:none!important;
         align-items:center; justify-content:center; cursor:pointer}
       body.pk-mobil .pk-more{display:inline-flex!important}
+      /* Ust bar: secici baslikla ayni satira sigsin */
+      #hdrSelYuva{flex:1 1 100%!important; order:9; margin-top:6px}
+      #hdrSelYuva .sel-btn{height:36px!important; font-size:12.5px!important; background:rgba(255,255,255,.15)!important;
+        color:#fff!important; border-color:rgba(255,255,255,.28)!important; border-radius:10px!important}
+      #hdrSelYuva .sel-menu{background:#fff!important; color:#1b2433!important}
+      #hdrSelYuva .sel-menu button{color:#1b2433!important}
     }
   </style>
   <header>
@@ -1206,12 +1212,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div id="brandTitle">
       <h1 id="authTitle">Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma Uygulaması</h1>
       <p class="authSlogan" style="text-align:left;font-size:15px;line-height:1.5;color:#607d8b;margin:6px 0 0;max-width:640px">Önleyici yaklaşım, sürdürülebilir kalitenin temelidir. Daha güçlü yarınlar için geleceği bugünden güvence altına alıyoruz.</p>
-      <!-- Kullanici istegi: "Saha proses gezisi..." yerine burada FMEA secimi olsun.
-           Arac cubugundaki projectSelBtn ile IKISI SENKRON: secim hangi yoldan
-           degisirse degissin (MutationObserver) baslik da guncellenir. -->
-      <div id="hdrFmeaSecWrap" title="Aktif FMEA (araç çubuğundaki listeden seçilir)">
-        <span class="hdr-fmea-lb">FMEA:</span><span id="hdrFmeaSec">— FMEA seçilmedi —</span>
-      </div>
+      <!-- Gercek FMEA secici (projectSelWrap) mobilde BURAYA tasinir;
+           masaustunde arac cubugunda kalir. Sadece isim yazan ayri bir
+           gostergeye gerek yok - secici zaten secmeyi sagliyor. -->
+      <span id="hdrSelYuva" class="hdr-sel-yuva"></span>
     </div>
     <div id="count" class="count-cards">
       <div class="cnt-card" data-key="proses"><span class="cnt-num">0</span><span class="cnt-label">Proses</span></div>
@@ -1256,8 +1260,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function tasiKur() {
       /* arac cubugunu gizle, cocuklarini panele tasi */
       var g = el('div', 'pk-sgroup'); g.style.margin = '0';
+      /* FMEA secici artik panele DEGIL ust bara gider (kullanici istegi:
+         "fmea secimini yukari tasi, alttaki butonu sil"). Paneldeki
+         ikinci kopya tamamen kaldirilir. */
       var selWrap = tb.querySelector('.sel-wrap');
-      if (selWrap) sheet.appendChild(selWrap);
+      var yuva = document.getElementById('hdrSelYuva');
+      if (selWrap && yuva) yuva.appendChild(selWrap);
       Array.prototype.slice.call(tb.children).forEach(function (c) {
         if (c === selWrap) return;
         /* .ag-steps arac cubugunun ICINDE olabilir; o zaten ayri olarak
@@ -1286,8 +1294,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       /* arac cubugu cocuklarini geri koy */
       var g = sheet.querySelector('.pk-sgroup');
       if (g) Array.prototype.slice.call(g.children).forEach(function () { tb.appendChild(this); });
-      var selWrap = sheet.querySelector('.sel-wrap');
+      var selWrap = document.querySelector('#hdrSelYuva .sel-wrap');
       if (selWrap) tb.insertBefore(selWrap, tb.firstChild);
+      var yuva2 = document.getElementById('hdrSelYuva');
+      if (yuva2 && yuva2.firstChild) yuva2.removeChild(yuva2.firstChild);
       sheet.removeChild(g);
       /* adimlari geri koy */
       var yer = document.querySelector('.toolbar');
@@ -1323,38 +1333,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', basla);
     else basla();
-  })();
-  </script>
-  <script>
-  /* Basliktaki FMEA yazisi, arac cubugundaki projectSelBtn ile senkron.
-     MutationObserver sayesinde secimi HANGI kod yolu degistirirse
-     degistirsin baslik da guncellenir (yeni proje, excel yukle, geri
-     donus, otomatik secim vb.). */
-  (function () {
-    function bagla() {
-    var kaynak = document.getElementById('projectSelBtn');
-    var hedef = document.getElementById('hdrFmeaSec');
-    if (!kaynak || !hedef) return;
-    function yaz() {
-      var t = (kaynak.innerText || kaynak.textContent || '').trim();
-      hedef.textContent = (!t || t.indexOf('Seçin') >= 0) ? '— FMEA seçilmedi —' : t;
-    }
-    yaz();
-    if (window.MutationObserver) {
-      new MutationObserver(yaz).observe(kaynak, { childList: true, subtree: true, characterData: true });
-    }
-    document.addEventListener('click', yaz, true);
-    }
-    /* ONEMLI: bu script </header> SONRASinda calisir; projectSelBtn ise
-       arac cubugunda, yani DOM'da DAHA SONRA gelir. Ilk denemede null
-       donup baglanamiyordu (baslik hep "secilmedi" kaliyordu).
-       Bu yuzden baglanti DOM hazir olunca (veya gecikmeli aranirsa)
-       kurulur. */
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bagla);
-    } else {
-      bagla();
-    }
   })();
   </script>
   <div id="ckPage" style="display:none">
