@@ -6717,9 +6717,25 @@ let rows = '';
           s += '<td data-st="' + r + '" data-sc="' + c + '"' +
                (b && b[0] > 1 ? ' rowspan="' + b[0] + '"' : '') +
                (b && b[1] > 1 ? ' colspan="' + b[1] + '"' : '') + w + '>' + esc(metin) + '</td>';
-          if (b && b[1] > 1) {
-            atla[r] = atla[r] || {};
-            for (let j = 1; j < b[1]; j++) atla[r][c + j] = 1;
+          /* ONEMLI - birlestirme ALT SATIRLARA DA isaretlenmeli.
+             Once sadece kendi satiri isaretleniyordu:
+                 for (let j = 1; j < b[1]; j++) atla[r][c + j] = 1;
+             "Kullanim Talimati" sayfasinda A12:J44 -> rowspan=33, colspan=10
+             oldugu icin 12. satir dogru ciziliyor ama 13-44. satirlarin
+             2-10. sutunlari YINE ciziliyordu; birlestirilmis alanin icine
+             ikinci bir tablo bindiriyordu. Artik rowspan satirlari da,
+             colspan sutunlari kadar isaretleniyor. Gizli satirlar atlanir
+             (onlar zaten cizilmiyor). */
+          if (b) {
+            const rs = b[0] > 1 ? b[0] : 1;
+            const cs = b[1] > 1 ? b[1] : 1;
+            for (let i2 = 0; i2 < rs; i2++) {
+              const rr = r + i2;
+              const rm = ws.rowMeta && ws.rowMeta[String(rr)];
+              if (rm && rm.hidden) continue;
+              atla[rr] = atla[rr] || {};
+              for (let j = 0; j < cs; j++) atla[rr][c + j] = 1;
+            }
           }
         }
         /* ONEMLI - birlestirilmis alanin altindaki satirlar hic hucre
