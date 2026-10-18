@@ -11159,9 +11159,24 @@ rows(); fit();
       if (n.type !== 'process') return;
       (n.altProsesler || []).forEach(function (sub) {
         (sub.hatalar || []).forEach(function (h) {
+          /* Kullanici istegi: "her hataya aksiyon değil" - pano yalnizca
+             AKSIYONU (Alınan Aksiyonlar / Önerilen Faaliyet) OLAN hatalari
+             listeler. Aksiyonsuz hatalar (FMEA'nin agirligi) burada yer
+             almaz; onlar zaten FMEA sayfasinda ve Kontrol Planinda var.
+             Kullanilan FMEA sutunlari:
+               Önerilen Faaliyet            -> h.faaliyet
+               Sorumlu                       -> h.sorumlu
+               Hedef Tamamlama Tarihi        -> h.hedefTarih
+               Alınan Aksiyonlar/Aksiyon Sonuçları -> h.aksiyon
+               Gerçekleşen Tarih             -> h.gerceklesenTarih
+               Şiddet / Olasılık / Tespit   -> h.s / h.o / h.d
+               RPN                           -> S x O x D
+          */
+          var faaliyet = String(h.faaliyet || '').trim();
+          var aksiyon = String(h.aksiyon || '').trim();
+          if (!aksiyon && !faaliyet) return;          /* aksiyonsuz hata -> atla */
           id++;
           var S = n3(h.s), O = n3(h.o), D = n3(h.d);
-          var aksiyon = String(h.aksiyon || h.faaliyet || '').trim();
           var tamam = fTarih(h.gerceklesenTarih);
           var termin = fTarih(h.hedefTarih);
           var durum = tamam ? 'Tamamlandı' : (aksiyon ? 'Devam ediyor' : 'Başlamadı');
@@ -11169,7 +11184,8 @@ rows(); fit();
             id: 'A-' + (id < 100 ? (id < 10 ? '0' + id : '' + id) : id),
             firma: firma, adim: sub.title || sub.code || '',
             hata: h.tur || '', S: S, O: O, D: D,
-            aksiyon: aksiyon, sor: String(h.sorumlu || '').trim(),
+            faaliyet: faaliyet, aksiyon: aksiyon,
+            sor: String(h.sorumlu || '').trim(),
             termin: termin, durum: durum, tamam: tamam,
             S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
           });
@@ -11213,7 +11229,8 @@ rows(); fit();
       '<div class="filters"><input type="search" id="faQ" placeholder="Hata modu, aksiyon, süreç ara…">' +
       '<select id="faSor"></select><span class="mut" id="faCnt" style="align-self:center"></span></div>' +
       '<div class="wrap"><table><thead><tr><th>No</th><th>Firma · Proses adımı</th><th>Hata modu</th><th>RPN</th>' +
-      '<th>Aksiyon</th><th>Sorumlu</th><th>Termin</th><th>Durum</th></tr></thead><tbody id="faTb"></tbody></table></div>' +
+      '<th>Önerilen Faaliyet</th><th>Alınan Aksiyonlar</th><th>Sorumlu</th>' +
+      '<th>Hedef Tam. Tarihi</th><th>Gerçekleşen</th><th>Durum</th></tr></thead><tbody id="faTb"></tbody></table></div>' +
       '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', function (e) { if (e.target === ov) faKapat(); });
@@ -11255,13 +11272,15 @@ rows(); fit();
       rs.forEach(function (r) {
         h += '<tr><td class="mut" style="white-space:nowrap">' + ESC(r.id) + '</td>' +
           '<td><b>' + ESC(r.adim) + '</b><div class="mut">' + ESC(r.firma) + '</div></td>' +
-          '<td>' + ESC(r.hata) + '<div class="mut">S' + r.S + ' · O' + r.O + ' · D' + r.D + '</div></td>' +
+          '<td>' + ESC(r.hata) + '<div class="mut">Ş' + r.S + ' · O' + r.O + ' · T' + r.D + '</div></td>' +
           '<td><span class="rpn ' + rc(r.rpn) + '">' + r.rpn + '</span>' +
           (r.rpn2 != null ? ' → <span class="rpn ' + rc(r.rpn2) + '">' + r.rpn2 + '</span>' : '') + '</td>' +
+          '<td style="max-width:220px">' + (r.faaliyet ? ESC(r.faaliyet) : '<span class="mut">—</span>') + '</td>' +
           '<td style="max-width:260px">' + (r.aksiyon ? ESC(r.aksiyon) : '<span class="mut">—</span>') + '</td>' +
           '<td>' + (r.sor ? ESC(r.sor) : '<span class="mut">—</span>') + '</td>' +
           '<td>' + (r.termin ? fd(r.termin) : '<span class="mut">—</span>') +
-          (r.late ? '<div class="late">' + r.late + ' gün gecikti</div>' : (r.tamam ? '<div class="mut">tamam: ' + fd(r.tamam) + '</div>' : '')) + '</td>' +
+          (r.late ? '<div class="late">' + r.late + ' gün gecikti</div>' : '') + '</td>' +
+          '<td>' + (r.tamam ? fd(r.tamam) : '<span class="mut">—</span>') + '</td>' +
           '<td><span class="badge b-' + r.k + '">' + STk[r.k][0] + '</span></td></tr>';
       });
       $('faTb').innerHTML = h || '<tr><td colspan="8" class="mut" style="padding:18px">Sonuç yok.</td></tr>';
@@ -11299,7 +11318,8 @@ rows(); fit();
       $('faPri').innerHTML = pri.map(function (r) {
         return '<div class="pri"><div class="t"><span>' + ESC(r.id) + ' · ' + ESC(r.firma) + '</span><span class="rpn ' + rc(r.rpn) + '">RPN ' + r.rpn + '</span></div>' +
           '<div>' + ESC(r.hata) + ' <span class="mut">(' + ESC(r.adim) + ')</span></div>' +
-          '<div class="mut">' + (r.aksiyon ? ESC(r.aksiyon) : 'Aksiyon girilmemiş') + '</div>' +
+          (r.faaliyet ? '<div class="mut"><b>Önerilen faaliyet:</b> ' + ESC(r.faaliyet) + '</div>' : '') +
+          '<div class="mut">' + (r.aksiyon ? '<b>Alınan aksiyon:</b> ' + ESC(r.aksiyon) : 'Aksiyon girilmemiş') + '</div>' +
           '<div style="margin-top:3px">' + (r.late ? '<span class="late">' + r.late + ' gün gecikti</span> · ' : '') +
           'termin ' + (r.termin ? fd(r.termin) : '—') + (r.sor ? ' · ' + ESC(r.sor) : '') + '</div></div>';
       }).join('') || '<span class="mut">Öncelikli aksiyon yok 🎉</span>';
