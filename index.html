@@ -1288,11 +1288,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     @media (max-width:640px){
       header{position:relative!important; display:flex!important; align-items:stretch!important;
         gap:8px!important; padding:7px 10px 7px 9px!important;
-        padding-right:46px!important;   /* "..." icin yer ac */
+        padding-right:10px!important;   /* "..." artik sayac satirinda */
       }
-      /* 1) LOGO: iki satirlik (baslik + slogan) yuksekligi kadar */
-      #siteLogo{height:auto!important; align-self:center!important; flex:none!important;
-        align-self:stretch!important; max-height:52px!important; width:auto!important;
+      /* 1) LOGO: mobilde ~3x buyutuldu (kullanici istegi #5) */
+      #siteLogo{height:96px!important; align-self:center!important; flex:none!important;
+        max-height:96px!important; width:auto!important;
         object-fit:contain!important; border-radius:8px!important}
       /* Baslik + slogan blogu: webdeki duzeni birebir, ama kucuk */
       #brandTitle{flex:1 1 auto!important; min-width:0!important; display:flex!important;
@@ -1303,10 +1303,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       header p.authSlogan, header #brandTitle p, header .authSlogan{
         display:block!important; font-size:10px!important; line-height:1.24!important;
         color:rgba(255,255,255,.8)!important; margin:0!important; max-width:none!important}
-      /* 2) "..." sabit degil -> icerigin uzerine binmez */
-      .pk-more{position:absolute!important; top:8px!important; right:8px!important;
-        width:32px!important; height:32px!important; font-size:19px!important;
-        border-radius:10px!important; background:rgba(255,255,255,.16)!important}
+      /* 2) "..." sayac kartlari satirinin (hata sayaci) EN SAGINDA,
+         akis icinde; icerigin uzerine binmez */
+      .pk-more{position:static!important; top:auto!important; right:auto!important;
+        flex:0 0 auto!important; width:26px!important; height:26px!important;
+        min-width:26px!important; font-size:16px!important; line-height:1!important;
+        border-radius:8px!important; margin-left:6px!important; align-self:center!important;
+        background:rgba(255,255,255,.18)!important}
       /* 3) sayac kartlari webdeki yerde, kucuk */
       .count-cards, #count{order:2!important; flex:0 1 auto!important; margin-left:0!important;
         width:auto!important; gap:4px!important; align-self:center!important}
@@ -1318,8 +1321,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
          Siralama: logo | baslik+slogan | FMEA secici | sayaclar | "..."
          Yer daralirsa secici ve sayaclar birlikte alt satira gecer, yine
          yan yana kalirlar (secici solda, sayaclar sagda). */
+      /* kullanici istegi #6: secici ile ALTINDAKI icerik (sayac satiri)
+         birlesik gorunmesin -> secici altina bosluk */
       #hdrSelYuva{flex:1 1 auto!important; order:2!important; max-width:56%!important;
-        min-width:0!important; margin-top:0!important}
+        min-width:0!important; margin-top:0!important; margin-bottom:8px!important}
       #hdrSelYuva .sel-btn{height:30px!important; font-size:12px!important;
         border-radius:9px!important; margin-top:0!important}
       .count-cards, #count{order:3!important}
@@ -1491,10 +1496,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         flex-wrap:wrap!important; gap:6px!important;
         padding:6px 8px!important; padding-right:8px!important}
 
-      /* --- 1) logo --- */
-      header #siteLogo{flex:0 0 34px!important; width:34px!important; height:34px!important;
-        min-height:34px!important; max-height:34px!important; align-self:center!important;
-        border-radius:8px!important}
+      /* --- 1) logo: mobilde ~3x buyutuldu (kullanici istegi #5) --- */
+      header #siteLogo{flex:0 0 auto!important; width:auto!important; height:96px!important;
+        min-height:0!important; max-height:96px!important; align-self:center!important;
+        object-fit:contain!important; border-radius:8px!important}
 
       /* --- 2) baslik (tek satir, kirpilan) --- */
       header #brandTitle{flex:1 1 80px!important; min-width:0!important; order:1!important;
@@ -1572,8 +1577,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
          Bunun yerine seçici ESNER (flex:1 1 auto + min-width:0 + taşma
          gizli) ve yazısı üç nokta ile kırpılır; hesap KISILMAZ.
          Böylece üst üste binme olmaz, başlık yüksekliği korunur. */
+      /* NOT: overflow burada GORUNUR olmali; aksi halde acilan
+         .sel-menu kirpilip "liste acilmiyor" hatasi olusur. Metin kirpma
+         isini .sel-btn kendi overflow'u ile yapar. */
       .hdr-sel-yuva{flex:1 1 auto!important; min-width:0!important; max-width:100%!important;
-        overflow:hidden!important}
+        overflow:visible!important}
       .hdr-sel-yuva .sel-btn{min-width:0!important; max-width:100%!important;
         overflow:hidden!important; text-overflow:ellipsis!important; white-space:nowrap!important}
       .hdr-sag #userBar{flex:0 0 auto!important; max-width:100%!important}
@@ -1763,7 +1771,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
            1. satir : [logo] [başlık - 2 satır, esnek yer] [⋯]
            2. satir : [FMEA seçimi - esnek] [21 PROSES] [24 İşlem] [97 HATA]
          Boylece baslik yer bulur, secici de sayaclarin yaninda yer alir. */
-      header #brandTitle{flex:1 1 auto!important; min-width:0!important; order:1!important}
+      header #brandTitle{flex:1 1 0!important; min-width:0!important; order:1!important}
       header h1{font-size:12.5px!important}
       /* "..." 1. satirda (basligin saginda) kalsin: order 2, hdr-sag
          (secici + sayaclar) order 3 ve tam genislik -> 2. satira gecer. */
@@ -1775,7 +1783,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .hdr-sag .hdr-sel-yuva{flex:1 1 auto!important; max-width:none!important;
         min-width:0!important}
       .hdr-sag .hdr-sel-yuva .sel-btn{max-width:100%!important; width:100%!important}
-      .hdr-sag #count{flex:0 0 auto!important; order:9!important; margin-top:0!important;
+      /* kullanici istegi #6: FMEA secici ile ALTINDAKI sayac satiri
+         birlesik gorunmesin (arada nefes payi) */
+      .hdr-sag #count{flex:0 0 auto!important; order:9!important; margin-top:6px!important;
         padding-right:0!important; gap:5px!important}
       .pk-more{margin-left:auto!important; order:2!important; flex:0 0 26px!important}
     }
@@ -1954,9 +1964,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (ub) userGrp.appendChild(ub);
       /* alt sekme cubugu: mevcut .ag-steps tasinir */
       document.body.appendChild(steps);
-      /* ust bar: "daha fazla" dugmesi */
+      /* ust bar: "daha fazla" dugmesi - sayac kartlari satirinin EN SAGINA
+         (kullanici istegi #4: "..." 3 nokta, "97 hata" satirinin sag ucunda) */
+      var cntY = document.getElementById('count');
       var hd = document.querySelector('header');
-      if (hd) hd.appendChild(more);
+      if (cntY) cntY.appendChild(more);
+      else if (hd) hd.appendChild(more);
       if (fab) document.body.appendChild(fab);
       document.body.appendChild(back);
       document.body.appendChild(sheet);
@@ -9874,9 +9887,15 @@ const cpMetaDef = isParcaCP
       if (t.indexOf('tespit kontrol') >= 0 || t.indexOf('tespit kontrolleri') >= 0) return 'tespitkontrol';
       if (t.indexOf('tespit') >= 0) return 'D';
       if (t.indexOf('rpn') >= 0 || t.indexOf('risk öncelik') >= 0) return 'rpn';
+      /* NOT: "Gerçekleşen Tarih" kurali 'aksiyon' kuralindan ONCE gelmeli.
+         FMEA'da "Aksiyon Sonuçları" basligi bircok sutuna yayilan TEK
+         birlesik hucree oldugundan (AF17:AN17), ExcelJS bu aralikta AH'in
+         gercek basligi "Gerçekleşen Tarih"i de beraberinde okur; sutun
+         metni "aksiyon sonuçları gerçekleşen tarih" olur. 'aksiyon' once
+         kontrol edilirse gerceklesenTarih alani hic olusmaz. */
+      if (t.indexOf('gerçekleşen tarih') >= 0 || t.indexOf('gerceklesen tarih') >= 0 || t.indexOf('gerçekleşme') >= 0 || t.indexOf('tamamlanma tarihi') >= 0) return 'gerceklesenTarih';
       if (t.indexOf('önerilen faaliyet') >= 0 || t.indexOf('önerilen aksiyon') >= 0 || t.indexOf('öneri') >= 0 || t.indexOf('faaliyet') >= 0) return 'faaliyet';
       if ((t.indexOf('alınan aksiyon') >= 0 || t.indexOf('yapılan aksiyon') >= 0 || t.indexOf('aksiyon') >= 0) && t.indexOf('reaksiyon') < 0) return 'aksiyon';
-      if (t.indexOf('gerçekleşen tarih') >= 0 || t.indexOf('gerceklesen tarih') >= 0 || t.indexOf('gerçekleşme') >= 0 || t.indexOf('tamamlanma tarihi') >= 0) return 'gerceklesenTarih';
       if (t.indexOf('hedef tamamlama') >= 0 || t.indexOf('hedef tarih') >= 0 || t.indexOf('hedef') >= 0) return 'hedefTarih';
       if (t.indexOf('kayıt sorumlusu') >= 0 || t.indexOf('kayit sorumlusu') >= 0) return 'kayitSorumlu';
       if (t.indexOf('sorumlu') >= 0) return 'sorumlu';
@@ -9934,23 +9953,23 @@ const cpMetaDef = isParcaCP
         }
         if (scU >= 2) headerRow--; else break;
       }
-      /* Baslik blogunun bittigi yeri bul: tekrarlanan baslik satirlari yuksek
-         sayida "siniflandirilabilir" huceye sahipken, veri satirlari serbest
-         metin oldugu icin cok daha azdir. Bu yuzden alt baslik blogunu, baslik
-         satirinin sayisinin yarisindan azina dusunce bitir. */
-      let headerCells = 0;
-      for (let c = 1; c <= maxC; c++) {
-        if (pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, headerRow, c)))) headerCells++;
-      }
-      const dataStopThr = Math.max(3, Math.floor(headerCells * 0.5));
+      /* Baslik blogunun alt kenarini, headerRow'a temas eden BIRLESIK (merge)
+         hucrelerin en alt satirindan hesapla. FMEA formunda grup basliklari
+         dikey birlestirilmis olur (ornek: P17:Q22, C17:E18, AF17:AN17), bu
+         yuzden ALT BASLIK satirlari da (ornek: AH18 "Gerçekleşen Tarih")
+         baslik bloguna dahil edilir. Boylece "Gerçekleşen Tarih" sutte dahil
+         edilirken alttaki gercek veri satirlari baslik SAYILMAZ. (Onceki
+         "%50 esigi" mantigi 2. baslik satirini veri kabul edip atliyordu.) */
       let dataStart = headerRow + 1;
-      while (dataStart <= maxR) {
-        let sc = 0;
-        for (let c = 1; c <= maxC; c++) {
-          if (pkFmeaAlanSiniflaT(pkFmeaNorm(pkHucreTextOf(ws, dataStart, c)))) sc++;
+      try {
+        const merges = (ws.model && ws.model.merges) ? ws.model.merges : [];
+        for (let mi = 0; mi < merges.length; mi++) {
+          const mm = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(String(merges[mi]));
+          if (!mm) continue;
+          const r1 = parseInt(mm[2], 10), r2 = parseInt(mm[4], 10);
+          if (r1 <= headerRow && r2 > headerRow && r2 + 1 > dataStart) dataStart = r2 + 1;
         }
-        if (sc >= dataStopThr) dataStart++; else break;
-      }
+      } catch (e) {}
       const colMap = {};
       for (let c = 1; c <= maxC; c++) {
         let t = '';
@@ -11625,15 +11644,15 @@ rows(); fit();
           var hatalar = (sub && sub.hatalar) || [];
           for (var hi = 0; hi < hatalar.length; hi++) {
             var h = hatalar[hi] || {};
+            var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
             var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
             var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
-            if (!aksiyon && !faaliyet) continue;
-            var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
-            /* ADMINLE AYNI: tamamlanan aksiyon liste disi (ckAksiyonTaramasi
-               da "if (ckAlan(h,[...gerceklesenTarih...])) return;" ile
-               ayni sekilde eler). Yalnizca "Tamamlanı" KPI sayacini
-               beslemek icin sayilir. */
+            /* GERCEKLESEN TARIH ONCE kontrol edilir: tamamlanan bir aksiyonun
+               faaliyet/aksiyon metni bos olsa bile "Tamamlandi" sayaci artmali.
+               (Once "if(!aksiyon&&!faaliyet) continue" vardi ve bu tur
+               kayitlar sayilmadan eleniyordu -> sayac 0 kaliyordu.) */
             if (bittiMetin) { FA_TAMAMLANDI++; continue; }
+            if (!aksiyon && !faaliyet) continue;
             var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
             var hd = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
             if (!hd) continue;
@@ -11704,9 +11723,9 @@ rows(); fit();
       '<div class="mut">Rapor tarihi: ' + fd(TODAY) + ' · RPN = Şiddet × Olasılık × Tespit</div></div>' +
       '<button class="pk-x" onclick="faKapat()" title="Kapat (Esc)" aria-label="Kapat">✕</button></div>' +
       '<div class="chips" id="faChips"></div><div class="sum" id="faSum"></div>' +
-      '<div class="kpis" id="faKpis"></div>' +
+      /* Kullanici istegi: "Aksiyon durumu" ozet satiri (Aksiyon / Tamamlandi /
+         Devam ediyor / Geciken KPI kutulari) tamamen kaldirildi. */
       '<div class="card" style="margin-top:12px"><h2>Geciken veya Yüksek Riskli Aksiyonlar</h2><div id="faPri"></div></div>' +
-      '<div class="card" style="margin-top:12px"><h2>Aksiyon durumu</h2><div class="stack" id="faStack"></div><div class="legend" id="faLegend"></div></div>' +
       '<div class="card" style="margin-top:12px"><h2>Haftalık termin ↔ kapanış <span class="mut">(hafta Pazartesi başlar)</span></h2>' +
       '<div class="legend" style="margin:0 0 4px"><span><i class="dot" style="background:var(--run)"></i>Termini o hafta olan</span>' +
       '<span><i class="dot" style="background:var(--ok)"></i>O hafta tamamlanan</span><span><i class="dot" style="background:var(--ora)"></i>Bu hafta</span></div>' +
@@ -11807,19 +11826,12 @@ rows(); fit();
 
       $('faSum').innerHTML = (fs ? '<b>' + ESC(fs) + ':</b> ' : '') +
         '<b>' + N + ' açık aksiyon</b>; ayrıca <b>' + tamamSayisi + '</b> tamamlandı. ' +
-        cnt('devam') + "'i devam ediyor, " + cnt('bas') + "'i başlamadı. " +
+        cnt('devam') + "'i devam ediyor. " +
         (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
         (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
 
-      /* "Tamamlandı" artık liste DEĞİL, ayrı sayaçtır (adminle aynı
-         davranış: tamamlananlar listede görünmez). Tıklanınca liste
-         süzgeçlenmez, yalnızca sayaç gösterilir. */
-      var KP = [['all', 'Aksiyon', N], ['tamam', 'Tamamlandı', tamamSayisi], ['devam', 'Devam ediyor', cnt('devam')],
-        ['bas', 'Başlamadı', cnt('bas')], ['late', 'Geciken', late.length]];
-      $('faKpis').innerHTML = KP.map(function (k) {
-        return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
-          (k[0] === 'late' && k[2] ? ' class="late"' : '') + '>' + k[2] + '</b><span>' + k[1] + '</span></button>';
-      }).join('');
+      /* Kullanici istegi: "Aksiyon durumu" ozet satiri (KPI kutulari)
+         tamamen kaldirildi. */
 
       var pri = V.filter(function (r) { return r.late || r.high; })
         .sort(function (a, b) { return (b.late > 0) - (a.late > 0) || b.rpn * (1 + b.late / 30) - a.rpn * (1 + a.late / 30); })
@@ -11833,12 +11845,17 @@ rows(); fit();
           'termin ' + (r.termin ? fd(r.termin) : '—') + (r.sor ? ' · ' + ESC(r.sor) : '') + '</div></div>';
       }).join('') || '<span class="mut">Öncelikli aksiyon yok 🎉</span>';
 
-      var segs = ['tamam', 'devam', 'bas'].filter(function (k) { return cnt(k); });
-      $('faStack').innerHTML = segs.map(function (k) {
-        return '<div style="width:' + (cnt(k) / N * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + cnt(k) + '">' + cnt(k) + '</div>';
-      }).join('');
-      $('faLegend').innerHTML = segs.map(function (k) { return '<span><i class="dot" style="background:' + STk[k][1] + '"></i>' + STk[k][0] + ' ' + cnt(k) + '</span>'; }).join('') +
-        (late.length ? '<span style="color:var(--bad)">⚠ ' + late.length + ' geciken</span>' : '');
+      /* "Aksiyon durumu" bolumu kaldirildi (kullanici istegi). Beklenmedik
+         sekilde hala varsa da hata vermemesi icin null kontrolu. */
+      var _fsEl = $('faStack'), _flEl = $('faLegend');
+      if (_fsEl || _flEl) {
+        var segs = ['tamam', 'devam', 'bas'].filter(function (k) { return cnt(k); });
+        if (_fsEl) _fsEl.innerHTML = segs.map(function (k) {
+          return '<div style="width:' + (cnt(k) / (N || 1) * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + cnt(k) + '">' + cnt(k) + '</div>';
+        }).join('');
+        if (_flEl) _flEl.innerHTML = segs.map(function (k) { return '<span><i class="dot" style="background:' + STk[k][1] + '"></i>' + STk[k][0] + ' ' + cnt(k) + '</span>'; }).join('') +
+          (late.length ? '<span style="color:var(--bad)">⚠ ' + late.length + ' geciken</span>' : '');
+      }
 
       /* Kullanicinin istegi: "Sorumlu bazında kısmını kaldır" - bolum ve
          icerigi kaldirildi. Sorumlu sutunu TUM AKSIYONLAR tablosunda ve
@@ -11885,7 +11902,6 @@ rows(); fit();
         .filter(function (v, i, a) { return a.indexOf(v) === i; })
         .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
     $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
-    $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
     render();
   }
   document.addEventListener('keydown', function (e) {
