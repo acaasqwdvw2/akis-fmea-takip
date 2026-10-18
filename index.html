@@ -1108,13 +1108,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .cnt-card .cnt-num{font-size:12.5px!important; line-height:1!important; font-weight:700!important}
       .cnt-card .cnt-label{font-size:8.5px!important; margin-top:0!important; letter-spacing:.2px!important}
     }
+
+    /* Basliktaki FMEA secimi gostergesi */
+    #hdrFmeaSecWrap{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;
+      color:#4a6470;background:#eef3f5;border:1px solid #d3e0e4;border-radius:9px;
+      padding:3px 10px;margin-top:5px;max-width:100%;overflow:hidden}
+    #hdrFmeaSecWrap .hdr-fmea-lb{font-weight:700;color:#2e6b4f;flex:none}
+    #hdrFmeaSec{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    @media (max-width:900px){
+      #hdrFmeaSecWrap{font-size:11px;padding:2px 7px;margin-top:3px;border-radius:7px}
+    }
   </style>
   <header>
     <img id="siteLogo" alt="Proses Akış FMEA">
     <div id="brandTitle">
       <h1 id="authTitle">Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma Uygulaması</h1>
       <p class="authSlogan" style="text-align:left;font-size:15px;line-height:1.5;color:#607d8b;margin:6px 0 0;max-width:640px">Önleyici yaklaşım, sürdürülebilir kalitenin temelidir. Daha güçlü yarınlar için geleceği bugünden güvence altına alıyoruz.</p>
-      <small>Saha proses gezisi için hızlı veri giriş uygulaması</small>
+      <!-- Kullanici istegi: "Saha proses gezisi..." yerine burada FMEA secimi olsun.
+           Arac cubugundaki projectSelBtn ile IKISI SENKRON: secim hangi yoldan
+           degisirse degissin (MutationObserver) baslik da guncellenir. -->
+      <div id="hdrFmeaSecWrap" title="Aktif FMEA (araç çubuğundaki listeden seçilir)">
+        <span class="hdr-fmea-lb">FMEA:</span><span id="hdrFmeaSec">— FMEA seçilmedi —</span>
+      </div>
     </div>
     <div id="count" class="count-cards">
       <div class="cnt-card" data-key="proses"><span class="cnt-num">0</span><span class="cnt-label">Proses</span></div>
@@ -1124,6 +1139,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div id="userBar"><span id="userName"></span><button id="cockpitBtn" onclick="openCockpit()" style="display:none">Yönetici Kokpiti</button><button id="adminBtn" onclick="openAdminModal()" style="display:none">Onay Yönetimi</button><button onclick="doLogout()">Çıkış</button></div>
     <div id="verinfo" style="display:none"></div>
   </header>
+  <script>
+  /* Basliktaki FMEA yazisi, arac cubugundaki projectSelBtn ile senkron.
+     MutationObserver sayesinde secimi HANGI kod yolu degistirirse
+     degistirsin baslik da guncellenir (yeni proje, excel yukle, geri
+     donus, otomatik secim vb.). */
+  (function () {
+    function bagla() {
+    var kaynak = document.getElementById('projectSelBtn');
+    var hedef = document.getElementById('hdrFmeaSec');
+    if (!kaynak || !hedef) return;
+    function yaz() {
+      var t = (kaynak.innerText || kaynak.textContent || '').trim();
+      hedef.textContent = (!t || t.indexOf('Seçin') >= 0) ? '— FMEA seçilmedi —' : t;
+    }
+    yaz();
+    if (window.MutationObserver) {
+      new MutationObserver(yaz).observe(kaynak, { childList: true, subtree: true, characterData: true });
+    }
+    document.addEventListener('click', yaz, true);
+    }
+    /* ONEMLI: bu script </header> SONRASinda calisir; projectSelBtn ise
+       arac cubugunda, yani DOM'da DAHA SONRA gelir. Ilk denemede null
+       donup baglanamiyordu (baslik hep "secilmedi" kaliyordu).
+       Bu yuzden baglanti DOM hazir olunca (veya gecikmeli aranirsa)
+       kurulur. */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bagla);
+    } else {
+      bagla();
+    }
+  })();
+  </script>
   <div id="ckPage" style="display:none">
     <div class="ck-head">
       <div class="ck-head-l">
@@ -7164,6 +7211,77 @@ let rows = '';
       document.body.appendChild(ov);
       ov.addEventListener('click', function (e) { if (e.target === ov) pkSecKapat(); });
     }
+
+    /* ===== FORMDA SATIR SILME =====
+       Kullanici istegi: "kontrol planinda olan satir sil gibi formlarda
+       da olsun". Kontrol Plani'ndaki gibi bir satir listesi + sil dugmesi.
+       Secilen VERI satiri, o sayfanin tum hucreleriyle birlikte (No, Adi,
+       karsilama sonucu, imza...) silinir. pkEdits anahtarlari
+       <form>!<sayfa>!<satir>!<sutun> oldugu icin o satira ait TUM sutunlar
+       silinir. Periyot rozetleri zaten gercek form verisinden turuldugu
+       icin (pkPeriyotKodlari) madde silinince rozeti de kendiliginden
+       kaybolur - ayrica bir sey yapmak gerekmez. */
+    function pkAktifSayfaAdi() {
+      try {
+        if (!pkDurum.wb || !pkDurum.wb.worksheets[pkDurum.sekme]) return '';
+        return pkDurum.wb.worksheets[pkDurum.sekme].name || '';
+      } catch (e) { return ''; }
+    }
+    function pkVeriSatirlari() {
+      const sayfa = pkAktifSayfaAdi();
+      if (!sayfa || !pkDurum.anahtar) return [];
+      const depo = pkEditsYukle();
+      const pre = pkDurum.anahtar + '!' + sayfa + '!';
+      const gorulen = {};
+      Object.keys(depo).forEach(function (k) {
+        if (k.indexOf(pre) !== 0) return;
+        const p = k.split('!');
+        const r = parseInt(p[2], 10);
+        if (!r || r < PK_ILK_VERI) return;
+        gorulen[r] = 1;
+      });
+      return Object.keys(gorulen).map(Number).sort(function (a, b) { return a - b; });
+    }
+    function pkSilSecenekDoldur() {
+      const sel = document.getElementById('pkSilSatir');
+      if (!sel) return;
+      const sayfa = pkAktifSayfaAdi();
+      const depo = pkEditsYukle();
+      const pre = (pkDurum.anahtar || '') + '!' + sayfa + '!';
+      const onceden = sel.value;
+      sel.innerHTML = '<option value="">— satır seçin —</option>';
+      pkVeriSatirlari().forEach(function (r) {
+        const no = depo[pre + r + '!4'];
+        const ad = depo[pre + r + '!5'];
+        const et = (no || ad)
+          ? (String(no || '').trim() + ' ' + String(ad || '').trim()).trim()
+          : ('satır ' + r);
+        const o = document.createElement('option');
+        o.value = String(r);
+        o.textContent = et.slice(0, 70);
+        sel.appendChild(o);
+      });
+      if (onceden) sel.value = onceden;
+    }
+    function pkSeciliSatiriSil() {
+      const sel = document.getElementById('pkSilSatir');
+      if (!sel) return;
+      const r = parseInt(sel.value, 10);
+      if (!r || isNaN(r)) { ckBildir('Önce silinecek satırı seçin.', 'uyari'); return; }
+      if (!window.confirm(r + ' numaralı satır silinsin mi?')) return;
+      const sayfa = pkAktifSayfaAdi();
+      const key = pkDurum.anahtar;
+      const pre = key + '!' + sayfa + '!' + r + '!';
+      const depo = pkEditsYukle();
+      let n = 0;
+      Object.keys(depo).forEach(function (k) {
+        if (k.indexOf(pre) === 0) { delete depo[k]; n++; }
+      });
+      pkEditsYaz(depo);
+      if (window.scheduleCloudSync) scheduleCloudSync(600);
+      try { pkCiz(key); } catch (e) {}
+      ckBildir(n ? (sayfa + ' sayfasında ' + r + '. satır silindi.') : 'Bu satırda veri yoktu.', 'oldu');
+    }
     function pkSecKapat() {
       const ov = document.getElementById('pkSecOverlay');
       if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
@@ -7710,6 +7828,7 @@ function pkSatirEkle(tablo) {
       if (bek) pkBelgeKonumlandir(bek);
       fitTopScroll(ov);
       pkSonSatirIsaretle();
+      try { pkSilSecenekDoldur(); } catch (e) {}
     }
     /* Kullanici istegi: form sablonu acildiginda "Kaynak Doküman" sutununa
        Kontrol Plani No otomatik gelir. Hucre bos birakilmissa veya hic
@@ -7768,6 +7887,8 @@ function pkSatirEkle(tablo) {
       ov.innerHTML = '<div class="fmea-modal">' +
         '<div class="mhead"><h3 class="pk-title">Proses Kontrol Formu</h3>' +
         '<div><button class="pk-sec-btn" onclick="pkKontrolSec(pkDurum.anahtar)">Kontrol Seç</button> ' +
+        '<select id="pkSilSatir" class="pk-sec-btn" title="Silinecek form satırı" style="background:#fff;color:#2e6b4f;max-width:210px;padding:5px 8px;font-weight:400;overflow:hidden"></select> ' +
+        '<button class="pk-sec-btn" style="background:#a33;color:#fff;" onclick="pkSeciliSatiriSil()">🗑 Satırı Sil</button> ' +
         '<button class="pk-dl" onclick="pkDownloadDolu(pkDurum.anahtar)">⬇ Excel</button> ' +
         '<button onclick="closeProsesKontrolFormu()">Kapat (Esc)</button></div></div>' +
         '<div class="fmea-body"><div class="pk-slot"></div></div>' +
