@@ -2126,8 +2126,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         var au = document.getElementById('authScreen');
         if (au) {
           var c2 = getComputedStyle(au);
+          /* offsetParent kontrolu KALDIRILDI: giris ekrani position:fixed
+             oldugu icin offsetParent null donuyor ve "acik" sayilmadan
+             alt sekme cubugu giris ekraninda gorunmeye devam ediyordu.
+             Yalnizca gorunurluk + gercek yukseklik yeterli. */
           if (c2.display !== 'none' && c2.visibility !== 'hidden' &&
-              au.offsetParent !== null &&
+              parseFloat(c2.opacity) !== 0 &&
               au.getBoundingClientRect().height > 0) acik = true;
         }
       }
