@@ -1611,12 +1611,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .hdr-sag .hdr-sel-yuva{max-width:130px!important}
       .hdr-sag .hdr-sel-yuva .sel-btn{max-width:130px!important}
 
-      /* 3) "..." sayac satirinin en saginda */
-      .pk-more{position:absolute!important; order:9!important;
-        right:8px!important; bottom:5px!important; margin-left:0!important;
-        align-self:auto!important}
-      /* sayaclar "..." icin yer birakir */
-      .hdr-sag #count{padding-right:34px!important}
+      /* 3) "..." 1. satirin EN SONUNDA (mutlak konum degil).
+         Hesap/Çıkış basliktan panele tasindigi icin 1. satira yer var;
+         mutlak konum ("bottom:5px") sayac satiriyla hizami bozuyor ve
+         sayfalarin onune geciyordu. Artik normal akista, sirada durur:
+           logo | baslik | FMEA secimi | "..." */
+      .pk-more{position:static!important; order:3!important; margin-left:4px!important;
+        align-self:center!important; flex:0 0 26px!important;
+        width:26px!important; height:26px!important}
+      .hdr-sag #count{padding-right:0!important}
     }
 
     /* Baslik cok uzun ("Proses Akış Şeması-FMEA-Kontrol Planı Oluşturma
@@ -1631,6 +1634,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       header #brandTitle{flex:1 1 140px!important}
       .hdr-sag .hdr-sel-yuva{max-width:118px!important}
       .hdr-sag .hdr-sel-yuva .sel-btn{max-width:118px!important}
+    }
+
+    /* Panelin ustundeki Hesap / Çıkış bloğu (telefonda başlıktan taşındı) */
+    .pk-user-grp{display:flex!important; align-items:center!important; gap:8px!important;
+      flex-wrap:wrap!important; padding:6px 4px 10px!important; margin:0 0 8px!important;
+      border-bottom:1px solid #e3e8f0!important}
+    .pk-user-grp #userBar{display:flex!important; align-items:center!important;
+      gap:8px!important; width:100%!important; font-size:13px!important}
+    .pk-user-grp #userName{font-weight:700!important; font-size:13px!important; color:#1b2433!important}
+    .pk-user-grp #cockpitBtn,#pk-user-grp button{font-size:13px!important; padding:7px 12px!important}
+
+    /* FMEA secim listesi (telefon): secici dar (118px) oldugu icin liste
+       onun genisligine bagli kalip EKRANIN SAGINDAN TASIYORDU ve ogeler
+       kirpiliyordu. Artik sabit konumda, ekranin iki yanindan 8px iceride,
+       secicinin ALTINDA ve yuksekligi ekrana gore kisilan tam genislikte
+       bir panel olarak acilir. */
+    @media (max-width:640px){
+      .hdr-sel-yuva{position:relative!important}
+      .hdr-sel-yuva .sel-menu{position:fixed!important;
+        left:8px!important; right:8px!important; width:auto!important;
+        max-width:none!important; min-width:0!important;
+        z-index:9700!important; overflow-y:auto!important;
+        border-radius:12px!important; box-shadow:0 12px 30px rgba(0,0,0,.28)!important}
+      .hdr-sel-yuva .sel-menu .sel-pick{display:block!important; width:100%!important;
+        min-height:0!important; height:auto!important; text-align:left!important;
+        white-space:normal!important; word-break:normal!important;
+        padding:10px 12px!important; font-size:12.5px!important; line-height:1.3!important;
+        border-radius:0!important; overflow:visible!important}
+      .hdr-sel-yuva .sel-menu .sel-pick.current{font-weight:700!important}
     }
   </style>
   <header>
@@ -1662,7 +1694,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
      Genislik degisince elemanlar geri yerine konur. */
   (function () {
     var MQ = '(max-width:640px)';
-    var tb = null, steps = null, fab = null, more = null, sheet = null, back = null, ev = null;
+    var tb = null, steps = null, fab = null, more = null, sheet = null, back = null, ev = null, userGrp = null;
     function el(tag, cls, txt) {
       var e = document.createElement(tag);
       if (cls) e.className = cls;
@@ -1686,6 +1718,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       back = el('div', 'pk-back'); back.onclick = kapat;
       sheet = el('div', 'pk-sheet');
       sheet.appendChild(el('div', 'grab'));
+      /* Kullanici istegi: "telefonda hesap ve cikis 3 noktaya basinda
+         gelsin ordan kaldir". Bu blok panelin EN USTUNDA yer alir;
+         baslikta hesap/cikis yerine FMEA secimi + "..." kalir. */
+      userGrp = el('div', 'pk-sgroup pk-user-grp');
+      sheet.appendChild(userGrp);
     }
     function kapat() { if (sheet) sheet.classList.remove('show'); if (back) back.classList.remove('show'); }
     function tasiKur() {
@@ -1711,6 +1748,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         g.appendChild(b);
       });
       sheet.appendChild(g);
+      /* Hesap / Çıkış -> panelin başına (#userBar başlıkta kalmasın) */
+      var ub = document.getElementById('userBar');
+      if (ub) userGrp.appendChild(ub);
       /* alt sekme cubugu: mevcut .ag-steps tasinir */
       document.body.appendChild(steps);
       /* ust bar: "daha fazla" dugmesi */
@@ -1726,6 +1766,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       var g = sheet.querySelector('.pk-sgroup');
       if (g) Array.prototype.slice.call(g.children).forEach(function () { tb.appendChild(this); });
       sheet.removeChild(g);
+      /* Hesap / Çıkış başlığa geri konur */
+      var ub2 = userGrp ? userGrp.querySelector('#userBar') : null;
+      if (ub2) {
+        var hd2 = document.querySelector('header');
+        if (hd2) hd2.appendChild(ub2);
+      }
+      if (userGrp && userGrp.parentNode) userGrp.parentNode.removeChild(userGrp);
       /* adimlari geri koy */
       var yer = document.querySelector('.toolbar');
       if (yer) yer.parentNode.insertBefore(steps, yer.nextSibling); else document.body.appendChild(steps);
@@ -1787,9 +1834,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
            farkli olurdu. Ikisi de sabit 10px kalir, tasarsa uc nokta ile
            kirpilir. Otomatik kucultme sadece BASLIKTA uygulanir. */
         const b = document.getElementById('projectSelBtn');
-        if (b) { b.style.fontSize = ''; b.removeAttribute('data-fit'); }
         const u = document.getElementById('userBar');
-        if (u) { u.style.fontSize = ''; u.removeAttribute('data-fit'); }
+        if (b) { b.removeAttribute('data-fit'); }
+        if (u) { u.removeAttribute('data-fit'); }
+        /* Kullanici istegi: "fmea seciminde kullanilan yazinin, hesap:abdullah01
+           deki yazi buyuklugunu kullansin".
+           CSS'te ikisi de 10px yaziliydi ama .sel-btn'in kendi kurallari
+           (clamp(...)!important) hesabin fontunu yeniyordu; secici daha
+           buyuk kaliyordu. Guvenilir yontem: hesabin HESAPLANMIS fontunu
+           okuyup seciciye birebir atamak. Boylece hangi CSS kurali kazanirsa
+           kazansin iki yazi ayni olur. */
+        if (b && u) {
+          const fs = getComputedStyle(u).fontSize;
+          if (fs) {
+            b.style.setProperty('font-size', fs, 'important');
+            u.style.setProperty('font-size', fs, 'important');
+          }
+        }
         document.querySelectorAll('.hdr-sag .cnt-card .cnt-num').forEach(function (e) {
           hdrYaziSigdir(e, 9);
         });
@@ -1821,7 +1882,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const user = document.getElementById('userBar');
         const cnt = document.getElementById('count');
         if (sel && sel.parentNode !== ust) ust.appendChild(sel);
-        if (user && user.parentNode !== ust) ust.appendChild(user);
+        /* ONEMLI - mobil kabuk aktifken hesap ("Hesap: ... / Çıkış")
+           "Daha fazla" paneline TASINIR (kullanici istegi). sagBlokKur()
+           tasiKur()'dan SONRA calisir ve userBar'i basliga geri goturerek
+           tasimayi geri aliyordu; bu yuzden baslikta hep gorunuyordu.
+           Mobil kabuk aktifken dokunulmaz. */
+        const mobil = document.body.classList.contains('pk-mobil');
+        if (!mobil && user && user.parentNode !== ust) ust.appendChild(user);
         if (cnt && cnt.parentNode !== sag) sag.appendChild(cnt);
       } catch (e) {}
     }
@@ -4736,6 +4803,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       }
       localStorage.setItem(metaKey, JSON.stringify(fmeaMeta));
       scheduleCloudSync();
+      if (window.faYenile) faYenile();
     }
 
     /* Alt proses kodlari otomatik numaralandirilir.
@@ -4778,6 +4846,8 @@ function save() {
       scheduleCloudSync();
       refreshProjectSel();
       render();
+      /* Aksiyon Takip panosu aciksa FMEA degisikligini hemen yansit. */
+      if (window.faYenile) faYenile();
     }
 
     function setFmeaType(t) {
@@ -4846,7 +4916,22 @@ function save() {
       if (!menu) return;
       const wasOpen = menu.classList.contains('open');
       document.querySelectorAll('.sel-menu.open').forEach(m => m.classList.remove('open'));
-      if (!wasOpen) menu.classList.add('open');
+      if (wasOpen) return;
+      menu.classList.add('open');
+      /* Telefonda liste sabit konumlu; secicinin ALTINDA ve ekrana
+         sigacak sekilde konumlandirilir. Masaustunde normal akista kalir. */
+      try {
+        const btn = document.getElementById('projectSelBtn');
+        if (btn && window.matchMedia('(max-width:640px)').matches) {
+          const r = btn.getBoundingClientRect();
+          const alt = Math.round(window.innerHeight - r.bottom - 12);
+          const h = Math.max(170, Math.min(alt, Math.round(window.innerHeight * 0.56)));
+          menu.style.top = Math.round(r.bottom + 6) + 'px';
+          menu.style.maxHeight = h + 'px';
+        } else {
+          menu.style.top = ''; menu.style.maxHeight = '';
+        }
+      } catch (err) {}
     }
 
     document.addEventListener('click', function (e) {
@@ -11201,81 +11286,106 @@ rows(); fit();
   var n3 = function (v) { var n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
 
   /* ---- veri toplama ---- */
+  /* Kullanicinin istegi: "aksiyon takip ekraninda tüm fmealardan gelsin".
+     Artik yalnizca ACIK olan proje degil, kayitli TUM FMEA'lar taranir.
+     Her satirda hangi FMEA'ya ait oldugu (r.fmea) tutulur; panelde ayri bir
+     FMEA filtresi sunulur. Proje kaydinin adi degil, FMEA etiketi
+     (Firma - Proses) kullanilir; node'u olmayan ama acik olan proje de
+     (kullanici henuz Excel yuklemediyse) listeye dahil edilir. */
+  /* Kullanicinin istegi: "aksiyon takip ekraninda tum fmealardan gelsin
+     veriler". Artik yalnizca ACIK proje degil, kayitli TUM FMEA'lar
+     taranir; her satirda hangi FMEA'ya ait oldugu (r.fmea) tutulur ve
+     panelde ayri bir FMEA filtresi sunulur.
+
+     Kullanilan FMEA sutunlari ve filtreler admin'in ckAksiyonTaramasi()
+     mantigiyla aynidir:
+       - alanlar ckAlan() ile takma adlardan cozulur
+       - ne aksiyonu ne faaliyeti olan hata listelenmez
+       - hedef tarihi bos olan listelenmez
+       - mantiksiz (20 yildan eski) tarihler elenir                      */
   function veriTopla() {
     var R = [], id = 0;
-    var firma = ((typeof fmeaMeta !== 'undefined' && fmeaMeta.firma) || '').trim()
-      || ((typeof currentProject !== 'undefined' && currentProject) || 'FMEA').trim();
-    var kok = (typeof nodes !== 'undefined' && nodes) ? nodes : [];
-    kok.forEach(function (n) {
-      if (n.type !== 'process') return;
-      (n.altProsesler || []).forEach(function (sub) {
-        (sub.hatalar || []).forEach(function (h) {
-          /* Kullanici istegi: "her hataya aksiyon değil" - pano yalnizca
-             AKSIYONU (Alınan Aksiyonlar / Önerilen Faaliyet) OLAN hatalari
-             listeler. Aksiyonsuz hatalar (FMEA'nin agirligi) burada yer
-             almaz; onlar zaten FMEA sayfasinda ve Kontrol Planinda var.
-             Kullanilan FMEA sutunlari:
-               Önerilen Faaliyet            -> h.faaliyet
-               Sorumlu                       -> h.sorumlu
-               Hedef Tamamlama Tarihi        -> h.hedefTarih
-               Alınan Aksiyonlar/Aksiyon Sonuçları -> h.aksiyon
-               Gerçekleşen Tarih             -> h.gerceklesenTarih
-               Şiddet / Olasılık / Tespit   -> h.s / h.o / h.d
-               RPN                           -> S x O x D
-          */
-          /* Kullanici istegi: "adminde aksiyonlari hangi mantikla yaptiysan
-             o mantigi kullan". Admin'in kendi mantigi ckAksiyonTaramasi():
-               - alanlar ckAlan() ile TAKMA ADLARINDAN cozulur
-                 (aksiyon/alinanAksiyon/alinanAksiyonlar/aksiyonlar/...
-                  faaliyet/onerilenFaaliyet/onerilen/...)
-               - ne aksiyonu ne faaliyeti olan hata LISTELENMEZ
-               - HEDEF TARIHI BOSSA listelenmez
-               - kalanGun / gecGun hesaplanir
-             Burada ayni cozucu ve ayni filtreler kullanilir; fark yalnizca
-             tamamlananlarin "Tamamlandı" olarak gosterilmesidir (admin
-             taramasinda tamamlananlar zaten liste disidir, pano ise
-             tamamlanma oranini de gostermesi gerekir).
-          */
-          var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
-          var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
-          if (!aksiyon && !faaliyet) return;                       /* aksiyonu yok */
-          var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
-          var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
-          var hd = typeof ckTarihCoz === 'function' ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
-          if (!hd) return;                                         /* hedef tarihi bos */
-          /* Guvenlik: mantiksal olmayan bir hedef tarihi (orn. 1901/1899)
-             "9302 gün gecikti" gibi sahte gecikmeler uretiyordu. 20 yildan
-             eski tarihler gecersiz sayilir; gercek bir termin o kadar
-             gecmisde olmaz. (ckTarihCoz admin icin DEGISTIRILMEDI.) */
-          if (TODAY - hd > 20 * 365.25 * 864e5) return;
-          id++;
-          var S = n3(ckAlan(h, ['s', 'siddet', 'S']));
-          var O = n3(ckAlan(h, ['o', 'olasilik', 'O']));
-          var D = n3(ckAlan(h, ['d', 'tespit', 'D']));
-          var tamam = bittiMetin ? fTarih(bittiMetin) : null;
-          var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
-          var durum = tamam ? 'Tamamlandı' : 'Devam ediyor';
-          R.push({
-            id: 'A-' + (id < 100 ? (id < 10 ? '0' + id : '' + id) : id),
-            firma: firma, adim: sub.title || sub.code || '',
-            hata: ckAlan(h, ['tur', 'hataTuru']), S: S, O: O, D: D,
-            faaliyet: faaliyet, aksiyon: aksiyon,
-            sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
-            termin: hd, durum: durum, tamam: tamam,
-            kalanGun: kalanGun, gecGun: (!tamam && kalanGun < 0) ? -kalanGun : 0,
-            S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
-          });
-        });
-      });
-    });
-    R.forEach(function (r) {
+    var list = [];
+    try { if (Array.isArray(projects)) list = projects.slice(); } catch (e) {}
+    var acik = '';
+    try { acik = String((typeof currentProject !== 'undefined' ? currentProject : '') || '').trim(); } catch (e) {}
+
+    function projeDuzenle(p, idx) {
+      var ad = '';
+      try { ad = (typeof pkProjeEtiket === 'function') ? (pkProjeEtiket(p) || '') : ''; } catch (e) {}
+      if (!ad) ad = (p && p.name) || ('FMEA ' + (idx + 1));
+      var firma = '';
+      try { firma = String((p && p.fmeaMeta && p.fmeaMeta.firma) || '').trim(); } catch (e) {}
+      if (!firma) firma = (p && p.name) || ad;
+      /* AKTIF proje icin DAIMA canli veri kullanilir: global `nodes` ile
+         projects[k].nodes AYRI nesneler; kullanici bir duzenleme yaptiginda
+         global `nodes` guncellenir ama proje kopyasi (admin kokpiti icin
+         tutulan) bayat kalabiliyor. Bayat kopyayi kullansak pano, az önce
+         yaptiginiz degisikligi göstermezdi. Diger FME'lar kendi
+         proje kopyalarindan okunur (o kayitlardan gelir). */
+      var canli = (typeof nodes !== 'undefined' && nodes && nodes.length) ? nodes : null;
+      var nd = (p && p.name === acik && canli) ? canli : ((p && Array.isArray(p.nodes)) ? p.nodes : null);
+      return { ad: ad, firma: firma, nodes: (nd && nd.length) ? nd : [] };
+    }
+
+    /* proje listesine acik olan da dahil (kayitli listede yoksa) */
+    var varlar = false;
+    for (var i = 0; i < list.length; i++) { if (list[i] && list[i].name === acik) { varlar = true; break; } }
+    if (!varlar && acik) {
+      list.push({ name: acik, fmeaMeta: (typeof fmeaMeta !== 'undefined' ? fmeaMeta : null), nodes: (typeof nodes !== 'undefined' ? nodes : null) });
+    }
+
+    for (var gi = 0; gi < list.length; gi++) {
+      var G = projeDuzenle(list[gi], gi);
+      if (!G.nodes.length) continue;
+      for (var ni = 0; ni < G.nodes.length; ni++) {
+        var n = G.nodes[ni];
+        if (!n || n.type !== 'process') continue;
+        var alt = n.altProsesler || [];
+        for (var si = 0; si < alt.length; si++) {
+          var sub = alt[si];
+          var hatalar = (sub && sub.hatalar) || [];
+          for (var hi = 0; hi < hatalar.length; hi++) {
+            var h = hatalar[hi] || {};
+            var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
+            var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
+            if (!aksiyon && !faaliyet) continue;
+            var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
+            var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
+            var hd = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
+            if (!hd) continue;
+            if (TODAY - hd > 20 * 365.25 * 864e5) continue;
+            id++;
+            var S = n3(ckAlan(h, ['s', 'siddet', 'S']));
+            var O = n3(ckAlan(h, ['o', 'olasilik', 'O']));
+            var D = n3(ckAlan(h, ['d', 'tespit', 'D']));
+            var tamam = bittiMetin ? fTarih(bittiMetin) : null;
+            var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
+            R.push({
+              id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
+              fmea: G.ad, firma: G.firma,
+              adim: (sub && (sub.title || sub.code)) || '',
+              hata: ckAlan(h, ['tur', 'hataTuru']),
+              S: S, O: O, D: D,
+              faaliyet: faaliyet, aksiyon: aksiyon,
+              sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
+              termin: hd, durum: tamam ? 'Tamamlandı' : 'Devam ediyor', tamam: tamam,
+              kalanGun: kalanGun, gecGun: (!tamam && kalanGun < 0) ? -kalanGun : 0,
+              S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
+            });
+          }
+        }
+      }
+    }
+
+    for (var ri = 0; ri < R.length; ri++) {
+      var r = R[ri];
       r.rpn = r.S * r.O * r.D;
       r.rpn2 = r.S2 ? r.S2 * r.O2 * r.D2 : null;
-      r.k = r.durum === 'Tamamlandı' ? 'tamam' : 'devam';
-      /* admin mantigiyla gecGun (hedef gecmis ve tamamlanmamis) */
+      r.k = (r.durum === 'Tamamlandı') ? 'tamam' : 'devam';
       r.late = r.gecGun || 0;
-      r.high = r.k !== 'tamam' && r.rpn >= 100;
-    });
+      r.high = (r.k !== 'tamam' && r.rpn >= 100);
+    }
     return R;
   }
 
@@ -11304,7 +11414,8 @@ rows(); fit();
       '<div style="overflow-x:auto" id="faTrend"></div></div>' +
       '<div class="card" style="margin-top:12px"><h2>Tüm aksiyonlar <span class="mut" id="faTtl"></span></h2>' +
       '<div class="filters"><input type="search" id="faQ" placeholder="Hata modu, aksiyon, süreç ara…">' +
-      '<select id="faSor"></select><span class="mut" id="faCnt" style="align-self:center"></span></div>' +
+      '<select id="faFmea"></select><select id="faSor"></select>' +
+      '<span class="mut" id="faCnt" style="align-self:center"></span></div>' +
       '<div class="wrap"><table><thead><tr><th>No</th><th>Firma · Proses adımı</th><th>Hata modu</th><th>RPN</th>' +
       '<th>Önerilen Faaliyet</th><th>Alınan Aksiyonlar</th><th>Sorumlu</th>' +
       '<th>Hedef Tam. Tarihi</th><th>Gerçekleşen</th><th>Durum</th></tr></thead><tbody id="faTb"></tbody></table></div>' +
@@ -11316,6 +11427,19 @@ rows(); fit();
   function faKapat() { var o = document.getElementById('faOverlay'); if (o && o.parentNode) o.parentNode.removeChild(o); }
   window.faKapat = faKapat;
   window.fAksiyonAc = ac;
+
+  /* Kullanici istegi: "aksiyon takip her fmea güncellendiğinde yenilensin".
+     Pano acikken FMEA verisi degistiginde (adim ekleme/silme, hata
+     duzenleme, FMEA bilgileri, form yazimlari vb.) tablo, KPI'lar ve
+     grafigin ANINDA tazelenmesi.
+     Pano KAPALIYKEN hicbir sey yapilmaz (tek bir null kontrolu), yani
+     bu cagirmalar uygulamanin calisma hizini degistirmez. */
+  function faYenile() {
+    var ov = document.getElementById('faOverlay');
+    if (!ov) return;                       /* pano kapali - erken cikis */
+    try { ciz(veriTopla()); } catch (e) {}
+  }
+  window.faYenile = faYenile;
 
   function ciz(R) {
     var fs = '', fk = 'all';
@@ -11339,8 +11463,9 @@ rows(); fit();
 
     function tbl() {
       var q = ($('faQ').value || '').toLocaleLowerCase('tr'), sr = $('faSor').value;
+      var fm = $('faFmea') ? $('faFmea').value : '';
       var rs = R.filter(function (r) {
-        return (!fs || r.firma === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
+        return (!fm || r.fmea === fm) && (!fs || r.firma === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
           && (!sr || r.sor === sr) && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma).toLocaleLowerCase('tr').indexOf(q) >= 0);
       }).sort(function (a, b) { return a.firma.localeCompare(b.firma, 'tr') || (b.late > 0) - (a.late > 0) || b.late - a.late || b.rpn - a.rpn; });
       $('faCnt').textContent = rs.length + ' aksiyon';
@@ -11364,7 +11489,8 @@ rows(); fit();
     }
 
     function render() {
-      var V = fs ? R.filter(function (r) { return r.firma === fs; }) : R;
+      var fmS = $('faFmea') ? $('faFmea').value : '';
+      var V = R.filter(function (r) { return (!fmS || r.fmea === fmS) && (!fs || r.firma === fs); });
       if (!V.length) { $('faSum').textContent = 'Gösterilecek aksiyon yok.'; tbl(); return; }
       var N = V.length, cnt = function (k) { return V.filter(function (r) { return r.k === k; }).length; };
       var late = V.filter(function (r) { return r.late; });
@@ -11448,6 +11574,11 @@ rows(); fit();
       tbl();
     }
 
+    /* FMEA filtresi (kullanicinin istegi): tum FMEA'lar listelenir */
+    $('faFmea').innerHTML = '<option value="">Tüm FMEA\'lar (' + R.length + ')</option>' +
+      R.map(function (r) { return r.fmea; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; })
+        .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
     $('faSor').innerHTML = '<option value="">Tüm sorumlular</option>' +
       R.map(function (r) { return r.sor; }).filter(function (v) { return v; })
         .filter(function (v, i, a) { return a.indexOf(v) === i; })
@@ -11455,6 +11586,7 @@ rows(); fit();
     $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
     $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
     $('faQ').oninput = tbl; $('faSor').oninput = tbl;
+    $('faFmea').onchange = function () { fk = 'all'; render(); };
     render();
   }
   document.addEventListener('keydown', function (e) {
