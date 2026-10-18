@@ -6423,7 +6423,13 @@ let rows = '';
               const p = pkHucreDolgu(ws, c + j);
               if (p) { toplam += parseInt(p, 10); varMi = true; }
             }
-            if (varMi) w = ' style="min-width:' + Math.max(30, toplam) + 'px"';
+            /* 10 kolonluk bir birlestirmede toplam 93px cikabiliyor
+               (sablon sutun genisliklerinin cogu tanimsiz); o zaman 1815
+               karakterlik metin dar bir sutuna sigiyor ve tablo "bozuk"
+               gorunuyordu. Cok sutunlu birlestirmelerde sutun basina
+               makul bir taban tutulur. */
+            const taban = b[1] >= 4 ? b[1] * 46 : 30;
+            if (varMi || b[1] >= 4) w = ' style="min-width:' + Math.max(taban, toplam, 30) + 'px"';
           } else {
             const p = pkHucreDolgu(ws, c);
             if (p) w = ' style="min-width:' + p + '"';
@@ -6437,6 +6443,12 @@ let rows = '';
             for (let j = 1; j < b[1]; j++) atla[r][c + j] = 1;
           }
         }
+        /* ONEMLI - birlestirilmis alanin altindaki satirlar hic hucre
+           uretmez (A12:J44 -> 13-44. satirlar tamamen kapsanir).
+           Once bos satirlar da <tr></tr> olarak basiliyordu; 38 adet bos
+           satir ekranda yer kapliyordu. Artik hucre uretilmeyen satir
+           hic yazilmaz. */
+        if (s === '<tr>') continue;
         s += '</tr>';
         govde.push(s);
       }
