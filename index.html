@@ -1150,7 +1150,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         display:grid!important; grid-template-columns:repeat(5,1fr)!important; gap:0!important;
         background:#fff!important; border-top:1px solid #e3e8f0!important; border-radius:0!important;
         padding:4px 3px calc(4px + env(safe-area-inset-bottom))!important; box-sizing:border-box!important;
-        overflow:hidden!important; width:100%!important; max-width:100%!important}
+        /* overflow:hidden KALDIRILDI: alt cubuk sabit (fixed) ve ekranin
+           en altinda; 5. adimin acilir menusu (.ag-menu) bu cubukun ICINDE
+           ve asagi dogru acildigi icin ekranin disinda kaliyordu.
+           "Proses Kontrol Formlari"na tiklayinca hicbirsey olmuyordu.
+           Etiket cakismasi ise min-width:0 + ellipsis ile zaten cozuldu. */
+        overflow:visible!important; width:100%!important; max-width:100%!important}
       /* ONEMLI: burada data-tip ile "ikon" yapma denemesi vardi; data-tip
          kisa metin DEGIL ("FMEA Görüntüle" gibi uzun aciklama) oldugu icin
          alt cubukta uzun metinler basilip etiketlerin USTUNE BINDIYDI.
@@ -1208,6 +1213,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         color:#fff!important; font-size:22px!important; line-height:1!important; display:none!important;
         align-items:center; justify-content:center; cursor:pointer}
       body.pk-mobil .pk-more{display:inline-flex!important}
+
+      /* 5. adim menusu ("Proses Kontrol Formlari"): alt cubuk ekranin
+         en altinda oldugu icin menu ASAGI acamaz -> yukari, sabit
+         konumlanip ekrana sigdirilir. */
+      .ag-menu{position:fixed!important; top:auto!important;
+        bottom:calc(66px + env(safe-area-inset-bottom))!important;
+        left:8px!important; right:8px!important; width:auto!important;
+        max-height:56vh!important; overflow:auto!important;
+        z-index:9600!important; border-radius:14px!important}
+      .ag-menu button{width:100%!important; min-height:46px!important;
+        font-size:14px!important; white-space:normal!important}
+    }
       /* Ust bar: FMEA secici en ustte, logonun YANINDA (ilk satir).
          Once order:9 ile basligin altina ikinci satira itiliyordu;
          kullanici secim kutusunu yukari tasiyor. Baslik tek satira
