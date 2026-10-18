@@ -11661,8 +11661,11 @@ rows(); fit();
       '<span><i class="dot" style="background:var(--ok)"></i>O hafta tamamlanan</span><span><i class="dot" style="background:var(--ora)"></i>Bu hafta</span></div>' +
       '<div style="overflow-x:auto" id="faTrend"></div></div>' +
       '<div class="card" style="margin-top:12px"><h2>Tüm aksiyonlar <span class="mut" id="faTtl"></span></h2>' +
+      /* Kullanici istegi: "Tüm aksiyonlar ... altındaki fmea filtremeyi ve
+         yanındaki list boxu kaldır. En üstteki filtrelemeye göre filtrelensin."
+         Alt süzgeç satırında artık yalnızca arama kutusu ve sonuç sayacı
+         var; FMEA süzgeci en üstteki çiplere taşındı. */
       '<div class="filters"><input type="search" id="faQ" placeholder="Hata modu, aksiyon, süreç ara…">' +
-      '<select id="faFmea"></select><select id="faSor"></select>' +
       '<span class="mut" id="faCnt" style="align-self:center"></span></div>' +
       '<div class="wrap"><table><thead><tr><th>No</th><th>Firma · Proses adımı</th><th>Hata modu</th><th>RPN</th>' +
       '<th>Önerilen Faaliyet</th><th>Alınan Aksiyonlar</th><th>Sorumlu</th>' +
@@ -11701,20 +11704,21 @@ rows(); fit();
         return c ? '<div style="width:' + (c / rs.length * 100) + '%;background:' + STk[k][1] + '" title="' + STk[k][0] + ': ' + c + '">' + c + '</div>' : '';
       }).join('');
     };
-    var FIRMS = R.map(function (r) { return r.firma; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+    var FIRMS = R.map(function (r) { return r.fmea || r.firma; })
+      .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
     var supStats = function (f) {
-      var rs = R.filter(function (r) { return r.firma === f; }), dn = rs.filter(function (r) { return r.k === 'tamam'; });
+      var rs = R.filter(function (r) { return (r.fmea || r.firma) === f; }), dn = rs.filter(function (r) { return r.k === 'tamam'; });
       return { f: f, rs: rs, n: rs.length, done: dn.length, pct: dn.length / rs.length * 100,
         late: rs.filter(function (r) { return r.late; }).length, high: rs.filter(function (r) { return r.high; }).length,
         b: avg(rs.map(function (r) { return r.rpn; })), a: avg(rs.map(now)) };
     };
 
     function tbl() {
-      var q = ($('faQ').value || '').toLocaleLowerCase('tr'), sr = $('faSor').value;
-      var fm = $('faFmea') ? $('faFmea').value : '';
+      var q = ($('faQ').value || '').toLocaleLowerCase('tr');
       var rs = R.filter(function (r) {
-        return (!fm || r.fmea === fm) && (!fs || r.firma === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
-          && (!sr || r.sor === sr) && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma).toLocaleLowerCase('tr').indexOf(q) >= 0);
+        /* yalnizca EN ÜSTTEKİ çip (fs) + KPI süzgeci + arama */
+        return (!fs || (r.fmea || r.firma) === fs) && (fk === 'all' || (fk === 'late' ? r.late : fk === 'high' ? r.high : r.k === fk))
+          && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma + ' ' + (r.fmea || '')).toLocaleLowerCase('tr').indexOf(q) >= 0);
       }).sort(function (a, b) { return a.firma.localeCompare(b.firma, 'tr') || (b.late > 0) - (a.late > 0) || b.late - a.late || b.rpn - a.rpn; });
       $('faCnt').textContent = rs.length + ' aksiyon';
       $('faTtl').textContent = fs ? '· ' + fs : (R.length ? '· tüm veriler' : '');
@@ -11737,8 +11741,7 @@ rows(); fit();
     }
 
     function render() {
-      var fmS = $('faFmea') ? $('faFmea').value : '';
-      var V = R.filter(function (r) { return (!fmS || r.fmea === fmS) && (!fs || r.firma === fs); });
+      var V = R.filter(function (r) { return !fs || (r.fmea || r.firma) === fs; });
       if (!V.length) { $('faSum').textContent = 'Gösterilecek aksiyon yok.'; tbl(); return; }
       var N = V.length, cnt = function (k) { return V.filter(function (r) { return r.k === k; }).length; };
       var late = V.filter(function (r) { return r.late; });
@@ -11820,18 +11823,14 @@ rows(); fit();
     }
 
     /* FMEA filtresi (kullanicinin istegi): tum FMEA'lar listelenir */
-    $('faFmea').innerHTML = '<option value="">Tüm FMEA\'lar (' + R.length + ')</option>' +
       R.map(function (r) { return r.fmea; })
         .filter(function (v, i, a) { return a.indexOf(v) === i; })
         .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
-    $('faSor').innerHTML = '<option value="">Tüm sorumlular</option>' +
       R.map(function (r) { return r.sor; }).filter(function (v) { return v; })
         .filter(function (v, i, a) { return a.indexOf(v) === i; })
         .map(function (x) { return '<option>' + ESC(x) + '</option>'; }).join('');
     $('faChips').onclick = function (e) { var b = e.target.closest('.chip'); if (b) { fs = b.dataset.f; fk = 'all'; render(); } };
     $('faKpis').onclick = function (e) { var b = e.target.closest('.kpi'); if (b) { fk = b.dataset.k; render(); } };
-    $('faQ').oninput = tbl; $('faSor').oninput = tbl;
-    $('faFmea').onchange = function () { fk = 'all'; render(); };
     render();
   }
   document.addEventListener('keydown', function (e) {
