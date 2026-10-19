@@ -4278,7 +4278,9 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
             '<input type="checkbox" class="ck-xl" data-anahtar="' + xl + '"' + (ckExcelSecim[xl] ? ' checked' : '') + '>' +
             '<span><b>' + esc(t.ad) + onayEtiket(p.durum) +
               (coklu ? ' <span class="ck-b mid">' + esc(p.kisi) + '</span>' : '') +
-              (cloudIsAdmin ? ' <button class="ck-ad-btn" title="Tedarikçi adını düzenle" onclick="event.stopPropagation();ckTedAdiDegistir(\'' + esc(p.uid) + '\',' + p._i + ',\'' + esc(String(p.firma || '')) + '\')">✎</button>' : '') +
+              (cloudIsAdmin ? ' <button class="ck-ad-btn" title="Tedarikçi adını düzenle" onclick="event.stopPropagation();ckTedAdiDegistir(\'' + esc(p.uid) + '\',' + p._i + ',\'' + esc(String(p.firma || '')) + '\')">✎</button>' +
+              ' <button class="ck-ad-btn" title="FMEA\'yı sil" data-fsil-uid="' + esc(p.uid) + '" data-fsil-i="' + p._i +
+              '" data-fsil-ad="' + esc(String(p.ad || '')) + '" onclick="event.stopPropagation();adminFmeaSil(this.dataset.fsilUid,this.dataset.fsilAd,+this.dataset.fsilI)">🗑</button>' : '') +
               '</b><div class="ck-sub">' + p.tip +
             ' · ' + esc(p.ad) +
             (coklu ? ' · ' + esc(p.kisi) : '') +
@@ -4599,8 +4601,8 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         iptal.textContent = 'Vazgeç';
         iptal.style.cssText = 'background:#e9eef1;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:13px';
         const evet = document.createElement('button');
-        evet.textContent = tip === 'red' ? 'Reddet' : 'Onayla';
-        evet.style.cssText = 'background:' + (tip === 'red' ? '#c45a5a' : '#5b8c5a') + ';color:#fff;border:0;' +
+        evet.textContent = tip === 'sil' ? 'Sil' : (tip === 'red' ? 'Reddet' : 'Onayla');
+        evet.style.cssText = 'background:' + (tip === 'red' || tip === 'sil' ? '#c45a5a' : '#5b8c5a') + ';color:#fff;border:0;' +
           'border-radius:6px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:13px';
         function kapat(sonuc) {
           if (kap.parentNode) kap.parentNode.removeChild(kap);
@@ -4700,7 +4702,17 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         noB.textContent = 'Reddet';
         noB.onclick = function () { adminFmeaReddet(it.uid, it.ad, it.i); };
         noB.style.cssText = 'background:#c45a5a;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
-        sag.appendChild(okB); sag.appendChild(noB);
+        /* Sil butonu data-oznitelik + satir ici onclick ile kurulur: ayni
+           HTML'in ckOnayHtml() ile kopyalandigi kokpit penceresinde de calisir
+           (closure fonksiyonlar kopyada kaybolur, global fonksiyonlar kaybolmaz). */
+        const silB = document.createElement('button');
+        silB.textContent = 'Sil';
+        silB.setAttribute('data-uid', it.uid);
+        silB.setAttribute('data-i', String(it.i));
+        silB.setAttribute('data-ad', it.ad);
+        silB.setAttribute('onclick', 'adminFmeaSil(this.dataset.uid, this.dataset.ad, +this.dataset.i)');
+        silB.style.cssText = 'background:#8f3d3d;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
+        sag.appendChild(okB); sag.appendChild(noB); sag.appendChild(silB);
         satir.appendChild(sol); satir.appendChild(sag);
         el.appendChild(satir);
       });
@@ -4788,9 +4800,91 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       if (ok) { ckOnayDurum('"' + pname + '" reddedildi. Kullanıcı düzeltip tekrar gönderebilir.', 'oldu'); loadOnayBekleyenFmea(); await ckYenile(true); }
     }
 
+    /* ===== YONETICI: FMEA SILME =====
+       Yonetici bir kullanicinin FMEA projesini (tum dugumleri, onay durumu,
+       form duzenlemeleriyle birlikte) bulut kaydindan kaldirir.
+       Kritik noktalar:
+       - Silinen proje KULLANICININ aktif projesiyse currentProject/nodes
+         bosaltilmalidir; aksi halde ckCanliProjeler() silinen projeyi yeniden
+         canlandirir (bkz. satir ~2690).
+       - kpEdits/pkEdits o proje anahtarina ait kayitlar da temizlenir. */
+    async function adminFmeaSil(uid, pname, pIndex) {
+      function hataVer(ned) {
+        const m = (ned && ned.message) || String(ned);
+        const kod = (ned && ned.code) ? ' [' + ned.code + ']' : '';
+        console.error('adminFmeaSil:', ned);
+        ckBildir('FMEA silinemedi' + kod + ': ' + m, 'hata');
+        ckOnayDurum('FMEA silinemedi' + kod + ': ' + m, 'hata');
+        return false;
+      }
+      if (!sbClient) return hataVer({ message: 'Veritabanı bağlantısı yok.' });
+      if (!cloudIsAdmin) return hataVer({ message: 'Bu işlem için yönetici yetkisi gerekli (yönetici olarak giriş yapın).' });
+      if (!uid) return hataVer({ message: 'Kullanıcı kimliği bulunamadı.' });
+      const evet = await ckOnayKutu('FMEA Silme',
+        '"' + pname + '" FMEA\'sı kalıcı olarak silinsin mi? Kullanıcının bu FMEA\'sına ait tüm veriler ' +
+        '(akış diyagramı, hata kayıtları, onay durumu) bulut kaydından kaldırılır. Bu işlem geri alınamaz.', 'sil');
+      if (!evet) { ckOnayDurum('FMEA silme iptal edildi.', 'bilgi'); return false; }
+      ckOnayDurum('Siliniyor: ' + pname + ' ...', 'bilgi');
+      try {
+        const oku = await sbClient.from('fmea_user_data')
+          .select('data').eq('user_id', uid).maybeSingle();
+        if (oku.error) throw oku.error;
+        const d = (oku.data && oku.data.data) || {};
+        const projler = ckCanliProjeler(d);
+        if (!projler.length) return hataVer({ message: 'Kullanıcı verisi bulunamadı (' + uid + ').' });
+        let hedef = null, hedefI = -1;
+        /* ayni fmeaOnayGuncelle sirasi: 1) proje adi, 2) sira, 3) firma adi */
+        projler.forEach(function (p, i) { if (!hedef && p && p.name === pname) { hedef = p; hedefI = i; } });
+        if (!hedef && typeof pIndex === 'number' && projler[pIndex]) { hedef = projler[pIndex]; hedefI = pIndex; }
+        if (!hedef) {
+          projler.forEach(function (p, i) {
+            if (!hedef && p && p.fmeaMeta && String(p.fmeaMeta.firma || '').trim() === String(pname).trim()) { hedef = p; hedefI = i; }
+          });
+        }
+        if (!hedef || hedefI < 0) {
+          return hataVer({ message: 'FMEA bulunamadı: ' + pname + ' (listedeki adlar: ' +
+            projler.map(function (p) { return p && p.name; }).join(', ') + ')' });
+        }
+        const silAd = (hedef.name || pname || '').trim();
+        const kalan = projler.filter(function (p, i) { return i !== hedefI; });
+        d.projects = kalan;
+        /* Aktif proje silindiyse ust duzey canli veriyi de bosalt (yoksa
+           ckCanliProjeler projeyi projects[] icine yeniden koyar). */
+        if (silAd && typeof d.currentProject === 'string' && d.currentProject.trim() === silAd) {
+          d.currentProject = '';
+          d.nodes = [];
+          d.fmeaMeta = {};
+        }
+        if (silAd) {
+          if (d.kpEdits && typeof d.kpEdits === 'object') delete d.kpEdits[silAd];
+          if (d.pkEdits && typeof d.pkEdits === 'object') delete d.pkEdits[silAd];
+        }
+        const yama = { data: d, updated_at: new Date().toISOString() };
+        const u = await sbClient.from('fmea_user_data')
+          .update(yama).eq('user_id', uid).select('user_id');
+        if (u.error) throw u.error;
+        if (!u.data || !u.data.length) {
+          /* UPDATE 0 satir: RLS guncellemeye izin vermiyor olabilir -> upsert */
+          console.warn('adminFmeaSil: UPDATE 0 satir etkilendi, ups deneniyor');
+          const up = await sbClient.from('fmea_user_data')
+            .upsert(Object.assign({ user_id: uid }, yama), { onConflict: 'user_id' });
+          if (up.error) return hataVer(up.error);
+        }
+        ckOnayDurum('"' + silAd + '" silindi. Kullanıcının listesinden ve kokpitten kaldırıldı.', 'oldu');
+        loadOnayBekleyenFmea();
+        await ckYenile(true);
+        return true;
+      } catch (e) {
+        return hataVer(e);
+      }
+    }
+    window.adminFmeaSil = adminFmeaSil;
+
     // Onay bekleyen hesaplar: is_admin=false AND approved=false
     // RED ISARETI data.hesapReddi icinde tasir; ayri veritabani sutunu gerekmez.
     var cloudRejectedRows = [];
+    // Onaylanmis (kayitli) kullanicilar: kullanici silme listesi icin
+    var cloudApprovedRows = [];
 
     // Kullanicinin data'sini okuyup yeni nesne dondurur (red isareti eklenip cikarilir)
     async function ckHesapRediYaz(uid, isaret) {
@@ -4811,16 +4905,19 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       list.innerHTML = 'Yükleniyor…';
       loadOnayBekleyenFmea();
       try {
+        /* approved filtresi kaldirildi: ekranda uc liste var
+           (bekleyen / reddedilen / kayitli-silinebilir) */
         const { data, error } = await sbClient
           .from('fmea_user_data')
           .select('user_id,email,approved,is_admin,updated_at,data')
-          .eq('approved', false)
           .order('updated_at', { ascending: true });
         if (error) { list.innerHTML = 'Hata: ' + (error.message || ''); return; }
         const hepsi = data || [];
         const reddiVar = r => !!(r && r.data && r.data.hesapReddi);
-        cloudPendingRows = hepsi.filter(r => !reddiVar(r));
-        cloudRejectedRows = hepsi.filter(reddiVar);
+        const bekleyenler = hepsi.filter(r => !r.approved);
+        cloudPendingRows = bekleyenler.filter(r => !reddiVar(r));
+        cloudRejectedRows = bekleyenler.filter(reddiVar);
+        cloudApprovedRows = hepsi.filter(r => r.approved);
         renderPendingUsers(list);
       } catch (e) { list.innerHTML = 'Hata: ' + e.message; }
     }
@@ -4856,8 +4953,15 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         noB.textContent = 'Reddet';
         noB.onclick = () => adminReject(r.user_id);
         noB.style.cssText = 'background:#c45a5a;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
+        const silB = document.createElement('button');
+        silB.textContent = 'Sil';
+        silB.setAttribute('data-uid', r.user_id);
+        silB.setAttribute('data-email', r.email || '');
+        silB.setAttribute('onclick', 'adminKullaniciSil(this.dataset.uid, this.dataset.email)');
+        silB.style.cssText = 'background:#8f3d3d;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
         btns.appendChild(okB);
         btns.appendChild(noB);
+        btns.appendChild(silB);
         row.appendChild(mail);
         row.appendChild(btns);
         uy.appendChild(row);
@@ -4889,12 +4993,59 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         okB.textContent = 'Yine Onayla';
         okB.onclick = () => adminApprove(r.user_id);
         okB.style.cssText = 'background:#5b8c5a;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
+        const silB = document.createElement('button');
+        silB.textContent = 'Sil';
+        silB.setAttribute('data-uid', r.user_id);
+        silB.setAttribute('data-email', r.email || '');
+        silB.setAttribute('onclick', 'adminKullaniciSil(this.dataset.uid, this.dataset.email)');
+        silB.style.cssText = 'background:#8f3d3d;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
         btns.appendChild(okB);
+        btns.appendChild(silB);
         row.appendChild(mail);
         row.appendChild(btns);
         rj.appendChild(row);
       });
       list.appendChild(rj);
+
+      // Kayitli (onaylanmis) kullanicilar: FMEA'li hesaplar burada gorunur ve silinebilir
+      const on = document.createElement('div');
+      on.className = 'onay-blok';
+      const h3 = document.createElement('h3');
+      h3.textContent = 'Kayıtlı Kullanıcılar (' + cloudApprovedRows.length + ')';
+      on.appendChild(h3);
+      if (!cloudApprovedRows.length) {
+        const p = document.createElement('p');
+        p.className = 'ck-none';
+        p.style.padding = '6px 2px';
+        p.textContent = 'Kayıtlı kullanıcı yok.';
+        on.appendChild(p);
+      }
+      cloudApprovedRows.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'onay-satir';
+        const mail = document.createElement('span');
+        mail.className = 'onay-kisi';
+        const yonetici = r.is_admin ? ' · yönetici' : '';
+        mail.textContent = (nameFromEmail(r.email) || '(bilinmiyor)') + yonetici;
+        const btns = document.createElement('span');
+        btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+        /* Kendi hesabinizi silmeyin: buton gosterilmez (yine de
+           adminKullaniciSil icinde ikinci bir kontrol var) */
+        const benim = cloudUser && r.user_id === cloudUser.id;
+        if (!benim) {
+          const silB = document.createElement('button');
+          silB.textContent = 'Sil';
+          silB.setAttribute('data-uid', r.user_id);
+          silB.setAttribute('data-email', r.email || '');
+          silB.setAttribute('onclick', 'adminKullaniciSil(this.dataset.uid, this.dataset.email)');
+          silB.style.cssText = 'background:#8f3d3d;color:#fff;border:0;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:700';
+          btns.appendChild(silB);
+        }
+        row.appendChild(mail);
+        row.appendChild(btns);
+        on.appendChild(row);
+      });
+      list.appendChild(on);
     }
 
     // Ekran uyarisi: onay/reddet sonuclari gorunur sekilde yazilir (alert() yerine)
@@ -4959,6 +5110,55 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         ckBildir('Reddetme sırasında hata: ' + (e && e.message ? e.message : e), 'hata');
       }
     }
+
+    /* ===== YONETICI: KULLANICI KAYDI SILME =====
+       fmea_user_data satiri silinir (kullanicinin tum FMEA verisi gider).
+       Not: Supabase auth hesabi istemci tarafinda silinemez (service key yok);
+       kullanici tekrar giris yaparsa satiri yeniden olusur ve onay bekler.
+       RLS DELETE'e izin vermiyorsa 0 satir doner; bu durumda satir silinemez
+       ama VERI BOSALTILIR ve onay durumu sifirlanir (fallback). */
+    async function adminKullaniciSil(uid, email) {
+      try {
+        if (!sbClient) { ckBildir('Veritabanı bağlantısı yok.', 'hata'); return false; }
+        if (!cloudIsAdmin) { ckBildir('Bu işlem için yönetici yetkisi gerekli.', 'hata'); return false; }
+        if (!uid) { ckBildir('Kullanıcı kimliği bulunamadı.', 'hata'); return false; }
+        if (cloudUser && cloudUser.id && uid === cloudUser.id) {
+          ckBildir('Kendi hesabınızı silemezsiniz.', 'uyari'); return false;
+        }
+        const kisi = nameFromEmail(email) || uid;
+        const evet = await ckOnayKutu('Kullanıcı Silme',
+          '"' + kisi + '" kaydı ve tüm FMEA verileri silinsin mi? Bu işlem geri alınamaz. ' +
+          'Giriş hesabı (e-posta ile giriş) veritabanı tarafında silinmez; kullanıcı tekrar giriş ' +
+          'yaparsa hesabı yeniden onay bekler.', 'sil');
+        if (!evet) { ckBildir('Kullanıcı silme iptal edildi.', 'bilgi'); return false; }
+        ckBildir('Siliniyor: ' + kisi + ' ...', 'bilgi');
+        const del = await sbClient.from('fmea_user_data')
+          .delete().eq('user_id', uid).select('user_id');
+        if (del.error) throw del.error;
+        if (del.data && del.data.length) {
+          ckBildir('"' + kisi + '" kaydı silindi.', 'oldu');
+          loadPendingUsers(); await ckYenile(true); return true;
+        }
+        /* 0 satir: satir yok ya da RLS DELETE'i engelliyor -> veriyi bosalt */
+        console.warn('adminKullaniciSil: DELETE 0 satir, veri bosaltma deneniyor');
+        const bos = { data: {}, approved: false, is_admin: false, updated_at: new Date().toISOString() };
+        const up = await sbClient.from('fmea_user_data')
+          .update(bos).eq('user_id', uid).select('user_id');
+        if (up.error) throw up.error;
+        if (!up.data || !up.data.length) {
+          ckBildir('Kullanıcı silinemedi: 0 satır. Veritabanı yetki kuralı (RLS) engelliyor olabilir.', 'hata');
+          return false;
+        }
+        ckBildir('"' + kisi + '" kaydı silinemedi (RLS izin vermiyor); FMEA verisi boşaltıldı ve ' +
+          'hesap onay durumu sıfırlandı. Satır listede görünmeye devam eder.', 'uyari');
+        loadPendingUsers(); await ckYenile(true); return true;
+      } catch (e) {
+        console.error('adminKullaniciSil istisna:', e);
+        ckBildir('Kullanıcı silme sırasında hata: ' + (e && e.message ? e.message : e), 'hata');
+        return false;
+      }
+    }
+    window.adminKullaniciSil = adminKullaniciSil;
 
     
     function nameToEmail(n) { return (n||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'').replace(/\.+$/,'') + '@akis-fmea.app'; }
