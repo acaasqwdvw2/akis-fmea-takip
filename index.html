@@ -785,6 +785,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     /* Yonetici modu: FMEA olusturma ekrani tamamen gizlenir, sadece kokpit/onay kalir */
     body.ck-only .toolbar,body.ck-only .layout,body.ck-only #count{display:none !important}
     body.ck-only{background:#eef3f4}
+    /* Yonetici modunda FMEA secici de gizlenir (basliktaki "FMEA seçin"
+       toolbox'i); mobilde .ag-steps govdeye tasindigi icin o da gizlenir. */
+    body.ck-only #hdrSelYuva{display:none !important}
+    body.ck-only .ag-steps,body.ck-only .pk-sheet,body.ck-only .pk-back,body.ck-only .pk-more,body.ck-only .pk-fab{display:none !important}
     /* Kokpit sabit sayfa: baslik yukarida, icerik asagi akar */
     #ckPage{padding:16px 20px 28px;max-width:1400px;margin:0 auto}
     .ck-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;
@@ -2215,36 +2219,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div id="ckTiles"></div>
     <div id="ckEk"></div>
     <div id="ckBody"></div>
-    <!-- Süreç Takip bölümü -->
-    <div id="surecTakip">
-      <div class="panel-head" style="padding:10px 15px;border-bottom:1px solid #dce4e6;">
-        <h2 style="margin:0;font-size:15px;color:#26343a;">Süreç Takip</h2>
-        <div style="float:right;color:#6b7d82;font-size:11px;">Otomatik güncelleme: <span id="stAutoRefresh">Aktif</span></div>
-      </div>
-      <div style="padding:10px;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;">
-          <div class="cnt-card" style="background:#324b52;">
-            <span class="cnt-num" id="stProsesSayaci">0</span>
-            <span class="cnt-label">Proses Adımı</span>
-          </div>
-          <div class="cnt-card" style="background:#324b52;">
-            <span class="cnt-num" id="stIslemSayaci">0</span>
-            <span class="cnt-label">İşlem</span>
-          </div>
-          <div class="cnt-card" style="background:#324b52;">
-            <span class="cnt-num" id="stHataSayaci">0</span>
-            <span class="cnt-label">Hata</span>
-          </div>
-          <div class="cnt-card" style="background:#324b52;">
-            <span class="cnt-num" id="stProjeSayaci">0</span>
-            <span class="cnt-label">Aktif Proje</span>
-          </div>
-        </div>
-        <div id="stProcessList" style="max-height:300px;overflow:auto;border:1px solid #dce4e6;border-radius:6px;padding:8px;">
-          <div style="font-size:12px;color:#6b7d82;">Process verisi yükleniyor...</div>
-        </div>
-      </div>
-    </div>
+    <!-- Süreç Takip bölümü admin kokpitinden KALDIRILDI (kullanici istegi).
+         stGuncelle() artik bu elemanlari bulamaz; null-guard ile sessizce
+         devam eder. Süreç Takip Çizelgesi ayri sayfadir (#stPage). -->
   </div>
   <!-- KOKPIT KART POP-UP: tum kartlar icin ortak pencere -->
   <div id="ckPop" onclick="if(event.target===this) ckPopKapat()">
@@ -4508,11 +4485,17 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
             });
           }
         } catch (e) {}
-        document.getElementById('stProsesSayaci').textContent = toplamProses;
-        document.getElementById('stIslemSayaci').textContent = toplamIslem;
-        document.getElementById('stHataSayaci').textContent = toplamHata;
-        document.getElementById('stProjeSayaci').textContent = projeler.length;
-        document.getElementById('stProjeSayaci').setAttribute('title', aktifProje);
+        /* Süreç takip bolumu kokpitten kaldirildi; elemanlar yoksa
+           null-guard ile sessizce cikilir (hata uretmez). */
+        const sp = document.getElementById('stProsesSayaci');
+        if (!sp) return;
+        sp.textContent = toplamProses;
+        const si = document.getElementById('stIslemSayaci');
+        if (si) si.textContent = toplamIslem;
+        const sh = document.getElementById('stHataSayaci');
+        if (sh) sh.textContent = toplamHata;
+        const sj = document.getElementById('stProjeSayaci');
+        if (sj) { sj.textContent = projeler.length; sj.setAttribute('title', aktifProje); }
         const listeDiv = document.getElementById('stProcessList');
         if (!listeDiv) return;
         let html = '';
@@ -5164,9 +5147,12 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       });
     }
 
-function save() {
+    function save() {
       autoNumberNodes();
       try { localStorage.setItem(key, JSON.stringify(nodes)); } catch (e) {}
+      /* fmeaMeta de HER ZAMAN lokalde saklanir; boylece sayfa yenilenince
+         loadLocalScope() eski bir FMEA'nin bilgilerini geri yuklemez. */
+      try { localStorage.setItem(metaKey, JSON.stringify(fmeaMeta || {})); } catch (e) {}
       yerelZamanYaz();
       try { localStorage.setItem(currentKey, currentProject || ''); } catch (e) {}
       scheduleCloudSync();
@@ -5446,13 +5432,26 @@ function save() {
         n++;
         name = 'Tedarikçi ' + n;
       }
-      /* Eski bir "Tedarikçi N" kalintisi varsa CP deposu da temizlenir. */
-      try {
-        const tum = kpTumu();
-        if (tum[name] && typeof tum[name] === 'object') { delete tum[name]; }
-      } catch (e) {}
+      /* YENI FMEA TAMAMEN BAGIMSIZ OLMALI (kullanici istegi):
+         "yeni fmea acildiginda fmea bilgilerini baska fmeadan almasin;
+          her sey kendine ozgu olmali; disaridan veri barindirmamali". */
+      /* 1) FMEA baslik bilgileri (fmeaMeta) hem bellekte hem localStorage
+            (metaKey) SIFIRLANIR. Eskiden sadece bellekte sifirlanirdi;
+            sayfa yenilenince loadLocalScope() eski metaKey'i okuyup yeni
+            FMEA'ya ONCEKI FMEA'nin firma/proses bilgilerini geri
+            yukluyordu. */
+      fmeaMeta = {};
+      try { localStorage.setItem(metaKey, JSON.stringify({})); } catch (e) {}
+      /* 2) FMEA tipi de onceki projeden miras kalmasin. */
+      fmeaType = 'proses';
+      /* 3) Kontrol plani (kp) ve form (pkEdits) depolari bu ad altinda
+            sifirlanir; silinmis bir "Tedarikçi N" kalintisi varsa bile
+            hicbir eski veri yeni FMEA'ya tasinmaz. */
+      try { kpYazBucket({}); } catch (e) {}
+      try { pkEditsYaz({}); } catch (e) {}
+      /* 4) Akis dugumleri de lokalde bos olarak yazilir (save icinde). */
       upsertProject(name, [], {});
-      nodes = []; fmeaMeta = {}; currentProject = name; selected = null; sonTiklananDugum = null;
+      nodes = []; currentProject = name; selected = null; sonTiklananDugum = null;
       showMeta = true;
       ckLogEkle('proje', 'Yeni FMEA oluşturuldu: ' + name, 'proje-yeni|' + name);
       save();
@@ -11623,6 +11622,15 @@ rows(); fit();
   }
   var fd = function (d) { return d ? d.toLocaleDateString('tr-TR') : ''; };
   var n3 = function (v) { var n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+  /* TARIH COZUCU (aksiyon panosu): fTarih ONCE (Excel seri numaralarini
+     1900 takvimine dogru cevirir), olmazsa ckTarihCoz (saatli
+     "28.09.2026 14:30" gibi bicimler). NOT: ckTarihCoz sayilari milisaniye
+     sanir; Excel seri (46000) -> 1970 -> 20 yil suzgeciyle satir
+     kayboluyordu (8 aksiyon 6 gorunuyordu). */
+  var tCoz = function (v) { return fTarih(v) || (typeof ckTarihCoz === 'function' ? ckTarihCoz(v) : null); };
+  /* 20 yildan eski/garip tarihlerde TARIH null'a cevrilir (satir kaybolmaz;
+     tabloda "—" gosterilir). */
+  var tSuzgec = function (d) { return (d && TODAY - d <= 20 * 365.25 * 864e5) ? d : null; };
 
   /* ---- veri toplama ---- */
   /* Kullanicinin istegi: "aksiyon takip ekraninda tüm fmealardan gelsin".
@@ -11638,13 +11646,15 @@ rows(); fit();
 
      Kullanilan FMEA sutunlari ve filtreler admin'in ckAksiyonTaramasi()
      mantigiyla aynidir:
-       - alanlar ckAlan() ile takma adlardan cozulur
-       - ne aksiyonu ne faaliyeti olan hata listelenmez
-       - hedef tarihi bos olan listelenmez
-       - mantiksiz (20 yildan eski) tarihler elenir                      */
-  /* Tamamlanan aksiyon sayaci. Adminin mantigiyla uyum icin tamamlananlar
-     ANA LISTEDE YER ALMAZ; ancak "Tamamlanı" KPI'si gosterebilmek icin
-     ayrica sayilir (kullanicinin 1. secenegi). */
+        - alanlar ckAlan() ile takma adlardan cozulur
+        - ne aksiyonu ne faaliyeti olan hata listelenmez
+        - HEDEF TARIHI OLMAYAN acik aksiyonlar da listelenir (termin null;
+          "8 aksiyon var 6 gorunuyordu" sikayetinin kokeni bu filtre idi)
+        - Excel seri numarasi tarihler fTarih ile once cozulur (ckTarihCoz
+          1970'e cevirip 20 yil suzgeciyle satiri siliyordu)
+        - mantiksiz (20 yildan eski) tarihlerde TARIH null yapilir ama SATIR
+          kaybolmaz                                              */
+  /* Tamamlanan aksiyon sayaci. */
   var FA_TAMAMLANDI = 0;
   /* Panodaki FMEA secme aracindaki TUM FMEA etiketleri (acik aksiyonu
      olmayanlar dahil). veriTopla() her cagirdiginda tazelenir. */
@@ -11708,64 +11718,50 @@ rows(); fit();
             var bittiMetin = ckAlan(h, ['gerceklesenTarih', 'gerceklesmeTarihi', 'gerceklesen', 'tamamlanmaTarihi']);
             var faaliyet = ckAlan(h, ['faaliyet', 'onerilenFaaliyet', 'onerilen', 'faaliyetler']);
             var aksiyon = ckAlan(h, ['aksiyon', 'alinanAksiyon', 'alinanAksiyonlar', 'aksiyonlar', 'aksiyonSonuc', 'alinan']);
-            var tamamT = bittiMetin ? fTarih(bittiMetin) : null;
+            var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
+            var tamamT = bittiMetin ? tSuzgec(tCoz(bittiMetin)) : null;
             /* GERCEKLESEN TARIH ONCE: tamamlanan aksiyon ARTIK R'YE DE GIRER
-               (k='tamam'). Kullanici istekleri boyledi:
-                 - "Tamamlanan Aksiyon kartina tiklaninca tabloda gorunsun"
-                 - haftalik grafigin YESIL (tamamlanan) sutunlari adetle dolsun
-               (once yalnizca FA_TAMAMLANDI'na sayilip atlaniyordu -> yesil
-               sütunlar hep 0 kaliyordu). Mantiksiz (20 yildan eski) tarihler
-               grafigi yillara genisletmemesi icin R'ye almaz. */
+               (k='tamam'). GERCEKLESEN TARIHI OKUNAMAYAN (bos metin, garip
+               format) ama "dolu" olan satir da listelenir (tamam=null;
+               tarih sutununda "—" gosterilir); eskiden bu satirlar tamamen
+               kayboluyordu. */
             if (bittiMetin) {
               FA_TAMAMLANDI++;
-              if (tamamT && TODAY - tamamT <= 20 * 365.25 * 864e5) {
-                var hdM2 = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
-                var hdT = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdM2) : fTarih(hdM2);
-                id++;
-                R.push({
-                  id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
-                  fmea: G.ad, firma: G.firma,
-                  adim: (sub && (sub.title || sub.code)) || '',
-                  hata: ckAlan(h, ['tur', 'hataTuru']),
-                  S: n3(ckAlan(h, ['s', 'siddet', 'S'])),
-                  O: n3(ckAlan(h, ['o', 'olasilik', 'O'])),
-                  D: n3(ckAlan(h, ['d', 'tespit', 'D'])),
-                  faaliyet: faaliyet, aksiyon: aksiyon,
-                  sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
-                  termin: hdT || null, durum: 'Tamamlandı',
-                  tamam: tamamT, uygulandi: false,
-                  kalanGun: 0, gecGun: 0,
-                  S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
-                });
-              }
+              var hdT2 = tSuzgec(tCoz(hdMetin));
+              id++;
+              R.push({
+                id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
+                fmea: G.ad, firma: G.firma,
+                adim: (sub && (sub.title || sub.code)) || '',
+                hata: ckAlan(h, ['tur', 'hataTuru']),
+                S: n3(ckAlan(h, ['s', 'siddet', 'S'])),
+                O: n3(ckAlan(h, ['o', 'olasilik', 'O'])),
+                D: n3(ckAlan(h, ['d', 'tespit', 'D'])),
+                faaliyet: faaliyet, aksiyon: aksiyon,
+                sor: ckAlan(h, ['sorumlu', 'sorumlular', 'sahip']),
+                termin: hdT2 || null, durum: 'Tamamlandı',
+                tamam: tamamT, uygulandi: false,
+                kalanGun: 0, gecGun: 0,
+                S2: h.s2 ? n3(h.s2) : null, O2: h.o2 ? n3(h.o2) : null, D2: h.d2 ? n3(h.d2) : null
+              });
               continue;
             }
             if (!aksiyon && !faaliyet) continue;
-            var hdMetin = ckAlan(h, ['hedefTarih', 'hedefTarihi', 'hedef', 'hedefTamamlamaTarihi']);
-            var hd = (typeof ckTarihCoz === 'function') ? ckTarihCoz(hdMetin) : fTarih(hdMetin);
-            if (!hd) continue;
-            if (TODAY - hd > 20 * 365.25 * 864e5) continue;
+            /* ACIK AKSIYON: HEDEF TARIHI OLMAYAN satir da artik listelenir
+               (termin null; tabloda "—" gosterilir, gecikmeye sayilmaz).
+               Eskiden `if (!hd) continue;` + `if (TODAY-hd > 20y) continue;`
+               ile bu satirlar tamamen kayboluyordu (8 aksiyon 6 gorunuyordu). */
+            var hd = tSuzgec(tCoz(hdMetin));
             id++;
             var S = n3(ckAlan(h, ['s', 'siddet', 'S']));
             var O = n3(ckAlan(h, ['o', 'olasilik', 'O']));
             var D = n3(ckAlan(h, ['d', 'tespit', 'D']));
-            var tamam = bittiMetin ? fTarih(bittiMetin) : null;
-            /* Kullanici istegi: "aksiyonlar alınmış ama hala açık gözüküyor".
-               FMEA'da "Aksiyon Sonuçları" basligi 'aksiyon' alanina duser
-               (pkFmeaAlanSiniflaT) - yani oru yazmak aksiyonu DOLDURMAK demek,
-               tamamlandi isareti degil. Tamamlandi isareti ya
-               "Gerçekleşen Tarih" ya da aksiyon sonrasi risk degerlerinin
-               (Şiddet/Olasılık/Tespit -> s2/o2/d2) dolu olmasidir.
-               Aksiyon uygulandiysa (s2/o2/d2 dolu) da "Tamamlandı" sayilir;
-               aksi halde uygulanmis aksiyonlar "Devam ediyor" olarak
-               gorunuyordu. */
             var s2v = h.s2 ? n3(h.s2) : null, o2v = h.o2 ? n3(h.o2) : null, d2v = h.d2 ? n3(h.d2) : null;
             /* Kullanici netlestirdi: "Gerçekleşen Tarih doluysa tamamlandı
-               say". Once s2/o2/d2 (aksiyon sonrasi risk degerleri) doluysa
-               da tamam sayiyorduk; bu kaldirildi - yalnizca gerceklesen
-               tarihi isaret. */
+               say" (bittiMetin yukarida islendi; buraya sadece aciklar gelir). */
             var uygulandi = false;
-            var kalanGun = Math.round((hd.getTime() - TODAY.getTime()) / 86400000);
+            var tamam = null; /* acik satirda gerceklesen tarih yok */
+            var kalanGun = hd ? Math.round((hd.getTime() - TODAY.getTime()) / 86400000) : 0;
             R.push({
               id: 'A-' + (id < 10 ? '0' + id : (id < 100 ? '' + id : '' + id)),
               fmea: G.ad, firma: G.firma,
@@ -11777,7 +11773,7 @@ rows(); fit();
               termin: hd, durum: (tamam || uygulandi) ? 'Tamamlandı' : 'Devam ediyor',
               tamam: tamam, uygulandi: uygulandi,
               kalanGun: kalanGun,
-              gecGun: ((!tamam && !uygulandi) && kalanGun < 0) ? -kalanGun : 0,
+              gecGun: ((!tamam && !uygulandi) && hd && kalanGun < 0) ? -kalanGun : 0,
               S2: s2v, O2: o2v, D2: d2v
             });
           }
@@ -11792,6 +11788,10 @@ rows(); fit();
       r.k = (r.durum === 'Tamamlandı') ? 'tamam' : 'devam';
       r.late = r.gecGun || 0;
       r.high = (r.k !== 'tamam' && r.rpn >= 100);
+      /* ZAMANINDA KAPANMA: terminine gore erken veya tam termininde
+         kapatilmis tamamlanan aksiyon. Termini OLMAYAN tamamlananlar bu
+         hesaba KATILMAZ (KPI "Zamanında Aksiyon Gerçekleşme Oranı" icin). */
+      r.zamaninda = !!(r.k === 'tamam' && r.termin && r.tamam && r.tamam <= r.termin);
       /* FMEA secme araci icin acik/gecikme sayacini guncelle */
       for (var fi = 0; fi < FA_HEPSI.length; fi++) {
         if (FA_HEPSI[fi].ad === r.fmea) {
@@ -11887,7 +11887,7 @@ rows(); fit();
            fk 'acik' (varsayilan): tamamlanmis satirlar tabloda GORUNMEZ
            (onceki davranis); "Aksiyon Gerçekleşmiş" kartina basinca
            fk='tamam' olur ve tamamlananlar listelenir. */
-        var fkOk = fk === 'belirlen' ? true : fk === 'tamam' ? r.k === 'tamam' : fk === 'gecikmis' ? !!r.late : fk === 'devam' ? (r.k === 'devam' && !r.late) : fk === 'high' ? r.high : (r.k !== 'tamam');
+        var fkOk = fk === 'belirlen' ? true : fk === 'tamam' ? r.k === 'tamam' : fk === 'gecikmis' ? !!r.late : fk === 'zamaninda' ? !!r.zamaninda : fk === 'devam' ? (r.k === 'devam' && !r.late) : fk === 'high' ? r.high : (r.k !== 'tamam');
         return (!fs || (r.fmea || r.firma) === fs) && fkOk
           && (!q || (r.hata + ' ' + r.aksiyon + ' ' + r.adim + ' ' + r.firma + ' ' + (r.fmea || '')).toLocaleLowerCase('tr').indexOf(q) >= 0);
       }).sort(function (a, b) { return a.firma.localeCompare(b.firma, 'tr') || (b.late > 0) - (a.late > 0) || b.late - a.late || b.rpn - a.rpn; });
@@ -11921,6 +11921,11 @@ rows(); fit();
       var done = V.filter(function (r) { return r.k === 'tamam' && r.rpn2 != null; });
       var red = done.reduce(function (a, r) { return a + r.rpn - r.rpn2; }, 0);
       var redPct = done.length ? avg(done.map(function (r) { return (r.rpn - r.rpn2) / r.rpn; })) * 100 : null;
+      /* ZAMANDINDA GERCEKLESEME ORANI: tamamlananlardan termini OLANLARIN
+         icinde gerceklesen <= termin olanlarin orani. */
+      var zamanindaC = V.filter(function (r) { return r.zamaninda; }).length;
+      var zamanindaTaban = V.filter(function (r) { return r.k === 'tamam' && r.termin; }).length;
+      var zamanindaPct = zamanindaTaban ? (zamanindaC / zamanindaTaban * 100) : 0;
 
       /* FMEA SECTIRME ARACI (kullanici istegi: cipler yerine toolbox).
          FA_HEPSI icerigi veriTopla'da doldurulur; acik aksiyonu OLMAYAN
@@ -11933,22 +11938,23 @@ rows(); fit();
         }).join('') + '</select>';
 
       $('faSum').innerHTML = (fs ? '<b>' + ESC(fs) + ':</b> ' : '') +
-        '<b>' + V.length + ' aksiyon</b>; <b>' + tamamC + '</b> gerçekleşmiş, <b>' + devamC + '</b> devam ediyor. ' +
+        '<b>' + V.length + ' aksiyon</b>; <b>' + tamamC + '</b> gerçekleşmiş' +
+        (zamanindaC || tamamC ? ', zamanında <b>' + zamanindaC + '/' + (zamanindaTaban || 0) + '</b> (%' + Math.round(zamanindaPct) + ')' : '') +
+        (devamC ? ', <b>' + devamC + '</b> devam ediyor' : '') + '. ' +
         (late.length ? '<b class="late">' + late.length + ' aksiyonun termini geçti</b>. ' : 'Geciken aksiyon yok. ') +
         (redPct != null ? 'Tamamlananlar RPN\'i ortalama <b>%' + Math.round(redPct) + '</b> düşürdü (−' + Math.round(red) + ' puan). ' : '');
 
-      /* Ust KPI kartlari: YONETICI KOKPITIYLE AYNI ANLAM
-         (ckAksiyonTaramasi / fmeaMetrikleri):
-           Aksiyon Belirlenmiş  = aksiyon veya faaliyet girilmis tum satirlar
-           Aksiyon Gerçekleşmiş = gerceklesen tarihi olanlar (k='tamam')
-           Aksiyon Devam Ediyor = belirlenmis - gerceklesen - gecikmis
-           Aksiyon Gecikmiş     = termini gecmis ve kapanmamis            */
+      /* Ust KPI kartlari (kullanici istegi): "Devam Ediyor" kartinin yerine
+         "Zamanında Aksiyon Gerçekleşme Oranı" (yüzde). Tanim:
+           Zamanında kapanan = gerceklesen <= termin (termini olan tamamlananlar)
+           Oran = zamaninda kapanan / termini olan tum tamamlananlar
+           Termini olmayan tamamlananlar hesaba KATILMAZ. */
       var KP = [['belirlen', '📋', 'Aksiyon Belirlenmiş', V.length],
         ['tamam', '✅', 'Aksiyon Gerçekleşmiş', tamamC],
-        ['devam', '⏳', 'Aksiyon Devam Ediyor', devamC],
+        ['zamaninda', '🕒', 'Zamanında Gerçekleşme Oranı', '%' + Math.round(zamanindaPct)],
         ['gecikmis', '⚠️', 'Aksiyon Gecikmiş', late.length]];
       $('faKpis').innerHTML = KP.map(function (k) {
-        return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '"><b' +
+        return '<button class="kpi ' + (fk === k[0] ? 'on' : '') + '" data-k="' + k[0] + '" title="' + k[2] + '"><b' +
           (k[0] === 'gecikmis' && k[3] ? ' class="late"' : '') + '>' + k[3] + '</b><span>' + k[1] + ' ' + k[2] + '</span></button>';
       }).join('');
 
