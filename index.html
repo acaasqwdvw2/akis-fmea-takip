@@ -783,12 +783,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .ck-gec-ozet{font-size:11px;gap:6px}
     }
     /* Yonetici modu: FMEA olusturma ekrani tamamen gizlenir, sadece kokpit/onay kalir */
-    body.ck-only .toolbar,body.ck-only .layout,body.ck-only #count{display:none !important}
+    body.ck-only .toolbar,body.ck-only .layout{display:none !important}
+    /* Yonetici modunda sayac KUTUSU sartli olarak gizlenir - telefonda "..."
+       (pk-more) butonu #count icine tasinir; kutu tamamen kapatilinca yonetici
+       mobilde hesap paneline hicbir yoldan ulasamazdi (Yonetici Kokpiti /
+       Onay Yonetimi / Cikis kayip oluyordu). Boylece:
+       - icerdeki sayac kartlari her kosulda gizlenir (modda anlamsiz)
+       - "..." icermediginde (masaustu) kutu da tamamen gizlenir -> eski
+         davranis, sifir genislik riski yok */
+    body.ck-only #count .cnt-card{display:none !important}
+    body.ck-only #count:not(:has(.pk-more)){display:none !important}
     body.ck-only{background:#eef3f4}
     /* Yonetici modunda FMEA secici de gizlenir (basliktaki "FMEA seçin"
        toolbox'i); mobilde .ag-steps govdeye tasindigi icin o da gizlenir. */
     body.ck-only #hdrSelYuva{display:none !important}
-    body.ck-only .ag-steps,body.ck-only .pk-sheet,body.ck-only .pk-back,body.ck-only .pk-more,body.ck-only .pk-fab{display:none !important}
+    /* Mobil "..." paneli ve karartmasi yonetici modunda DA ACIK kalmalidir:
+       paneldeki hesap grubu (#userBar) adminin tek navigasyonudur. */
+    body.ck-only .ag-steps,body.ck-only .pk-fab{display:none !important}
+    /* Panelde yalnizca hesap grubu kalsin: arac cubugundan kopyalanmis
+       butonlar (Yeni FMEA, Excel Yukle/Indir, adimlar...) yonetici modunda
+       anlamsiz; masaustunda .toolbar zaten gizli oldugu icin bu kural
+       tutarlilik saglar. */
+    body.ck-only .pk-sheet > .pk-sgroup:not(.pk-user-grp){display:none !important}
     /* Kokpit sabit sayfa: baslik yukarida, icerik asagi akar */
     #ckPage{padding:16px 20px 28px;max-width:1400px;margin:0 auto}
     .ck-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;
