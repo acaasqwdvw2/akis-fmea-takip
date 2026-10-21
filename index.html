@@ -816,6 +816,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #ckPage #ckBody{background:#fff;border:1px solid #d7e5e8;border-radius:10px;padding:6px 10px 10px;
       box-shadow:0 1px 3px rgba(0,0,0,.05);overflow-x:auto}
     #adminPage{padding:16px 20px 28px;max-width:1400px;margin:0 auto}
+    /* Süreç takip çizelgesi: admin olmayan kullanıcı SALT OKUNUR görür.
+       Asıl koruma Supabase RLS'tedir; buradaki kural yalnızca görsel kısıt
+       (satır ekleme/silme, hücre düzenleme, Excel içe aktarma gizlenir). */
+    #stPage.st-readonly table.t input,#stPage.st-readonly table.t select{
+      pointer-events:none!important; opacity:.55!important;
+      background:#f3f6f9!important; color:#4a5560!important}
+    #stPage.st-readonly .del{display:none!important}
+    #stPage.st-readonly .bar #add,#stPage.st-readonly .bar #reset,
+    #stPage.st-readonly .bar #xlsInBtn{display:none!important}
     /* KOKPIT KART POP-UP: kart tiklaninca icerik sayfa altinda degil, ortada pencerede acilir.
        Butun tiklanabilir kartlar ayni mantigi kullanir. */
     #ckPop{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,35,40,.45);z-index:11000;
@@ -2271,6 +2280,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="ck-head-r">
         <button onclick="switchAdminView('cockpit')">&#8592; Kokpit</button>
         <button class="primary" onclick="stYenile()">Yenile</button>
+        <button id="stBulutAktar" type="button" style="display:none;background:#0f766e;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer" onclick="stkBulutAktar()">Bu cihazdaki tabloyu buluta yükle</button>
       </div>
     </div>
     <div id="stBody">
@@ -2280,7 +2290,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <div class="bar">
    <input type="search" id="q" placeholder="Firma / sorumlu / açıklama ara…">
    <button id="add">+ Satır ekle</button>
-   <button type="button" onclick="document.getElementById('xin').click()">📂 Excel'den yükle</button><input type="file" id="xin" accept=".xlsx,.xls" hidden>
+      <button type="button" id="xlsInBtn" onclick="document.getElementById('xin').click()">📂 Excel'den yükle</button><input type="file" id="xin" accept=".xlsx,.xls" hidden>
    <button class="p" id="xout">📊 Excel indir</button><button id="reset" title="Başlangıç verisine dön">Sıfırla</button>
   </div>
  </div>
@@ -3191,8 +3201,11 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       switchAdminView('surec');
     }
     /* Tablo/duzenleme mantigi sayfa sonundaki .stk betiginde tanimlanir
-       (window.stkTabloCiz). Sekmeye gecince icerik tazelenir. */
+       (window.stkTabloCiz). Sekmeye gecince icerik tazelenir.
+       Bulut (Supabase surec_takip) senkronu da orada tanimlidir; acilista
+       ve bu yenileme cagrisinda buluttaki guncel revizyon okunur. */
     function stYenile() {
+      try { if (window.stkBulutYenile) window.stkBulutYenile(); } catch (e) {}
       try { if (window.stkTabloCiz) window.stkTabloCiz(); if (window.stkFit) window.stkFit(); } catch (e) {}
     }
     // ================= YÖNETİCİ KOKPİTİ =================
@@ -11743,15 +11756,214 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const TODAY = (() => { const q = new URLSearchParams(location.search).get('tarih'); const d = q ? new Date(q + 'T00:00:00') : new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })();
 let S; try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
 if (!S || !S.rows) S = { rows: clone(SRC.rows) };
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); $('saved').textContent = 'Kaydedildi ' + new Date().toLocaleTimeString('tr-TR'); } catch (e) {} };
+if (typeof S.rev !== 'number') S.rev = 0;
+
+/* =====================================================================
+   BULUT SENKRON  (Supabase: public.surec_takip, id='ana')
+   1) localStorage yalnizca ONEBELLEKTIR; buluttaki rev daha yeniyse o kullanilir.
+   2) Kayit: sbClient.rpc('surec_takip_kaydet', {p_data, p_rev}) -> yeni rev.
+      'cakisma' (baskasi da kaydetti) hatasinda buluttaki son hal yuklenir
+      ve "baskasi guncelledi" uyarisi cikar.
+   3) Baglanti yoksa degisiklik yerelde tutulur, "buluta GONDERILDI"
+      isaretiyle online olunca otomatik tekrar gonderilir.
+   4) Admin olmayan kullanici tabloyu SALT OKUNUR gorur (asil koruma RLS).
+   5) Bulut bosken (rev=0) admin'e "Bu cihazdaki tabloyu buluta yukle"
+      butonu cikar - ilk aktarim en guncel tablonun oldugu bilgisayardan
+      tek sefer yapilmalidir.
+   ===================================================================== */
+let stRev = S.rev;
+let stBulutOkundu = false;   // surec_takip satiri basariyla okundu mu
+let stBulutBos = true;       // bulutta veri yok -> ilk aktarim bekleniyor
+let stBekleyen = false;      // gonderilemedi (cevrimdisi / hata)
+let stSaltOkunur = false;
+let stGonderZaman = null;
+let stBaslatildi = false;
+let stUyariZaman = null;
+const TARIH_ALAN = ['bas', 'hedef', 'tamam', 'pkfDbas', 'pkfTbas'];
+const uuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : ('st-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+const saat = () => new Date().toLocaleTimeString('tr-TR');
+
+function stTarihDuzelt(r) {
+  TARIH_ALAN.forEach(k => {
+    const v = r[k]; if (v == null || v === '') return;
+    const s = String(v).trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) r[k] = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    else if ((m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/))) r[k] = m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  });
+}
+/* Her satira kalici kimlik (uuid) - bulutla esleme ve karsilastirma icin.
+   "no" sutunu oldugu gibi birakilir (siralamayi index belirler). */
+function stSatirlariHazirla(dizi) {
+  if (!Array.isArray(dizi)) return;
+  dizi.forEach(r => { if (r && typeof r === 'object') { if (!r.id) r.id = uuid(); stTarihDuzelt(r); } });
+}
+function stDurumYaz(metin) {
+  const e = $('saved'); if (!e) return;
+  let ek = '';
+  if (stBekleyen) ek = ' • buluta GÖNDERİLMEDİ (bağlantı gelince tekrar denenecek)';
+  else if (stBulutOkundu && !stBulutBos && window.sbClient && window.cloudUser) ek = ' • bulut rev ' + stRev;
+  e.textContent = metin + ek;
+  e.style.color = stBekleyen ? '#b00020' : '';
+}
+function stYetki() {
+  /* Yerel modda (supabase yok / giris yok) duzenleme acik kalinir.
+     Giris yapilmis ve adminligi HENUZ dogrulanmamis -> salt okunur.
+     Durum degismemise DOM'a dokunulmaz (bekleme dongusu her 1.5 sn'de
+     cagirir; ayni degeri tekrar yazmak gereksiz is emri olur). */
+  const onceki = stSaltOkunur;
+  const yeni = !!(window.sbClient && window.cloudUser && window.cloudIsAdmin !== true);
+  if (yeni === onceki) return stSaltOkunur;
+  stSaltOkunur = yeni;
+  const sp = document.getElementById('stPage');
+  if (sp) sp.classList.toggle('st-readonly', stSaltOkunur);
+  ['add', 'reset', 'xlsInBtn'].forEach(id => { const e = $(id); if (e) e.style.display = stSaltOkunur ? 'none' : ''; });
+  try { rows(); } catch (e) {}
+  return stSaltOkunur;
+}
+async function stBulutYukle() {
+  stYetki();
+  if (!window.sbClient || !window.cloudUser) return false;
+  let data = null, hata = null;
+  try {
+    const res = await sbClient.from('surec_takip').select('data,rev,updated_at,updated_by').eq('id', 'ana').maybeSingle();
+    data = res && res.data; hata = res && res.error;
+  } catch (e) { hata = { message: String((e && e.message) || e) }; }
+  if (hata) {
+    stBulutOkundu = false;
+    const m = String(hata.message || hata);
+    stDurumYaz('Kaydedildi ' + saat() +
+      (/does not exist|schema cache|relation/i.test(m) ? ' • surec_takip tablosu yok (Supabase SQL 1. adım çalıştırılmalı)' : ' • bulut okunamadı'));
+    console.warn('surec_takip okunamadi:', m);
+    stAktarButonu();
+    return false;
+  }
+  stBulutOkundu = true;
+  const rev = (data && typeof data.rev === 'number') ? data.rev : 0;
+  const veri = (data && data.data && Array.isArray(data.data.rows)) ? data.data.rows : null;
+  stBulutBos = !(rev > 0 && veri && veri.length);
+  /* Yerelde GONDERILEMEMIS degisiklik bekliyorsa bulut once cekilmez;
+     dogrudan gonderilir, 'cakisma' donerse o zaman bulut kazanir. */
+  if (stBekleyen) return stBulutGonder();
+  if (data && rev > stRev && veri) {
+    S = Object.assign({}, data.data);
+    S.rev = rev; stRev = rev;
+    stSatirlariHazirla(S.rows);
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    rows();
+    stDurumYaz('Buluttaki tablo yüklendi (rev ' + rev + ')');
+  } else {
+    if (rev > stRev) stRev = rev;
+    S.rev = stRev;
+    stDurumYaz('Kaydedildi ' + saat());
+  }
+  stAktarButonu();
+  return true;
+}
+async function stBulutGonder() {
+  if (stSaltOkunur) return false;
+  if (!window.sbClient || !window.cloudUser || window.cloudIsAdmin !== true) return false;
+  if (navigator.onLine === false) { stBekleyen = true; stDurumYaz('Kaydedildi ' + saat()); return false; }
+  const veri = JSON.parse(JSON.stringify(S));
+  delete veri.rev;                     // revizyon bilgisi veri paketinde degil
+  let res = null;
+  try { res = await sbClient.rpc('surec_takip_kaydet', { p_data: veri, p_rev: stRev }); }
+  catch (e) { res = { error: { message: String((e && e.message) || e) } }; }
+  if (res && res.error) {
+    const m = String(res.error.message || res.error);
+    if (/cakisma|conflict/i.test(m)) { await stCakismaCoz(); return false; }
+    stBekleyen = true;
+    stDurumYaz('Kaydedildi ' + saat() +
+      (/does not exist|schema cache|relation/i.test(m) ? ' • surec_takip tablosu yok (Supabase SQL 1. adım çalıştırılmalı)' : ' • buluta gönderilemedi'));
+    console.warn('surec_takip kayit hatasi:', m);
+    return false;
+  }
+  const yeni = res && res.data;
+  stRev = (typeof yeni === 'number' && yeni > 0) ? yeni : stRev + 1;
+  S.rev = stRev;
+  stBekleyen = false;
+  stBulutBos = false;                 // yazma basarili -> bulutta artik veri var
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  stDurumYaz('Kaydedildi ' + saat());
+  stAktarButonu();
+  return true;
+}
+/* Cakisma: buluttaki son hal yuklenir, kullaniciya acikca soylenir. */
+async function stCakismaCoz() {
+  stBekleyen = false;
+  const uyari = 'Tablo başka bir kullanıcı tarafından güncellendi.\nBuluttaki son hal yüklendi; sonradan yaptığınız değişiklikleri kontrol edin.';
+  try {
+    const res = await sbClient.from('surec_takip').select('data,rev').eq('id', 'ana').maybeSingle();
+    const d = res && res.data;
+    if (d && typeof d.rev === 'number') {
+      stRev = d.rev;
+      S = Object.assign({}, (d.data && d.data.rows) ? d.data : { rows: S.rows });
+      S.rev = d.rev;
+      stSatirlariHazirla(S.rows);
+      try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+      rows();
+      stBulutBos = !(d.rev > 0 && d.data && Array.isArray(d.data.rows) && d.data.rows.length);
+    }
+  } catch (e) {}
+  stDurumYaz('Kaydedildi ' + saat());
+  const e = $('saved'); if (e) e.textContent = uyari.split('\n')[0] + ' (' + saat() + ')';
+  clearTimeout(stUyariZaman);
+  stUyariZaman = setTimeout(() => stDurumYaz('Kaydedildi ' + saat()), 8000);
+  stAktarButonu();
+  try { alert(uyari); } catch (err) {}
+}
+function stGonderPlanla() {
+  clearTimeout(stGonderZaman);
+  stGonderZaman = setTimeout(() => { try { stBulutGonder(); } catch (e) {} }, 700);
+}
+function stAktarButonu() {
+  const b = document.getElementById('stBulutAktar');
+  if (!b) return;
+  const gerek = !!(window.sbClient && window.cloudUser && window.cloudIsAdmin === true &&
+    stBulutOkundu && stBulutBos && !stBekleyen && S.rows.length);
+  const gorunur = (b.style.display !== 'none');
+  if (gorunur === gerek) return;
+  b.style.display = gerek ? '' : 'none';
+}
+window.stkBulutAktar = async function () {
+  if (!confirm('Bu cihazdaki (' + S.rows.length + ' satır) tablo BULUTA AKTARILACAK.\nBulutta şu an veri yok. Devam edilsin mi?')) return false;
+  const ok = await stBulutGonder();
+  if (ok) stBulutBos = false;
+  stAktarButonu();
+  return ok;
+};
+window.stkBulutYenile = function () { try { return stBulutYukle(); } catch (e) { return Promise.resolve(false); } };
+/* Acilista mevcut satirlara kimlik (+tarih bicimi) verilir. (TARIH_ALAN ve
+   uuid bu noktada zaten tanimli - TDZ hatasi olmasin diye burada calisir.) */
+stSatirlariHazirla(S.rows);
+addEventListener('online', () => { if (stBekleyen) { try { stBulutGonder(); } catch (e) {} } });
+/* Giris durumu sonradan belli olur (supabase auth yaniti): ilk okumayi
+   bekleme dongusuyle tetikler, sonrasinda yetki/buton durumunu gunceller. */
+setInterval(() => {
+  try {
+    if (window.sbClient && window.cloudUser && !stBaslatildi) {
+      stBaslatildi = true;
+      stBulutYukle().catch(() => {});
+    } else {
+      stYetki();
+      stAktarButonu();
+    }
+  } catch (e) {}
+}, 1500);
+
+const save = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  stDurumYaz('Kaydedildi ' + saat());
+  if (!stSaltOkunur) stGonderPlanla();
+};
 const lateDays = r => (r.durum !== 'Tamamlandı' && r.hedef && new Date(r.hedef + 'T00:00:00') < TODAY) ? Math.round((TODAY - new Date(r.hedef + 'T00:00:00')) / 864e5) : 0;
 
 function cell(r, i, c) {
-  const [k, t, l] = c, v = r[k] ?? '';
+  const [k, t, l] = c, v = r[k] ?? '', ro = stSaltOkunur ? ' disabled' : '';
   if (t === 'sel') { const o = LIST[l].slice(); if (v && !o.includes(v)) o.push(v);
-    return `<td><select data-i="${i}" data-k="${k}" title="${esc(v)}" class="${TONE[v] ? 'v-' + TONE[v] : ''}"><option value=""></option>${o.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(SHORT[x] || x)}</option>`).join('')}</select></td>`; }
-  if (t === 'date') return `<td class="${k === 'hedef' && lateDays(r) ? 'late' : ''}"><input type="date" data-i="${i}" data-k="${k}" value="${esc(v)}">${k === 'hedef' && lateDays(r) ? `<span class="gun">${lateDays(r)} gün gecikti</span>` : ''}</td>`;
-  return `<td><input type="text" data-i="${i}" data-k="${k}" value="${esc(v)}" ${k === 'birim' ? 'list="dlB"' : k === 'sorumlu' ? 'list="dlS"' : ''}></td>`;
+    return `<td><select data-i="${i}" data-k="${k}" title="${esc(v)}"${ro} class="${TONE[v] ? 'v-' + TONE[v] : ''}"><option value=""></option>${o.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(SHORT[x] || x)}</option>`).join('')}</select></td>`; }
+  if (t === 'date') return `<td class="${k === 'hedef' && lateDays(r) ? 'late' : ''}"><input type="date" data-i="${i}" data-k="${k}" value="${esc(v)}"${ro}>${k === 'hedef' && lateDays(r) ? `<span class="gun">${lateDays(r)} gün gecikti</span>` : ''}</td>`;
+  return `<td><input type="text" data-i="${i}" data-k="${k}" value="${esc(v)}"${ro} ${k === 'birim' ? 'list="dlB"' : k === 'sorumlu' ? 'list="dlS"' : ''}></td>`;
 }
 function rows() {
   $('tb').innerHTML = S.rows.map((r, i) => `<tr data-i="${i}"><td class="nm">${i + 1}</td>${COLS.slice(0, 3).map(c => cell(r, i, c)).join('')}${COLS.slice(3).map(c => cell(r, i, c)).join('')}<td><button class="del" data-del="${i}" title="Satırı sil">✕</button></td></tr>`).join('');
@@ -11760,29 +11972,29 @@ function rows() {
   filter();
 }
 function filter() { const q = $('q').value.toLocaleLowerCase('tr'); document.querySelectorAll('#tb tr').forEach(tr => { const r = S.rows[tr.dataset.i]; tr.classList.toggle('hid', !!q && !(`${r.firma} ${r.sorumlu} ${r.aciklama} ${r.birim}`.toLocaleLowerCase('tr').includes(q))); }); }
-$('tb').addEventListener('change', e => { const t = e.target, i = t.dataset.i; if (i == null) return; S.rows[i][t.dataset.k] = t.value || null; save();
+$('tb').addEventListener('change', e => { if (stSaltOkunur) return; const t = e.target, i = t.dataset.i; if (i == null) return; S.rows[i][t.dataset.k] = t.value || null; save();
   if (t.tagName === 'SELECT') { t.className = TONE[t.value] ? 'v-' + TONE[t.value] : ''; t.title = t.value; }
   if (['hedef', 'durum'].includes(t.dataset.k)) { const tr = t.closest('tr'), nt = document.createElement('tbody'); nt.innerHTML = `<tr>${cell(S.rows[i], i, COLS[4])}</tr>`; const old = tr.children[COLS.findIndex(c => c[0] === 'hedef') + 1]; old.replaceWith(nt.firstChild.firstChild); }
    });
-$('tb').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b && confirm('Bu satır silinsin mi?')) { S.rows.splice(+b.dataset.del, 1); save(); rows(); } });
+$('tb').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b && !stSaltOkunur && confirm('Bu satır silinsin mi?')) { S.rows.splice(+b.dataset.del, 1); save(); rows(); } });
 $('tb').addEventListener('click', e => { if (e.target.type === 'date' && e.target.showPicker) { try { e.target.showPicker(); } catch (x) {} } });
 const MINW = 1584;
 function fit() { const sc = document.querySelector('.scroll'), tb = document.querySelector('table.t'); tb.style.zoom = 1; const s = Math.min(1, (sc.clientWidth - 20) / MINW); tb.style.zoom = s >= 0.68 ? s : 1; }
 addEventListener('resize', fit);
-$('add').onclick = () => { S.rows.push({ birim:null, firma:'', kapsam:null }); save(); rows(); const sc = document.querySelector('.scroll'); sc.scrollTop = sc.scrollHeight; };
+$('add').onclick = () => { if (stSaltOkunur) return; S.rows.push({ id: uuid(), birim:null, firma:'', kapsam:null }); save(); rows(); const sc = document.querySelector('.scroll'); sc.scrollTop = sc.scrollHeight; };
 $('q').oninput = filter;
-$('reset').onclick = () => { if (confirm('Tüm değişiklikler silinip başlangıç verisine dönülsün mü?')) { S = { rows: clone(SRC.rows) }; save(); rows(); } };
+$('reset').onclick = () => { if (stSaltOkunur) return; if (confirm('Tüm değişiklikler silinip başlangıç verisine dönülsün mü?')) { S = { rev: stRev, rows: clone(SRC.rows) }; stSatirlariHazirla(S.rows); save(); rows(); } };
 
 // ---- Excel içe / dışa aktarım (SheetJS)
 const iso = v => { if (v == null || v === '') return null; if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
   const s = String(v).trim(); let m; if (m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/)) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; if (m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)) return m[0]; return null; };
 const str = v => { if (v == null) return null; const s = String(v).trim(); return s || null; };
-$('xin').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (typeof XLSX === 'undefined') return alert('Excel kütüphanesi yüklenemedi (internet bağlantısı gerekli).');
+$('xin').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (stSaltOkunur) return; if (typeof XLSX === 'undefined') return alert('Excel kütüphanesi yüklenemedi (internet bağlantısı gerekli).');
   const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }), ws = wb.Sheets['Takip Çizelgesi'] || wb.Sheets[wb.SheetNames[0]], a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
   const h = a.findIndex(r => str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı.');
   const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!str(x[2])) continue;
     out.push({ birim:str(x[1]), firma:str(x[2]), kapsam:str(x[3]), bas:iso(x[4]), hedef:iso(x[5]), tamam:iso(x[6]), durum:str(x[7]), akis:str(x[8]), kkp:str(x[9]), pkfDbas:iso(x[10]), pkfD:str(x[11]), pkfTbas:iso(x[12]), pkfT:str(x[13]), sorumlu:str(x[14]), aciklama:str(x[15]) }); }
-  if (!out.length) return alert('Veri satırı bulunamadı.'); S.rows = out;
+  if (!out.length) return alert('Veri satırı bulunamadı.'); S.rows = out; stSatirlariHazirla(S.rows);
   save(); rows(); };
 $('xout').onclick = () => { const H1 = ['No','Birim','Tedarikçi Firma','Çalışma Kapsamı','FMEA','','','','FMEA Akış Formatı','Kalite Kontrol Planı','Proses Kontrol Formu Denetçi','','Proses Kontrol Formu Tedarikçi','','FMEA Sorumlusu','Açıklama'],
   H2 = ['','','','','Başlangıç Tarihi','Hedef Tarih','Tamamlanma Tarihi','Güncel Durum','','','Başlangıç Tarihi','Durumu','Başlangıç Tarihi','Durumu','',''];
