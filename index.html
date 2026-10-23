@@ -11985,25 +11985,70 @@ $('add').onclick = () => { if (stSaltOkunur) return; S.rows.push({ id: uuid(), b
 $('q').oninput = filter;
 $('reset').onclick = () => { if (stSaltOkunur) return; if (confirm('Tüm değişiklikler silinip başlangıç verisine dönülsün mü?')) { S = { rev: stRev, rows: clone(SRC.rows) }; stSatirlariHazirla(S.rows); save(); rows(); } };
 
-// ---- Excel içe / dışa aktarım (SheetJS)
-const iso = v => { if (v == null || v === '') return null; if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
+// ---- Excel içe / dışa aktarım (ExcelJS: sayfaya gömülü, internet gerekmez)
+const iso = v => { if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+  if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
   const s = String(v).trim(); let m; if (m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/)) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; if (m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)) return m[0]; return null; };
 const str = v => { if (v == null) return null; const s = String(v).trim(); return s || null; };
-$('xin').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (stSaltOkunur) return; if (typeof XLSX === 'undefined') return alert('Excel kütüphanesi yüklenemedi (internet bağlantısı gerekli).');
-  const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }), ws = wb.Sheets['Takip Çizelgesi'] || wb.Sheets[wb.SheetNames[0]], a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
-  const h = a.findIndex(r => str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı.');
-  const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!str(x[2])) continue;
+/* ExcelJS hucre degerini duz metin/sayi/tarihe indirger
+   (formul -> sonuc, zengin metin -> birlestirilmis metin). */
+function stHucreDeger(c) {
+  const v = c ? c.value : null;
+  if (v == null) return null;
+  if (v instanceof Date) return v;
+  if (typeof v === 'object') {
+    if (Array.isArray(v.richText)) return v.richText.map(t => t.text).join('');
+    if (v.result !== undefined && v.result !== null) return v.result;
+    if (v.text !== undefined) return v.text;
+    if (v.hyperlink !== undefined) return v.hyperlink;
+    return null;
+  }
+  return v;
+}
+/* Calisma sayfasini 2 boyutlu diziye cevirir (sheet_to_json(header:1) esdegeri). */
+function stExcelSatirlari(wb) {
+  const ws = wb.getWorksheet('Takip Çizelgesi') || wb.worksheets[0];
+  if (!ws) return null;
+  const a = [], KOL = 16;
+  ws.eachRow({ includeEmpty: true }, (row, rn) => {
+    const d = [];
+    for (let c = 1; c <= KOL; c++) d[c - 1] = stHucreDeger(row.getCell(c));
+    a[rn - 1] = d;
+  });
+  return a;
+}
+$('xin').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (stSaltOkunur) return;
+  if (typeof ExcelJS === 'undefined') return alert('Excel kütüphanesi yüklenemedi; sayfayı yenileyip tekrar deneyin.');
+  let a = null;
+  try { const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await f.arrayBuffer()); a = stExcelSatirlari(wb); }
+  catch (err) { console.warn('Excel okunamadi:', err); return alert('Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.'); }
+  if (!a) return alert('Dosyada çalışma sayfası bulunamadı.');
+  const h = a.findIndex(r => r && str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı.');
+  const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!x || !str(x[2])) continue;
     out.push({ birim:str(x[1]), firma:str(x[2]), kapsam:str(x[3]), bas:iso(x[4]), hedef:iso(x[5]), tamam:iso(x[6]), durum:str(x[7]), akis:str(x[8]), kkp:str(x[9]), pkfDbas:iso(x[10]), pkfD:str(x[11]), pkfTbas:iso(x[12]), pkfT:str(x[13]), sorumlu:str(x[14]), aciklama:str(x[15]) }); }
   if (!out.length) return alert('Veri satırı bulunamadı.'); S.rows = out; stSatirlariHazirla(S.rows);
   save(); rows(); };
-$('xout').onclick = () => { const H1 = ['No','Birim','Tedarikçi Firma','Çalışma Kapsamı','FMEA','','','','FMEA Akış Formatı','Kalite Kontrol Planı','Proses Kontrol Formu Denetçi','','Proses Kontrol Formu Tedarikçi','','FMEA Sorumlusu','Açıklama'],
-  H2 = ['','','','','Başlangıç Tarihi','Hedef Tarih','Tamamlanma Tarihi','Güncel Durum','','','Başlangıç Tarihi','Durumu','Başlangıç Tarihi','Durumu','',''];
-  const dt = s => s ? new Date(s + 'T12:00:00Z') : null, aoa = [['', '', 'ASELSAN GLOBAL FMEA SÜREÇLERİ TAKİP ÇİZELGESİ'], H1, H2, ...S.rows.map((r, i) => [i + 1, r.birim, r.firma, r.kapsam, dt(r.bas), dt(r.hedef), dt(r.tamam), r.durum, r.akis, r.kkp, dt(r.pkfDbas), r.pkfD, dt(r.pkfTbas), r.pkfT, r.sorumlu, r.aciklama])];
-  if (typeof XLSX === 'undefined') { const csv = aoa.slice(1).map(r => r.map(v => `"${(v instanceof Date ? v.toISOString().slice(0, 10) : v ?? '').toString().replace(/"/g, '""')}"`).join(';')).join('\n'), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' })); a.download = 'FMEA_surec_takip.csv'; a.click(); return; }
-  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true, dateNF: 'dd\\.mm\\.yyyy' }), M = (r1, c1, r2, c2) => ({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
-  ws['!merges'] = [M(0,2,0,15), M(1,0,2,0), M(1,1,2,1), M(1,2,2,2), M(1,3,2,3), M(1,4,1,7), M(1,8,2,8), M(1,9,2,9), M(1,10,1,11), M(1,12,1,13), M(1,14,2,14), M(1,15,2,15)];
-  ws['!cols'] = [6,14,22,20,14,14,16,16,18,18,14,14,14,14,22,50].map(w => ({ wch: w }));
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Takip Çizelgesi'); XLSX.writeFile(wb, 'ASELSAN_GLOBAL_FMEA_SURECLERI_TAKIP_CIZELGESI.xlsx', { cellDates: true }); };
+$('xout').onclick = async () => {
+  if (typeof ExcelJS === 'undefined') return alert('Excel kütüphanesi yüklenemedi; sayfayı yenileyip tekrar deneyin.');
+  const H1 = ['No','Birim','Tedarikçi Firma','Çalışma Kapsamı','FMEA','','','','FMEA Akış Formatı','Kalite Kontrol Planı','Proses Kontrol Formu Denetçi','','Proses Kontrol Formu Tedarikçi','','FMEA Sorumlusu','Açıklama'],
+    H2 = ['','','','','Başlangıç Tarihi','Hedef Tarih','Tamamlanma Tarihi','Güncel Durum','','','Başlangıç Tarihi','Durumu','Başlangıç Tarihi','Durumu','',''];
+  const dt = s => s ? new Date(s + 'T12:00:00Z') : null,
+    aoa = [['', '', 'ASELSAN GLOBAL FMEA SÜREÇLERİ TAKİP ÇİZELGESİ'], H1, H2, ...S.rows.map((r, i) => [i + 1, r.birim, r.firma, r.kapsam, dt(r.bas), dt(r.hedef), dt(r.tamam), r.durum, r.akis, r.kkp, dt(r.pkfDbas), r.pkfD, dt(r.pkfTbas), r.pkfT, r.sorumlu, r.aciklama])];
+  const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Takip Çizelgesi', { views: [{ state: 'frozen', ySplit: 3 }] });
+  aoa.forEach((satir, ri) => satir.forEach((v, ci) => { ws.getCell(ri + 1, ci + 1).value = (v === undefined ? null : v); }));
+  [[1,3,1,16],[2,1,3,1],[2,2,3,2],[2,3,3,3],[2,4,3,4],[2,5,2,8],[2,9,3,9],[2,10,3,10],[2,11,2,12],[2,13,2,14],[2,15,3,15],[2,16,3,16]].forEach(m => ws.mergeCells(m[0], m[1], m[2], m[3]));
+  [6,14,22,20,14,14,16,16,18,18,14,14,14,14,22,50].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  const ince = { style: 'thin', color: { argb: 'FF9AA7B4' } }, kenar = { top: ince, left: ince, bottom: ince, right: ince };
+  ws.getCell(1, 3).font = { bold: true, size: 13 }; ws.getCell(1, 3).alignment = { horizontal: 'center', vertical: 'middle' };
+  [2, 3].forEach(r => { for (let c = 1; c <= 16; c++) { const hc = ws.getCell(r, c); hc.font = { bold: true, size: 10 }; hc.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; hc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCE6F1' } }; hc.border = kenar; } });
+  for (let r = 4; r <= aoa.length; r++) { for (let c = 1; c <= 16; c++) { const dc = ws.getCell(r, c); dc.border = kenar; dc.alignment = { vertical: 'top', wrapText: c === 15 || c === 16 }; if (dc.value instanceof Date) dc.numFmt = 'dd.mm.yyyy'; } }
+  ws.getRow(1).height = 22; ws.getRow(2).height = 30; ws.getRow(3).height = 22;
+  const buf = await wb.xlsx.writeBuffer(), a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  a.download = 'ASELSAN_GLOBAL_FMEA_SURECLERI_TAKIP_CIZELGESI.xlsx';
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
 window.stkTabloCiz = rows; window.stkFit = fit;
 rows(); fit();
 
