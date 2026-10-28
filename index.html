@@ -12018,20 +12018,49 @@ function stExcelSatirlari(wb) {
   });
   return a;
 }
+async function stExcelYukleFallback(ab){
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const wb = XLSX.read(ab, {type:'array', cellDates:true, cellNF:false});
+      const ws = wb.Sheets['Takip Çizelgesi'] || wb.Sheets[wb.SheetNames[0]];
+      if (!ws) return null;
+      const a = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+      return a;
+    } catch(e){ console.warn('XLSX fallback hatasi',e); return null; }
+  }
+  try {
+    if (typeof loadScript !== 'function') return null;
+    await loadScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js');
+    if (typeof XLSX === 'undefined') return null;
+    const wb = XLSX.read(ab, {type:'array', cellDates:true, cellNF:false});
+    const ws = wb.Sheets['Takip Çizelgesi'] || wb.Sheets[wb.SheetNames[0]];
+    if (!ws) return null;
+    const a = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+    return a;
+  } catch(e){ console.warn('XLSX CDN yukleme hatasi',e); return null; }
+}
 $('xin').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (stSaltOkunur) return;
   if (typeof ExcelJS === 'undefined') return alert('Excel kütüphanesi yüklenemedi; sayfayı yenileyip tekrar deneyin.');
-  let a = null, sig = '';
+  let a = null, sig = '', yontem = '';
   try {
     const ab = await f.arrayBuffer();
     const u = new Uint8Array(ab);
     sig = [u[0],u[1],u[2],u[3]].map(x=>x.toString(16).padStart(2,'0')).join(' ');
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(ab);
-    a = stExcelSatirlari(wb);
-    if (!a) throw new Error('sayfa yok: ' + (wb.worksheets.map(w => w.name).join(' | ') || 'boş'));
+    try {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(ab);
+      a = stExcelSatirlari(wb);
+      if (a) yontem = 'exceljs';
+      if (!a) throw new Error('sayfa yok: ' + (wb.worksheets.map(w => w.name).join(' | ') || 'boş'));
+    } catch(exj){
+      console.warn('ExcelJS okuyamadi, SheetJS dene', exj);
+      a = await stExcelYukleFallback(ab);
+      if (a) yontem = 'xlsx-fallback';
+      if (!a) throw exj;
+    }
   }
-  catch (err) { console.warn('Excel okunamadi:', err); return alert('Dosya okunamadı.\nDosya: ' + f.name + '\nBoyut: ' + f.size + '\nİmza: ' + sig + '\nHata: ' + (err && err.message ? err.message : String(err))); }
+  catch (err) { console.warn('Excel okunamadi:', err); return alert('Dosya okunamadı.\nDosya: ' + f.name + '\nBoyut: ' + f.size + '\nİmza: ' + sig + '\nYöntem denendi: ExcelJS' + (yontem?' + '+yontem:'') + '\nHata: ' + (err && err.message ? err.message : String(err))); }
   const h = a.findIndex(r => r && str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı. (' + a.slice(0,6).map(r=>r?('['+r.slice(0,4).join('|')+']'):'[]').join(' ; ') + ')');
   const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!x || !str(x[2])) continue;
     out.push({ birim:str(x[1]), firma:str(x[2]), kapsam:str(x[3]), bas:iso(x[4]), hedef:iso(x[5]), tamam:iso(x[6]), durum:str(x[7]), akis:str(x[8]), kkp:str(x[9]), pkfDbas:iso(x[10]), pkfD:str(x[11]), pkfTbas:iso(x[12]), pkfT:str(x[13]), sorumlu:str(x[14]), aciklama:str(x[15]) }); }
