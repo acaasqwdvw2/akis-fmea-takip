@@ -2281,7 +2281,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <button onclick="switchAdminView('cockpit')">&#8592; Kokpit</button>
         <button class="primary" onclick="stYenile()">Yenile</button>
         <button id="stBulutAktar" type="button" style="display:none;background:#0f766e;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer" onclick="stkBulutAktar()">Bu cihazdaki tabloyu buluta yükle</button>
-        <button id="stRenderAktar" type="button" style="background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer" onclick="stRenderAktar()">FMEA Takip'i Render'a Aktar</button>
+        <button id="stRenderAktar" type="button" style="background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer" onclick="stRenderAktar()">Render'a aktar</button>
       </div>
     </div>
     <div id="stBody">
@@ -11933,59 +11933,23 @@ window.stkBulutAktar = async function () {
   stAktarButonu();
   return ok;
 };
-window.stRenderAktar = async function(){
+window.stRenderAktar = async function () {
+  const btn = document.getElementById('stRenderAktar');
+  let k = localStorage.getItem('pkAktarimAnahtari');
+  if (!k) { k = prompt('Proses Kontrol aktarım anahtarı:'); if (!k) return; localStorage.setItem('pkAktarimAnahtari', k.trim()); }
+  if (btn) { btn.disabled = true; btn.textContent = 'Aktarılıyor...'; }
   try {
-    const btn = document.getElementById('stRenderAktar');
-    if (btn) { btn.disabled = true; btn.textContent = 'Aktarılıyor...'; }
-    const loginRes = await fetch('https://aselsanglobal-cpfmeapf.onrender.com/api/login', {
+    const r = await fetch('https://aselsanglobal-cpfmeapf.onrender.com/api/entegrasyon/surec-takip', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username: 'aeyri', password: '123'})
+      headers: { 'Content-Type': 'application/json', 'X-Aktarim-Anahtari': k },
+      body: JSON.stringify({ rows: S.rows, rev: S.rev || 0, gonderen: (window.cloudUser && window.cloudUser.email) || 'Akış-FMEA' })
     });
-    if (!loginRes.ok) throw new Error('Render girişi başarısız: ' + loginRes.status);
-    const loginData = await loginRes.json();
-    const token = loginData.token;
-    if (!token) throw new Error('Token alınamadı');
-    const rows = (S && Array.isArray(S.rows)) ? S.rows.map(function(r, idx){
-      return {
-        no: idx + 1,
-        birim: r.birim || '',
-        tedarikci: r.firma || '',
-        kapsam: r.kapsam || '',
-        fmeaHedef: r.hedef || '',
-        fmeaBaslangic: r.bas || '',
-        fmeaTamamlama: r.tamam || '',
-        fmeaDurum: r.durum || '',
-        akisFormat: r.akis || '',
-        kkp: r.kkp || '',
-        pcfDenetci: r.pkfD || '',
-        pcfTedarikci: r.pkfT || '',
-        sorumlu: r.sorumlu || '',
-        aciklama: r.aciklama || ''
-      };
-    }) : [];
-    if (!rows.length) throw new Error('Aktarılacak satır yok');
-    const impRes = await fetch('https://aselsanglobal-cpfmeapf.onrender.com/api/fmea-takip/import', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
-      body: JSON.stringify({rows: rows})
-    });
-    if (!impRes.ok) {
-      let txt = '';
-      try { txt = await impRes.text(); } catch(e) {}
-      throw new Error('Aktarım başarısız: ' + impRes.status + ' ' + txt);
-    }
-    let impData = {};
-    try { impData = await impRes.json(); } catch(e) {}
-    alert((impData.rows ? impData.rows.length : rows.length) + " satır Render FMEA Takip'e aktarıldı.");
-    if (btn) { btn.disabled = false; btn.textContent = "FMEA Takip'i Render'a Aktar"; }
-    return true;
-  } catch (e) {
-    alert('Hata: ' + (e && e.message ? e.message : e));
-    const btn = document.getElementById('stRenderAktar');
-    if (btn) { btn.disabled = false; btn.textContent = "FMEA Takip'i Render'a Aktar"; }
-    return false;
-  }
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { localStorage.removeItem('pkAktarimAnahtari'); throw new Error('Anahtar geçersiz — yeniden girin'); }
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    alert('Aktarıldı: ' + j.adet + ' satır');
+  } catch (e) { alert('Aktarım hatası: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = "Render'a aktar"; } }
 };
 window.stkBulutYenile = function () { try { return stBulutYukle(); } catch (e) { return Promise.resolve(false); } };
 /* Acilista mevcut satirlara kimlik (+tarih bicimi) verilir. (TARIH_ALAN ve
