@@ -12022,10 +12022,9 @@ $('xin').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (stSaltOkunur) return;
   if (typeof ExcelJS === 'undefined') return alert('Excel kütüphanesi yüklenemedi; sayfayı yenileyip tekrar deneyin.');
   let a = null;
-  try { const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await f.arrayBuffer()); a = stExcelSatirlari(wb); }
-  catch (err) { console.warn('Excel okunamadi:', err); return alert('Dosya okunamadı. Geçerli bir .xlsx dosyası seçin.'); }
-  if (!a) return alert('Dosyada çalışma sayfası bulunamadı.');
-  const h = a.findIndex(r => r && str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı.');
+  try { const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await f.arrayBuffer()); a = stExcelSatirlari(wb); if (!a) throw new Error('sayfa yok: ' + (wb.worksheets.map(w => w.name).join(' | ') || '')); }
+  catch (err) { console.warn('Excel okunamadi:', err); return alert('Dosya okunamadı.\n' + (err && err.message ? err.message : '')); }
+  const h = a.findIndex(r => r && str(r[0]) === 'No'); if (h < 0) return alert('Başlık satırı ("No") bulunamadı. (' + a.slice(0,6).map(r=>r?('['+r.slice(0,4).join('|')+']'):'[]').join(' ; ') + ')');
   const out = []; for (let r = h + 2; r < a.length; r++) { const x = a[r]; if (!x || !str(x[2])) continue;
     out.push({ birim:str(x[1]), firma:str(x[2]), kapsam:str(x[3]), bas:iso(x[4]), hedef:iso(x[5]), tamam:iso(x[6]), durum:str(x[7]), akis:str(x[8]), kkp:str(x[9]), pkfDbas:iso(x[10]), pkfD:str(x[11]), pkfTbas:iso(x[12]), pkfT:str(x[13]), sorumlu:str(x[14]), aciklama:str(x[15]) }); }
   if (!out.length) return alert('Veri satırı bulunamadı.'); S.rows = out; stSatirlariHazirla(S.rows);
