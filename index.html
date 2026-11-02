@@ -2239,6 +2239,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <button onclick="ckTabloGoster()">Tedarikçi Tablosu</button>
         <button onclick="openSurecTakipPage()">Süreç Takip Çizelgesi</button>
         <button class="primary" onclick="ckYenile()">Yenile</button>
+        <button id="ckRenderAktar" type="button" onclick="ckRenderAktar()">Kokpit'i Render'a aktar</button>
       </div>
     </div>
     <div id="ckTiles"></div>
@@ -11950,6 +11951,41 @@ window.stRenderAktar = async function () {
     alert('Aktarıldı: ' + j.adet + ' satır');
   } catch (e) { alert('Aktarım hatası: ' + e.message); }
   finally { if (btn) { btn.disabled = false; btn.textContent = "Render'a aktar"; } }
+};
+
+window.ckRenderAktar = async function(){
+  const btn = document.getElementById('ckRenderAktar');
+  let k = localStorage.getItem('pkAktarimAnahtari');
+  if (!k) { k = prompt('Proses Kontrol aktarım anahtarı:'); if (!k) return; localStorage.setItem('pkAktarimAnahtari', k.trim()); }
+  if (btn) { btn.disabled = true; btn.textContent = 'Aktarılıyor...'; }
+  try {
+    const payload = {
+      gonderen: (window.cloudUser && window.cloudUser.email) || 'Akış-FMEA',
+      tarih: new Date().toISOString(),
+      rows: window.__ckRows || [],
+      tedarikci: window.__ckTedarikci || [],
+      satir: window.__ckSatir || [],
+      tedSatir: window.__ckTedSatir || {},
+      tedRows: window.__ckTedRows || [],
+      aksiyonlar: window.__ckAksiyonlar || [],
+      gecikmis: window.__ckGecikmis || [],
+      risk: window.__ckRisk || [],
+      olaylar: window.__ckOlaylar || [],
+      olayTedarikci: window.__ckOlayTedarikci || [],
+      reddi: window.cloudRejectedRows || [],
+      redListe: window.cloudReddi || null
+    };
+    const r = await fetch('https://aselsanglobal-cpfmeapf.onrender.com/api/entegrasyon/kokpit-ozet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Aktarim-Anahtari': k },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { localStorage.removeItem('pkAktarimAnahtari'); throw new Error('Anahtar geçersiz — yeniden girin'); }
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    alert('Kokpit özeti aktarıldı.');
+  } catch (e) { alert('Aktarım hatası: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = "Kokpit'i Render'a aktar"; } }
 };
 window.stkBulutYenile = function () { try { return stBulutYukle(); } catch (e) { return Promise.resolve(false); } };
 /* Acilista mevcut satirlara kimlik (+tarih bicimi) verilir. (TARIH_ALAN ve
