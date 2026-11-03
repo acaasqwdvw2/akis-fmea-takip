@@ -3932,34 +3932,10 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
             '<div class="ck-ek-ted-alt">' + esc(o.kisi || '') + ' · ' + esc(ckGecenSure(o.zaman)) + '</div></div>';
         }).join('') + '</div>'
           : '<div class="ck-ek-satir"><span class="ck-ek-alt">Kayıtlı işlem yok.</span></div>') + '</div>';
-      /* 3) ONAY BEKLEYEN FMEA'LAR: uyari seridi sayiyi veriyordu ama listenin
-         kendisi hicbir yerde gorunmuyordu. Bekleyen her FMEA proje bazinda listelenir. */
-      const bekleyenler = [];
-      (window.__ckTedRows || []).forEach(function (t) {
-        (t.projler || []).forEach(function (p) {
-          if (p.durum === 'bekliyor') bekleyenler.push({ t: t, p: p });
-        });
-      });
-      bekleyenler.sort(function (a, b) { return (b.p.zaman || 0) - (a.p.zaman || 0); });
-      const onayKarti = '<div class="ck-ek-kart ck-ek-onay">' +
-        '<div class="ck-ek-baslik">ONAY BEKLEYEN FMEA&#39;LAR' +
-          (bekleyenler.length ? '<span class="ck-ek-adet">' + ckSayiFmt(bekleyenler.length) + '</span>' : '') + '</div>' +
-        (bekleyenler.length ? bekleyenler.slice(0, 6).map(function (x) {
-          return '<div class="ck-ek-satir" onclick="ckTikla(\'onay\',\'\')" style="cursor:pointer" title="Onay ekranını aç">' +
-            '<span class="ck-ek-nokta onaya"></span>' +
-            '<span class="ck-ek-ana"><b>' + esc(x.t.ad) + '</b> ' + esc(x.p.ad) +
-            '<span class="ck-ek-alt">' + esc(x.p.kisi) + ' · ' + esc(x.p.tip) +
-              ' · Proses ' + ckSayiFmt(x.p.m.proses) + ' / İşlem ' + ckSayiFmt(x.p.m.islem) +
-              ' / Hata ' + ckSayiFmt(x.p.m.hata) + '</span></span>' +
-            '<span class="ck-ek-zaman">' + (x.p.zaman ? esc(ckTarih(x.p.zaman)) : '&#8212;') + '</span></div>';
-        }).join('') +
-          (bekleyenler.length > 6 ? '<div class="ck-ek-satir son"><span class="ck-ek-alt">+ ' + ckSayiFmt(bekleyenler.length - 6) + ' FMEA daha</span></div>' : '')
-          : '<div class="ck-ek-satir"><span class="ck-ek-alt">Onay bekleyen FMEA yok.</span></div>') + '</div>';
-      /* Kullanici istedi: uyari seridi (gecikti / yaklasiyor / onay bekliyor)
-         once, yani FMEA DURUMU ve AKSYON DURUMU grafiklerinin USTUNE konur. */
+      /* ONAY BEKLEYEN FMEA'LAR KALDIRILDI */
       kutu.innerHTML = '<div class="ck-ek-izgara cifrt">' + ckGrafikKartiFmea() + ckGrafikKartiAksiyon() + '</div>' +
         serit +
-        '<div class="ck-ek-izgara">' + riskKarti + onayKarti + '</div>' +
+        '<div class="ck-ek-izgara">' + riskKarti + '</div>' +
         '<div class="ck-ek-izgara tek">' + olayKarti + '</div>';
     }
     function ckGrup(baslik, icerik, aksan) {
@@ -4047,8 +4023,8 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
     }
     function ckFiltreAdi() {
-      return ckFiltre === 'onayli' ? 'Onaylı'
-        : ckFiltre === 'bekleyen' ? 'Onay Bekleyen'
+      return ckFiltre === 'onayli' ? 'Tamamlanan'
+        : ckFiltre === 'bekleyen' ? 'Bekleyen'
         : ckFiltre === 'red' ? 'Reddedilen'
         : ckFiltre === 'devam' ? 'Devam Eden' : '';
     }
@@ -4328,7 +4304,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         '<div class="ck-tile tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
           '<div class="ck-ico">' + ckIkon('Tedarikçi') + '</div><div class="ck-num" data-hedef="' + (Number(tSayi) || 0) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
         ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Tedarikçi tablosunu aç') +
-        ckKutuT('Tamamlanan / Onaylı FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece onaylı FMEA\'ları göster') +
+        ckKutuT('Tamamlanan FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece tamamlanan FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
       , 'teal');
       // --- KAPSAM: icerik (statik kartlar, pop-up acmaz) ---
