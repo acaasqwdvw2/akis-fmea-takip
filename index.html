@@ -4199,6 +4199,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
     // Pencereyi ac; veri gerekiyorsa once yukle, sonra doldur.
     function ckPopIcerikUygula(tip) {
       ckPopTip = tip;
+      if (tip === 'tablo') ckFiltre = null;
       const bas = ckPopBaslik(tip);
       if (tip === 'onay') {
         ckPopAc(bas, '<p class="ck-none">Yükleniyor…</p>');
