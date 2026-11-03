@@ -4020,12 +4020,15 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
     function ckPopBaslik(tip) {
       if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
       if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
-      let f = ckFiltreAdi();
-      if (ckFiltre === 'onayli') f = 'Tamamlanan';
-      if (f === 'Onaylı' || f === 'Onayli') f = 'Tamamlanan';
-      if (f === 'Bekleyen') f = 'Devam Eden';
-      if (f === 'Onay Bekleyen') f = 'Devam Eden';
-      return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + f : '');
+      if (tip === 'tablo') {
+        let f = ckFiltreAdi();
+        if (ckFiltre === 'onayli') f = 'Tamamlanan';
+        if (f === 'Onaylı' || f === 'Onayli') f = 'Tamamlanan';
+        if (f === 'Bekleyen') f = 'Devam Eden';
+        if (f === 'Onay Bekleyen') f = 'Devam Eden';
+        return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + f : '');
+      }
+      return 'Tedarikçi Tablosu';
     }
     function ckFiltreAdi() {
       return ckFiltre === 'onayli' ? 'Tamamlanan'
