@@ -3922,8 +3922,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       if (gecmis > 0) parcalar.push(ckSayiFmt(gecmis) + ' aksiyon gecikti');
       if (yaklasan > 0) parcalar.push(ckSayiFmt(yaklasan) + ' aksiyonun hedef tarihi yaklaşıyor');
       if (!parcalar.length) parcalar.push('Gecikmiş veya yaklaşan aksiyon yok');
-      const seritMetin = parcalar.join(' · ') +
-        (bekleyen > 0 ? '. ' + ckSayiFmt(bekleyen) + ' FMEA hâlâ onay bekliyor' : '. Onay bekleyen FMEA yok.');
+      const seritMetin = parcalar.join(' · ');
       const serit = '<div class="ck-uyari' + (uyari ? '' : ' sakin') + '"' + (risk.length ? ' onclick="ckTikla(\'gecikmis\',\'\')" title="Geciken aksiyonları aç"' : '') + '>' +
         '<div class="ck-uyari-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>' +
         '<span class="ck-uyari-yazi">' + esc(seritMetin) + (risk.length ? ' Aşağıdaki listeden detaylara bakabilirsiniz.' : '') + '</span></div>';
@@ -4373,9 +4372,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         ckKutuT('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'gecikmis', '', 'Geciken aksiyonları göster (listeyi aç)')
       , 'amber');
       // --- DURUM: en altta, yonetici ne yapmali? ---
-      const durumGrubu = ckGrup('Durum',
-        ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
-      , 'purple');
+      const durumGrubu = '';
       /* SIRA ONEMLI: grid 2 kolon oldugu icin Ozet|Aksiyon ustte,
          Kapsam|Onay Durumu altta yan yana durur. */
       t.innerHTML = ozetGrubu + aksiyonGrubu + kapsamGrubu + durumGrubu;
