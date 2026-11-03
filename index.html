@@ -4022,6 +4022,9 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
       let f = ckFiltreAdi();
       if (ckFiltre === 'onayli') f = 'Tamamlanan';
+      if (f === 'Onaylı' || f === 'Onayli') f = 'Tamamlanan';
+      if (f === 'Bekleyen') f = 'Devam Eden';
+      if (f === 'Onay Bekleyen') f = 'Devam Eden';
       return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + f : '');
     }
     function ckFiltreAdi() {
@@ -4213,7 +4216,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       ckPopAc(bas, ckTabloHtml(), 'tablo');
     }
     function ckTikla(tip, deger) {
-      if (tip === 'tablo') { ckPopIcerikUygula('tablo'); return; }
+      if (tip === 'tablo') { ckFiltre = null; ckPopIcerikUygula('tablo'); return; }
       if (tip === 'onay') { ckPopIcerikUygula('onay'); return; }
       if (tip === 'filtre') { ckFiltreTikla(deger); return; }
       if (tip === 'tedarikci') { ckPopIcerikUygula('tedarikci'); return; }
@@ -4337,7 +4340,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       const durumGrubu = '';
       /* SIRA ONEMLI: grid 2 kolon oldugu icin Ozet|Aksiyon ustte,
          Kapsam|Onay Durumu altta yan yana durur. */
-      t.innerHTML = ozetGrubu + aksiyonGrubu + kapsamGrubu + durumGrubu;
+      t.innerHTML = '<div class="ck-grid-2">' + ozetGrubu + kapsamGrubu + '</div><div class="ck-grid-2">' + aksiyonGrubu + durumGrubu + '</div>';
       // Sayilar veri geldikten SONRA burada animasyona girer (hedef deger hazir)
       ckSayilariAnimasyonEt(t);
       // Ek bilesenler: uyari seridi + gecikme riski + son islemler
