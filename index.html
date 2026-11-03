@@ -2236,7 +2236,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <div class="ck-sub" id="ckStamp">Tüm kullanıcıların FMEA performansı</div>
       </div>
       <div class="ck-head-r">
-        <button onclick="ckTabloGoster()">Tedarikçi Tablosu</button>
         <button onclick="openSurecTakipPage()">Süreç Takip Çizelgesi</button>
       </div>
     </div>
@@ -4479,7 +4478,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         const st = document.getElementById('ckStamp');
         if (st) st.textContent = 'Son yükleme: ' + ckTarih(new Date().toISOString()) + ' · ' + rows.length + ' kullanıcı · ' +
           window.__ckTedarikci.length + ' tedarikçi · ' +
-          rows.reduce(function (a, r) { return a + r.bekleyen; }, 0) + ' FMEA onay bekliyor';
+          '';
         ckCiz(rows);
         // Acik olan pop-up varsa icerigini tazele (Yenile butonu)
         if (ckPopTip) { try { ckPopAc(ckPopBaslik(ckPopTip), ckPopIcerik(ckPopTip), ckPopTip); } catch (e) {} }
