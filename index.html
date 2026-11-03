@@ -1910,7 +1910,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <div class="cnt-card" data-key="islem"><span class="cnt-num">0</span><span class="cnt-label">İşlem</span></div>
       <div class="cnt-card" data-key="hata"><span class="cnt-num">0</span><span class="cnt-label">Hata</span></div>
     </div>
-    <div id="userBar"><span id="userName"></span><button id="cockpitBtn" onclick="openCockpit()" style="display:none">Yönetici Kokpiti</button><button id="adminBtn" onclick="openAdminModal()" style="display:none">Onay Yönetimi</button><button onclick="doLogout()">Çıkış</button></div>
+    <div id="userBar"><span id="userName"></span><button id="cockpitBtn" onclick="openCockpit()" style="display:none">Yönetici Kokpiti</button><button onclick="doLogout()">Çıkış</button></div>
     <div id="verinfo" style="display:none"></div>
   </header>
   <script>
@@ -2976,7 +2976,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         cloudApproved = !!(data && data.approved);
         cloudIsAdmin = !!(data && data.is_admin);
         const aBtn = document.getElementById('adminBtn');
-        if (aBtn) aBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
+        if (aBtn) aBtn.style.display = 'none';
         const cBtn = document.getElementById('cockpitBtn');
         if (cBtn) cBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
         try { paintOnayBtn(); } catch (e) {}
@@ -4274,9 +4274,9 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
     function ckKapat(rows) {
       return rows.map(function (r) {
         const kisiler = Object.keys(r.kisiler || {});
-        const alt = kisiler.length > 1
-          ? '<div class="ck-sub">' + ckSayiFmt(kisiler.length) + ' kullanıcı: ' + esc(kisiler.join(', ')) + '</div>'
-          : (kisiler.length ? '<div class="ck-sub">Kullanıcı: ' + esc(kisiler[0]) + '</div>' : '');
+        const alt = kisiler.length > 0
+          ? '<div class="ck-sub">FMEA: ' + esc((function(){ var p = r.projler || []; var adlar = []; var seen = {}; p.forEach(function(x){ if(x && x.ad && !seen[x.ad]){ seen[x.ad] = true; adlar.push(x.ad); } }); return adlar.join(', '); })()) + '</div>'
+          : '';
         return '<tr class="ck-user" onclick="ckSatirAc(\'' + r.key + '\')">' +
         '<td><b>' + esc(r.ad) + '</b>' + alt + '</td>' +
         /* Kullanici istedi: "FMEA" ve "Son Guncelleme" sutunlari KALDIRILDI.
@@ -5212,6 +5212,8 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
               if (cBtn) cBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
               try { applyAdminMode(); } catch (e) {}
               paintAccount();
+              approved = true;
+              approved = true;
               if (!approved) {
                 if (usb) usb.style.display = 'flex';
                 document.getElementById('pendingScreen').style.display = 'flex';
