@@ -4061,7 +4061,6 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
     function ckPopBaslik(tip) {
       if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
       if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
-      if (tip === 'onay') return 'Onay Bekleyenler';
       return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
     }
     function ckFiltreAdi() {
@@ -4209,11 +4208,11 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         '<button type="button" class="ck-btn" id="ckExcelBtn" onclick="ckExcelIndir()" style="background:#1d6f42;color:#fff;font-weight:700">⬇ Seçilen FMEA\'ları Excel indir (<span id="ckExcelSay">0</span>)</button>' +
         '<span style="font-size:11px">Satırı açıp FMEA\'ları işaretle; her dosya tüm sayfaları içerir.</span>' +
         '</div>' +
-        '<table id="ckTable"><thead><tr><th>Tedarikçi</th><th>Onay Durumu</th><th>Proses</th>' +
+        '<table id="ckTable"><thead><tr><th>Tedarikçi</th><th>Proses</th>' +
         '<th>Hata</th><th>Aksiyon Belirlenmiş</th><th>Aksiyon Gerçekleşmiş</th><th>Aksiyon Gecikmiş</th></tr></thead><tbody>' +
         ckKapat(goster).split('</tr>').filter(Boolean).map(function (tr) {
           const anahtar = (tr.match(/ckSatirAc\(\'([^\']+)/) || [])[1];
-          return tr + '</tr><tr class="ck-detail" id="ck-det-' + anahtar + '" style="display:none"><td colspan="7"><div class="ck-in"></div></td></tr>';
+          return tr + '</tr><tr class="ck-detail" id="ck-det-' + anahtar + '" style="display:none"><td colspan="6"><div class="ck-in"></div></td></tr>';
         }).join('') + '</tbody></table>';
     }
     function ckOnayHtml() {
@@ -4374,8 +4373,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
         ckKutuT('Aksiyon Gecikmiş', S.aksiyonGecikmis, S.aksiyonGecikmis ? 'hot' : '', 'gecikmis', '', 'Geciken aksiyonları göster (listeyi aç)')
       , 'amber');
       // --- DURUM: en altta, yonetici ne yapmali? ---
-      const durumGrubu = ckGrup('Onay Durumu',
-        ckKutuT('Onay Bekleyen', S.bekleyen, S.bekleyen ? 'bekliyor' : '', 'onay', '', 'Onay bekleyenleri göster') +
+      const durumGrubu = ckGrup('Durum',
         ckKutuT('Reddedilen', S.red, S.red ? 'uyari' : '', 'filtre', 'red', 'Sadece reddedilen FMEA\'ları göster')
       , 'purple');
       /* SIRA ONEMLI: grid 2 kolon oldugu icin Ozet|Aksiyon ustte,
@@ -5212,7 +5210,6 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
               if (cBtn) cBtn.style.display = cloudIsAdmin ? 'inline-block' : 'none';
               try { applyAdminMode(); } catch (e) {}
               paintAccount();
-              approved = true;
               approved = true;
               if (!approved) {
                 if (usb) usb.style.display = 'flex';
