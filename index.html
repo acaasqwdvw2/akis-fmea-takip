@@ -4308,7 +4308,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       const ozetGrubu = ckGrup('Özet',
         '<div class="ck-tile tiklanir" id="ckTedKutu" onclick="ckTikla(\'tedarikci\',\'\')" title="Tedarikçi listesini aç">' +
           '<div class="ck-ico">' + ckIkon('Tedarikçi') + '</div><div class="ck-num" data-hedef="' + (Number(tSayi) || 0) + '">' + ckSayiFmt(tSayi) + '</div><div class="ck-lbl">Toplam Tedarikçi</div></div>' +
-        ckKutuT('Toplam FMEA', S.fmea, '', 'tablo', '', 'Tedarikçi tablosunu aç') +
+        '<div class="ck-tile tiklanir" onclick="ckFiltre=null;ckPopIcerikUygula(\'tablo\')" title="Tedarikçi tablosunu aç"><div class="ck-ico">' + ckIkon('FMEA') + '</div><div class="ck-num" data-hedef="' + (Number(S.fmea)||0) + '">' + ckSayiFmt(S.fmea) + '</div><div class="ck-lbl">Toplam FMEA</div></div>' +
         ckKutuT('Tamamlanan FMEA', S.onayli, S.onayli ? 'iyi' : '', 'filtre', 'onayli', 'Sadece tamamlanan FMEA\'ları göster') +
         ckKutuT('Devam Eden FMEA', S.devam, S.devam ? 'bekliyor' : '', 'filtre', 'devam', 'Sadece onaylanmamış (devam eden) FMEA\'ları göster')
       , 'teal');
