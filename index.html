@@ -3935,7 +3935,7 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
       /* ONAY BEKLEYEN FMEA'LAR KALDIRILDI */
       kutu.innerHTML = '<div class="ck-ek-izgara cifrt">' + ckGrafikKartiFmea() + ckGrafikKartiAksiyon() + '</div>' +
         serit +
-        '<div class="ck-ek-izgara">' + riskKarti + '</div>' +
+        '<div class="ck-ek-izgara tam">' + riskKarti + '</div>' +
         '<div class="ck-ek-izgara tek">' + olayKarti + '</div>';
     }
     function ckGrup(baslik, icerik, aksan) {
@@ -4020,7 +4020,9 @@ const TPL_ASELSAN = 'UEsDBBQAAAAIAMNlR11HS/KmmAIAAGAXAAATAAAAW0NvbnRlbnRfVHlwZXN
     function ckPopBaslik(tip) {
       if (tip === 'tedarikci') return 'Tedarikçiler (' + (window.__ckTedarikci || []).length + ')';
       if (tip === 'gecikmis') return 'Geciken Aksiyonlar (' + (window.__ckGecikmis || []).length + ')';
-      return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + ckFiltreAdi() : '');
+      let f = ckFiltreAdi();
+      if (ckFiltre === 'onayli') f = 'Tamamlanan';
+      return 'Tedarikçi Tablosu' + (ckFiltre ? ' — ' + f : '');
     }
     function ckFiltreAdi() {
       return ckFiltre === 'onayli' ? 'Tamamlanan'
